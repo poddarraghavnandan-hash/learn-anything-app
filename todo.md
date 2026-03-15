@@ -268,3 +268,6 @@
 - [x] Remove Explore tab duplication — topics accessible from Home
 - [x] Age-based cold start: curate initial topics and content difficulty based on age
 - [x] Education quality: ensure courses deliver real mastery, not just entertainment
+
+## Bug Fixes
+- [x] Fix Explore/Home tab empty on cold start — topics and feed should appear immediately for new users

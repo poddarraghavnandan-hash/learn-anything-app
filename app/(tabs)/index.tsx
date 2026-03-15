@@ -195,6 +195,7 @@ export default function HomeScreen() {
     { enabled: profile.onboardingDone && profile.interests.length > 0 }
   );
   const refreshMutation = trpc.feed.refresh.useMutation();
+  const autoRefreshed = useRef(false);
 
   // Topics for the pills
   const topicsQuery = trpc.topics.list.useQuery(undefined, { enabled: profile.onboardingDone });
@@ -230,6 +231,29 @@ export default function HomeScreen() {
       return topic?.category === selectedCategory;
     });
   }, [feedQuery.data, selectedCategory, allTopics]);
+
+  // Auto-refresh on cold start: if onboarding done + interests exist but feed is empty
+  useEffect(() => {
+    if (
+      profile.onboardingDone &&
+      profile.interests.length > 0 &&
+      !autoRefreshed.current &&
+      !feedQuery.isLoading &&
+      !feedQuery.data?.items?.length &&
+      !refreshMutation.isPending
+    ) {
+      autoRefreshed.current = true;
+      refreshMutation
+        .mutateAsync({
+          topicSlugs: profile.interests.slice(0, 5),
+          skillLevel: profile.skillLevel,
+        })
+        .then(() => {
+          feedQuery.refetch();
+        })
+        .catch(() => {});
+    }
+  }, [profile.onboardingDone, profile.interests, feedQuery.isLoading, feedQuery.data]);
 
   // Greeting based on time of day
   const greeting = useMemo(() => {
@@ -468,11 +492,21 @@ export default function HomeScreen() {
 
   // ─── Empty State ─────────────────────────────────────────────────────────────
 
+  const isAutoLoading = feedQuery.isLoading || refreshMutation.isPending;
+
   const EmptyFeed = useMemo(
     () => (
       <View style={styles.emptyWrap}>
-        {feedQuery.isLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} />
+        {isAutoLoading ? (
+          <View style={styles.emptyContent}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 16 }]}>
+              Loading your feed...
+            </Text>
+            <Text style={[styles.emptyDesc, { color: colors.muted }]}>
+              Finding the best content for your interests
+            </Text>
+          </View>
         ) : (
           <Animated.View entering={FadeIn.duration(300)} style={styles.emptyContent}>
             <Text style={styles.emptyEmoji}>🌱</Text>
@@ -495,7 +529,7 @@ export default function HomeScreen() {
         )}
       </View>
     ),
-    [feedQuery.isLoading, colors, handleRefresh]
+    [isAutoLoading, colors, handleRefresh]
   );
 
   // ─── Render ──────────────────────────────────────────────────────────────────
