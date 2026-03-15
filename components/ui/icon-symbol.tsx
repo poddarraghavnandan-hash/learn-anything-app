@@ -35,6 +35,7 @@ const MAPPING = {
   "bell.fill": "notifications",
   "trophy.fill": "emoji-events",
   "target": "track-changes",
+  "bubble.left.and.text.bubble.right.fill": "question-answer",
 } as IconMapping;
 
 export function IconSymbol({

@@ -170,3 +170,34 @@
 - [ ] Streak milestone celebrations (7, 30, 100, 365 days)
 - [ ] Level-up celebration animation
 - [ ] Smart reminder timing based on user's peak activity hours
+
+## Conversational AI Chat Interface (Primary Learning Mode)
+- [x] Chat tab as primary interaction (replaces or augments Home feed)
+- [x] User types real-world questions ("Why does Earth orbit the Sun?")
+- [x] LLM maps question to underlying concepts (gravity, orbital mechanics, Newton's laws)
+- [x] Inline baseline quiz in chat (2-3 fun questions to assess level before diving in)
+- [x] Personalized mini-ladder generated from user's level to answering their question
+- [x] YouTube content cards embedded in chat conversation
+- [x] User can redirect anytime ("Wait, what's gravity?" / "Skip to black holes")
+- [x] Chat history persisted locally
+- [x] Real-world concept grounding — always relate theory to tangible examples
+- [x] Backend: conversational AI endpoint with context-aware responses
+- [x] Backend: question-to-concept mapping via LLM
+- [x] Backend: inline baseline generation for chat context
+- [x] Backend: mini-ladder generation from baseline to user's goal
+
+## Conversational AI — Seamless "Ask" Experience
+- [x] Chat types: ChatMessage, ChatConversation, InlineChatQuiz, MiniLadderStep
+- [x] Learning store: conversations state, chat actions (ADD_MESSAGE, SAVE_CONVERSATION, etc.)
+- [x] Backend: conversational AI endpoint — understands real-world questions, maps to concepts
+- [x] Backend: inline baseline quiz generation (2-3 fun questions in chat flow)
+- [x] Backend: mini-ladder generation from user's level to their goal question
+- [x] Backend: step-aware YouTube content curation within chat
+- [x] Ask tab: clean chat UI with message bubbles, typing indicator
+- [x] Ask tab: inline baseline quizzes rendered as interactive cards in chat
+- [x] Ask tab: YouTube content cards embedded in conversation
+- [x] Ask tab: mini-ladder visualization in chat
+- [x] Ask tab: "I don't get it" / redirect / follow-up support
+- [x] Ask tab: conversation history with recent questions
+- [x] Navigation: Add Ask tab to tab bar, update icon mappings
+- [x] UX: Super intuitive, no clunky mode switching, directionally simple

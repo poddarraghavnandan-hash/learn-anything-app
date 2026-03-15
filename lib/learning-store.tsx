@@ -12,6 +12,8 @@ import type {
   LearningLadder,
   TopicProgress,
   CuriosityCheckResult,
+  ChatConversation,
+  ChatMessage,
 } from "@/shared/types";
 import { XP_VALUES, calibrateDifficulty, BADGE_DEFINITIONS } from "@/shared/types";
 
@@ -28,6 +30,9 @@ interface LearningState {
   ladders: Record<string, LearningLadder>;       // topicSlug → ladder
   topicProgress: Record<string, TopicProgress>;   // topicSlug → progress
   curiosityResults: Record<string, CuriosityCheckResult>; // topicSlug → result
+  // Chat conversations
+  conversations: ChatConversation[];
+  activeConversationId: string | null;
   sessionStartTime: number;
   sessionMinutes: number;
   loaded: boolean;
@@ -62,6 +67,8 @@ const initialState: LearningState = {
   ladders: {},
   topicProgress: {},
   curiosityResults: {},
+  conversations: [],
+  activeConversationId: null,
   sessionStartTime: Date.now(),
   sessionMinutes: 0,
   loaded: false,
@@ -95,7 +102,12 @@ type Action =
   | { type: "SAVE_CURIOSITY_RESULT"; payload: { topicSlug: string; result: CuriosityCheckResult } }
   | { type: "COMPLETE_STEP"; payload: { topicSlug: string; stepIndex: number } }
   | { type: "RECORD_STEP_VIDEO"; payload: { topicSlug: string; stepIndex: number } }
-  | { type: "RECORD_STEP_QUIZ"; payload: { topicSlug: string; stepIndex: number; passed: boolean } };
+  | { type: "RECORD_STEP_QUIZ"; payload: { topicSlug: string; stepIndex: number; passed: boolean } }
+  // Chat actions
+  | { type: "SAVE_CONVERSATION"; payload: ChatConversation }
+  | { type: "ADD_CHAT_MESSAGE"; payload: { conversationId: string; message: ChatMessage } }
+  | { type: "SET_ACTIVE_CONVERSATION"; payload: string | null }
+  | { type: "UPDATE_CONVERSATION"; payload: { id: string; updates: Partial<ChatConversation> } };
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -298,6 +310,43 @@ function reducer(state: LearningState, action: Action): LearningState {
       };
     }
 
+    // ─── Chat Actions ─────────────────────────────────────────────────────────
+
+    case "SAVE_CONVERSATION": {
+      const existing = state.conversations.findIndex(c => c.id === action.payload.id);
+      if (existing >= 0) {
+        const updated = [...state.conversations];
+        updated[existing] = action.payload;
+        return { ...state, conversations: updated, activeConversationId: action.payload.id };
+      }
+      return { ...state, conversations: [action.payload, ...state.conversations].slice(0, 50), activeConversationId: action.payload.id };
+    }
+
+    case "ADD_CHAT_MESSAGE": {
+      const { conversationId, message } = action.payload;
+      return {
+        ...state,
+        conversations: state.conversations.map(c =>
+          c.id === conversationId
+            ? { ...c, messages: [...c.messages, message], updatedAt: new Date().toISOString() }
+            : c
+        ),
+      };
+    }
+
+    case "SET_ACTIVE_CONVERSATION":
+      return { ...state, activeConversationId: action.payload };
+
+    case "UPDATE_CONVERSATION": {
+      const { id, updates } = action.payload;
+      return {
+        ...state,
+        conversations: state.conversations.map(c =>
+          c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
+        ),
+      };
+    }
+
     case "COMPLETE_STEP": {
       const { topicSlug, stepIndex } = action.payload;
       const existing = state.topicProgress[topicSlug];
@@ -386,6 +435,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
           if (!parsed.ladders) parsed.ladders = {};
           if (!parsed.topicProgress) parsed.topicProgress = {};
           if (!parsed.curiosityResults) parsed.curiosityResults = {};
+          if (!parsed.conversations) parsed.conversations = [];
+          if (!parsed.activeConversationId) parsed.activeConversationId = null;
           dispatch({ type: "LOAD_STATE", payload: { ...parsed, loaded: true, sessionStartTime: Date.now(), sessionMinutes: 0 } });
         } else {
           dispatch({ type: "LOAD_STATE", payload: { loaded: true, sessionStartTime: Date.now() } });
@@ -411,10 +462,12 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         ladders: state.ladders,
         topicProgress: state.topicProgress,
         curiosityResults: state.curiosityResults,
+        conversations: state.conversations.slice(0, 20), // Keep last 20 conversations
+        activeConversationId: state.activeConversationId,
       };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
     }, 500);
-  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.ladders, state.topicProgress, state.curiosityResults, state.loaded]);
+  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.ladders, state.topicProgress, state.curiosityResults, state.conversations, state.activeConversationId, state.loaded]);
 
   // Badge checker
   useEffect(() => {

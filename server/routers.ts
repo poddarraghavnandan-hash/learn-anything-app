@@ -671,6 +671,314 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
       }),
   }),
 
+  // ─── Conversational AI Chat ──────────────────────────────────────────────
+  chat: router({
+    // Main endpoint: user asks a real-world question, AI maps to concepts, generates baseline, builds mini-ladder
+    ask: publicProcedure
+      .input(z.object({
+        question: z.string().min(1),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        conversationHistory: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          text: z.string(),
+        })).optional().default([]),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const historyContext = input.conversationHistory.length > 0
+            ? `\n\nPrevious conversation:\n${input.conversationHistory.map(m => `${m.role}: ${m.text}`).join("\n")}`
+            : "";
+
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+${getLevelPrompt(input.skillLevel)}
+
+You are a brilliant, warm learning companion. The user asks real-world questions like "Why does Earth orbit the Sun?" or "How do I learn to read?" or "What is quantum entanglement?"
+
+Your job is to:
+1. UNDERSTAND their real question and map it to underlying concepts
+2. RESPOND conversationally — warm, encouraging, never condescending
+3. CONNECT to real-world examples they can relate to
+4. TEACH the concept step by step, building from what they likely know
+5. SUGGEST what to explore next
+
+IMPORTANT RULES:
+- Keep responses concise (3-5 short paragraphs max)
+- Use analogies and real-world connections
+- End with a thought-provoking follow-up question or suggestion
+- If the question is vague, gently guide them toward something specific
+- Never say "I can't" — always find a way to help them learn
+- Use markdown for emphasis (**bold** for key terms)
+
+Return JSON:
+{
+  "response": "Your conversational response (markdown supported)",
+  "mappedConcepts": ["concept1", "concept2", "concept3"],
+  "realWorldConnection": "A relatable real-world analogy or example",
+  "followUpQuestion": "An engaging question to keep them curious",
+  "suggestedSearchQueries": ["youtube search query 1", "youtube search query 2"],
+  "difficulty": "beginner|intermediate|advanced",
+  "emoji": "relevant emoji for the topic"
+}`,
+              },
+              {
+                role: "user",
+                content: `${input.question}${historyContext}`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            response: parsed.response || "That's a great question! Let me help you explore it.",
+            mappedConcepts: parsed.mappedConcepts || [],
+            realWorldConnection: parsed.realWorldConnection || "",
+            followUpQuestion: parsed.followUpQuestion || "What else are you curious about?",
+            suggestedSearchQueries: parsed.suggestedSearchQueries || [`${input.question} explained`],
+            difficulty: parsed.difficulty || input.skillLevel,
+            emoji: parsed.emoji || "🧠",
+          };
+        } catch (e) {
+          console.error("[Chat] LLM failed:", e);
+          return {
+            response: "That's a fascinating question! Let me find some great resources to help you understand it.",
+            mappedConcepts: [],
+            realWorldConnection: "",
+            followUpQuestion: "Can you tell me more about what specifically you'd like to understand?",
+            suggestedSearchQueries: [`${input.question} explained simply`],
+            difficulty: input.skillLevel,
+            emoji: "🧠",
+          };
+        }
+      }),
+
+    // Generate inline baseline quiz questions based on the user's question
+    baseline: publicProcedure
+      .input(z.object({
+        question: z.string(),
+        mappedConcepts: z.array(z.string()).min(1),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+Generate 3 quick, fun baseline questions to discover what the learner already knows about their question. These should feel like a casual conversation, NOT a test.
+
+Rules:
+- Questions go from very easy (common sense) to harder (requires knowledge)
+- Each has a fun fact revealed after answering
+- Use playful, encouraging language
+- The goal is to figure out WHERE to start teaching, not to judge
+
+Return JSON:
+{
+  "questions": [
+    {
+      "question": "Casual, fun question text",
+      "options": ["A", "B", "C", "D"],
+      "correctIndex": 0,
+      "funFact": "A delightful fact that makes them want to learn more",
+      "emoji": "relevant emoji"
+    }
+  ]
+}`,
+              },
+              {
+                role: "user",
+                content: `The learner asked: "${input.question}"\nRelated concepts: ${input.mappedConcepts.join(", ")}\n\nGenerate 3 baseline questions.`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            questions: (parsed.questions || []).slice(0, 3).map((q: any) => ({
+              question: q.question || "What do you already know?",
+              options: q.options || ["A", "B", "C", "D"],
+              correctIndex: q.correctIndex ?? 0,
+              funFact: q.funFact || "Every expert was once a beginner!",
+              emoji: q.emoji || "🧠",
+            })),
+          };
+        } catch {
+          return { questions: [] };
+        }
+      }),
+
+    // Build a mini learning ladder from the user's level to answering their question
+    buildPath: publicProcedure
+      .input(z.object({
+        question: z.string(),
+        mappedConcepts: z.array(z.string()),
+        baselineCorrect: z.number().min(0).max(3),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+      }))
+      .mutation(async ({ input }) => {
+        const effectiveLevel = input.baselineCorrect === 0 ? "beginner"
+          : input.baselineCorrect <= 1 ? "beginner"
+          : input.baselineCorrect <= 2 ? "intermediate"
+          : "advanced";
+
+        try {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+${getLevelPrompt(effectiveLevel)}
+
+Build a mini learning path (3-5 steps) that takes the learner from their current level to understanding the answer to their question.
+
+Each step must:
+- Have a clear, specific title
+- Include a real-world connection (something they can see/touch/experience)
+- Include a YouTube search query to find great content for that step
+- Build on the previous step
+
+Return JSON:
+{
+  "steps": [
+    {
+      "order": 1,
+      "title": "Step title",
+      "description": "What you'll learn in this step (1-2 sentences)",
+      "realWorldConnection": "A relatable example from everyday life",
+      "searchQuery": "specific youtube search query for this step"
+    }
+  ],
+  "estimatedMinutes": 15,
+  "encouragement": "A motivating message about their learning journey"
+}`,
+              },
+              {
+                role: "user",
+                content: `Question: "${input.question}"\nConcepts: ${input.mappedConcepts.join(", ")}\nBaseline: ${input.baselineCorrect}/3 correct (level: ${effectiveLevel})\n\nBuild a learning path from their level to answering this question.`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            steps: (parsed.steps || []).map((s: any, i: number) => ({
+              order: s.order || i + 1,
+              title: s.title || `Step ${i + 1}`,
+              description: s.description || "",
+              realWorldConnection: s.realWorldConnection || "",
+              searchQuery: s.searchQuery || input.question,
+            })),
+            estimatedMinutes: parsed.estimatedMinutes || 15,
+            encouragement: parsed.encouragement || "You're about to learn something amazing!",
+          };
+        } catch {
+          return {
+            steps: [{
+              order: 1,
+              title: "Explore the basics",
+              description: "Let's start with the fundamentals",
+              realWorldConnection: "Think about what you already know from everyday life",
+              searchQuery: `${input.question} explained for beginners`,
+            }],
+            estimatedMinutes: 10,
+            encouragement: "Every journey starts with a single step!",
+          };
+        }
+      }),
+
+    // Fetch YouTube content for a specific learning path step
+    fetchStepContent: publicProcedure
+      .input(z.object({
+        searchQuery: z.string(),
+        topicSlug: z.string().optional().default("general"),
+      }))
+      .mutation(async ({ input }) => {
+        const items = await fetchYouTubeForQuery(input.searchQuery, input.topicSlug, 5);
+        return {
+          items: items.map((item: any) => ({
+            id: 0,
+            externalId: item.externalId,
+            type: item.type,
+            title: item.title,
+            description: item.description,
+            url: item.url,
+            thumbnailUrl: item.thumbnailUrl,
+            source: item.source,
+            channelOrAuthor: item.channelOrAuthor,
+            durationSeconds: item.durationSeconds,
+            topicSlug: item.topicSlug,
+            publishedAt: item.publishedAt,
+          })),
+        };
+      }),
+
+    // Follow-up: user says "I don't get it" or asks a follow-up
+    followUp: publicProcedure
+      .input(z.object({
+        originalQuestion: z.string(),
+        followUpMessage: z.string(),
+        previousResponse: z.string(),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+${getLevelPrompt(input.skillLevel)}
+
+The learner is continuing a conversation about their question. They may:
+- Say they don't understand → Explain simpler with a different analogy
+- Ask a follow-up → Answer it and connect back to the original question
+- Want to change direction → Smoothly pivot to the new topic
+- Express frustration → Be extra encouraging and break it down further
+
+Keep responses concise (2-4 short paragraphs). Always be warm and encouraging.
+
+Return JSON:
+{
+  "response": "Your conversational response (markdown supported)",
+  "suggestedSearchQueries": ["youtube search query if relevant"],
+  "emoji": "relevant emoji"
+}`,
+              },
+              {
+                role: "user",
+                content: `Original question: "${input.originalQuestion}"\nPrevious AI response: "${input.previousResponse.slice(0, 500)}"\n\nUser says: "${input.followUpMessage}"`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            response: parsed.response || "Let me try explaining that differently...",
+            suggestedSearchQueries: parsed.suggestedSearchQueries || [],
+            emoji: parsed.emoji || "💡",
+          };
+        } catch {
+          return {
+            response: "Let me try a different approach. Can you tell me which part is confusing?",
+            suggestedSearchQueries: [],
+            emoji: "🤔",
+          };
+        }
+      }),
+  }),
+
   // ─── Search ───────────────────────────────────────────────────────────────
   search: router({
     query: publicProcedure

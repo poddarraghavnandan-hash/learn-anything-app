@@ -267,6 +267,54 @@ export interface CuriosityQuestion {
   emoji: string;                 // fun emoji for the question
 }
 
+// ─── Chat / Conversational Learning ────────────────────────────────────────
+
+export type ChatMessageRole = "user" | "assistant" | "system";
+export type ChatBubbleType = "text" | "baseline_quiz" | "content_card" | "mini_ladder" | "thinking" | "encouragement";
+
+export interface ChatMessage {
+  id: string;
+  role: ChatMessageRole;
+  bubbleType: ChatBubbleType;
+  text?: string;
+  quiz?: InlineChatQuiz;
+  contentCards?: ContentItemData[];
+  miniLadder?: MiniLadderStep[];
+  timestamp: number;
+}
+
+export interface InlineChatQuiz {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  funFact: string;
+  emoji: string;
+  answered?: boolean;
+  selectedIndex?: number;
+}
+
+export interface MiniLadderStep {
+  order: number;
+  title: string;
+  description: string;
+  realWorldConnection: string;
+  searchQuery: string;
+}
+
+export interface ChatConversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  originalQuestion: string;
+  mappedConcepts: string[];
+  baselineLevel: SkillLevel;
+  baselineDone: boolean;
+  miniLadder: MiniLadderStep[];
+  currentStep: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CuriosityCheckResult {
   topicSlug: string;
   questions: CuriosityQuestion[];
