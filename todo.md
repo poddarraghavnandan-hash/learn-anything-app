@@ -20,6 +20,7 @@
 - [x] Onboarding Step 1: Interest selection (topic chips grid with haptic feedback)
 - [x] Onboarding Step 2: Daily goal time selector (5/10/15/20/30 min)
 - [x] Onboarding Step 3: Learning style preference (Videos/Articles/Mixed)
+- [x] Onboarding Step 4: Skill level assessment (Beginner/Intermediate/Advanced)
 - [x] Persist onboarding state to AsyncStorage
 - [x] Skip onboarding if already completed (redirect to feed)
 
@@ -33,6 +34,8 @@
 - [x] Pull-to-refresh for new content
 - [x] Auto-refresh on first load when no content exists
 - [x] Micro-reactions on every card: "Mind blown" / "Knew this" / "Save" / "Skip"
+- [x] "I don't understand" button on content cards → triggers LLM simplification
+- [x] Think-about prompts before quiz answers (metacognition)
 
 ## Discover Tab
 - [x] Search bar with filtering
@@ -48,13 +51,17 @@
 - [x] Stats grid (Videos, Articles, Quiz Accuracy, Minutes)
 - [x] Spaced repetition review queue with memory strength bars
 - [x] Longest streak record display
+- [x] Achievement badges display (unlocked + locked silhouettes)
+- [x] Topic mastery tracking per topic
 
 ## Profile Tab
 - [x] User profile with avatar and level display
 - [x] Edit interests (link to discover)
 - [x] Daily goal adjustment (5/10/15/20/30 min pills)
 - [x] Content format preference toggle (Videos/Articles/Mixed)
+- [x] Skill level selector (Beginner/Intermediate/Advanced)
 - [x] Saved content count
+- [x] Badges showcase
 - [x] Reset progress option with confirmation
 
 ## Gamification System
@@ -62,6 +69,7 @@
 - [x] Level system (Curious → Explorer → Learner → Scholar → Expert → Master → Sage)
 - [x] Streak mechanics (daily streak tracking, longest streak)
 - [x] XP badge and streak badge in feed header
+- [x] 14 achievement badges with unlock tracking
 
 ## Adaptive Learning Engine
 - [x] Modified SM-2 spaced repetition algorithm
@@ -71,6 +79,9 @@
 - [x] Content scoring: Topic relevance × Format preference × Recency × Duration
 - [x] Engagement analysis (type weights, peak hours, reaction patterns)
 - [x] Feed interleaving engine (content + quiz + review + insight mixing)
+- [x] Difficulty calibration: quiz accuracy drives level promotion/demotion
+- [x] Per-topic difficulty tracking (TopicDifficulty records)
+- [x] Skill-level-aware YouTube search queries
 
 ## UI Polish
 - [x] Animated card entry (FadeInDown)
@@ -81,7 +92,7 @@
 
 ## Zero-Friction Entry
 - [x] No signup required — local-first with AsyncStorage
-- [x] 3-step onboarding (interests → goal → format) then straight to feed
+- [x] 4-step onboarding (interests → goal → format → skill level) then straight to feed
 - [x] Content auto-fetches from YouTube on first load
 - [x] Offline-first: all user state persisted locally
 
@@ -92,16 +103,44 @@
 - [x] XP awarded for every interaction type
 - [x] Engagement tracking (card type, time spent, reaction, hour of day)
 
+## LearnLM-Inspired Pedagogy (Core Belief: Anyone Can Learn Anything)
+- [x] Integrate LearnLM 5 principles into all LLM system prompts
+- [x] Quiz: think-about prompts before revealing answer (metacognition)
+- [x] Quiz: adaptive difficulty — calibrated by accuracy per topic
+- [x] Content summaries: relevel based on skill level (ELI5 for beginners)
+- [x] "I don't understand" button → LLM re-explains at simpler level with analogy
+- [x] Fix all TypeScript errors (profile.tsx and test file)
+
+## In-App Content Experience
+- [x] In-app YouTube video player (WebView embed on web, WebBrowser on native)
+- [x] Content detail screen with LLM-generated summaries and key points
+- [x] "Explain Like I'm 5" summary section
+- [x] Prerequisites and next steps suggestions
+- [x] "Why It Matters" real-world relevance
+- [x] "Explain Simpler" button powered by LLM
+- [x] Content completion tracking (mark as watched/read)
+
+## Achievement Badges System
+- [x] 14 badge definitions (first quiz, streaks, quiz mastery, explorer, level milestones, etc.)
+- [x] Badge unlock tracking in learning store
+- [x] Locked badge silhouettes for motivation
+- [x] Badge display on progress and profile screens
+
+## Learning Path Generation
+- [x] LLM-powered learning path API (progressive steps from basics to mastery)
+- [x] Learning path generation endpoint with skill-level awareness
+
 ## Future Enhancements
 - [ ] Daily digest generation API
-- [ ] Achievement badges (7-day, 30-day, 100 quizzes, etc.)
-- [ ] Locked badge silhouettes for motivation
 - [ ] Session-end hook: "One more?" prompt
 - [ ] Quick burst mode: 60-second micro-sessions
 - [ ] Learning reminder notifications
 - [ ] Light/Dark/System theme toggle in profile
 - [ ] Optional account creation for cloud sync
 - [ ] Article content from web scraping (non-paywall sources)
-- [ ] In-app video player (instead of external YouTube)
 - [ ] Loading skeleton cards
 - [ ] Streak freeze and repair mechanics
+- [ ] Badge unlock animations and celebrations
+- [ ] Streak milestone celebrations (7, 30, 100, 365 days)
+- [ ] Level-up celebration animation
+- [ ] Smart reminder timing based on user's peak activity hours

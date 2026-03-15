@@ -5,8 +5,22 @@ import {
   calculateNextReview,
   scoreContent,
 } from "../lib/adaptive-engine";
-import { getLevel, XP_VALUES } from "../shared/types";
-import type { CardEngagement, SpacedRepItem, ContentItemData, UserProfile } from "../shared/types";
+import {
+  getLevel,
+  XP_VALUES,
+  calibrateDifficulty,
+  getSearchModifier,
+  BADGE_DEFINITIONS,
+  LEVEL_NAMES,
+} from "../shared/types";
+import type {
+  CardEngagement,
+  SpacedRepItem,
+  ContentItemData,
+  UserProfile,
+  TopicDifficulty,
+  SkillLevel,
+} from "../shared/types";
 
 // ─── getLevel ────────────────────────────────────────────────────────────────
 
@@ -36,6 +50,12 @@ describe("getLevel", () => {
     const result = getLevel(10000);
     expect(result.name).toBe("Sage");
   });
+
+  it("handles edge case of exactly 499 XP", () => {
+    const result = getLevel(499);
+    expect(result.level).toBe(1);
+    expect(result.xpForNext).toBe(1);
+  });
 });
 
 // ─── XP_VALUES ───────────────────────────────────────────────────────────────
@@ -49,6 +69,130 @@ describe("XP_VALUES", () => {
     expect(XP_VALUES.reviewRated).toBe(10);
     expect(XP_VALUES.dailyGoal).toBe(50);
     expect(XP_VALUES.streakDay).toBe(10);
+  });
+
+  it("quiz correct XP is higher than quiz wrong XP", () => {
+    expect(XP_VALUES.quizCorrect).toBeGreaterThan(XP_VALUES.quizWrong);
+  });
+
+  it("daily goal XP is the highest single reward", () => {
+    expect(XP_VALUES.dailyGoal).toBeGreaterThanOrEqual(XP_VALUES.videoComplete);
+    expect(XP_VALUES.dailyGoal).toBeGreaterThanOrEqual(XP_VALUES.quizCorrect);
+  });
+});
+
+// ─── Difficulty Calibration ─────────────────────────────────────────────────
+
+describe("calibrateDifficulty", () => {
+  it("promotes beginner to intermediate at high accuracy", () => {
+    expect(calibrateDifficulty(0.9, "beginner")).toBe("intermediate");
+  });
+
+  it("promotes intermediate to advanced at high accuracy", () => {
+    expect(calibrateDifficulty(0.9, "intermediate")).toBe("advanced");
+  });
+
+  it("keeps advanced at advanced for high accuracy", () => {
+    expect(calibrateDifficulty(0.9, "advanced")).toBe("advanced");
+  });
+
+  it("demotes advanced to intermediate at low accuracy", () => {
+    expect(calibrateDifficulty(0.3, "advanced")).toBe("intermediate");
+  });
+
+  it("demotes intermediate to beginner at low accuracy", () => {
+    expect(calibrateDifficulty(0.3, "intermediate")).toBe("beginner");
+  });
+
+  it("keeps beginner at beginner for low accuracy", () => {
+    expect(calibrateDifficulty(0.3, "beginner")).toBe("beginner");
+  });
+
+  it("maintains current level at moderate accuracy", () => {
+    expect(calibrateDifficulty(0.65, "beginner")).toBe("beginner");
+    expect(calibrateDifficulty(0.65, "intermediate")).toBe("intermediate");
+    expect(calibrateDifficulty(0.65, "advanced")).toBe("advanced");
+  });
+
+  it("threshold at exactly 0.85 promotes", () => {
+    expect(calibrateDifficulty(0.85, "beginner")).toBe("intermediate");
+  });
+
+  it("threshold at exactly 0.5 does not demote", () => {
+    expect(calibrateDifficulty(0.5, "advanced")).toBe("advanced");
+  });
+
+  it("threshold just below 0.5 demotes", () => {
+    expect(calibrateDifficulty(0.49, "advanced")).toBe("intermediate");
+  });
+});
+
+// ─── Search Modifier ────────────────────────────────────────────────────────
+
+describe("getSearchModifier", () => {
+  it("returns beginner-friendly modifier", () => {
+    const mod = getSearchModifier("beginner");
+    expect(mod).toContain("beginner");
+    expect(mod).toContain("simply");
+  });
+
+  it("returns intermediate modifier with tutorial", () => {
+    const mod = getSearchModifier("intermediate");
+    expect(mod).toContain("tutorial");
+  });
+
+  it("returns advanced modifier with deep dive", () => {
+    const mod = getSearchModifier("advanced");
+    expect(mod).toContain("advanced");
+    expect(mod).toContain("deep dive");
+  });
+});
+
+// ─── Badge Definitions ──────────────────────────────────────────────────────
+
+describe("BADGE_DEFINITIONS", () => {
+  it("has at least 10 badges", () => {
+    expect(BADGE_DEFINITIONS.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("all badges have required fields", () => {
+    for (const badge of BADGE_DEFINITIONS) {
+      expect(badge.id).toBeTruthy();
+      expect(badge.name).toBeTruthy();
+      expect(badge.description).toBeTruthy();
+      expect(badge.emoji).toBeTruthy();
+      expect(badge.requirement).toBeTruthy();
+    }
+  });
+
+  it("all badge IDs are unique", () => {
+    const ids = BADGE_DEFINITIONS.map((b) => b.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("includes key milestone badges", () => {
+    const ids = BADGE_DEFINITIONS.map((b) => b.id);
+    expect(ids).toContain("first_quiz");
+    expect(ids).toContain("streak_7");
+    expect(ids).toContain("streak_30");
+    expect(ids).toContain("mind_blown_10");
+    expect(ids).toContain("daily_goal_7");
+  });
+});
+
+// ─── LEVEL_NAMES ────────────────────────────────────────────────────────────
+
+describe("LEVEL_NAMES", () => {
+  it("has at least 5 level names", () => {
+    expect(LEVEL_NAMES.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("starts with Curious", () => {
+    expect(LEVEL_NAMES[0]).toBe("Curious");
+  });
+
+  it("all names are unique", () => {
+    expect(new Set(LEVEL_NAMES).size).toBe(LEVEL_NAMES.length);
   });
 });
 
@@ -181,7 +325,6 @@ describe("calculateNextReview", () => {
       item = calculateNextReview(item, 4);
       strengths.push(item.memoryStrength);
     }
-    // Each successive review should increase or maintain memory strength
     for (let i = 1; i < strengths.length; i++) {
       expect(strengths[i]).toBeGreaterThanOrEqual(strengths[i - 1]);
     }
@@ -193,6 +336,7 @@ describe("calculateNextReview", () => {
 describe("scoreContent", () => {
   const profile: UserProfile = {
     interests: ["python", "machine-learning"],
+    skillLevel: "intermediate",
     dailyGoalMinutes: 10,
     preferredFormat: "videos",
     onboardingDone: true,
@@ -205,6 +349,8 @@ describe("scoreContent", () => {
     totalArticles: 5,
     totalQuizCorrect: 8,
     totalQuizAttempted: 10,
+    dailyGoalsCompleted: 3,
+    mindBlownCount: 5,
   };
 
   const content: ContentItemData = {
@@ -248,5 +394,90 @@ describe("scoreContent", () => {
     const score = scoreContent(content, profile, []);
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(1);
+  });
+});
+
+// ─── TopicDifficulty Calibration Flow ───────────────────────────────────────
+
+describe("TopicDifficulty calibration flow", () => {
+  it("simulates a learner improving over time", () => {
+    let td: TopicDifficulty = {
+      topicSlug: "quantum-physics",
+      currentLevel: "beginner",
+      quizCorrect: 0,
+      quizAttempted: 0,
+      accuracy: 0,
+      lastCalibrated: "2026-01-01",
+    };
+
+    // Simulate 10 quizzes, 9 correct
+    for (let i = 0; i < 10; i++) {
+      const correct = i !== 5;
+      td = {
+        ...td,
+        quizAttempted: td.quizAttempted + 1,
+        quizCorrect: td.quizCorrect + (correct ? 1 : 0),
+        accuracy: (td.quizCorrect + (correct ? 1 : 0)) / (td.quizAttempted + 1),
+      };
+      td.currentLevel = calibrateDifficulty(td.accuracy, td.currentLevel);
+    }
+
+    expect(td.accuracy).toBeGreaterThan(0.8);
+    expect(["intermediate", "advanced"]).toContain(td.currentLevel);
+  });
+
+  it("simulates a learner struggling and getting easier content", () => {
+    let td: TopicDifficulty = {
+      topicSlug: "quantum-physics",
+      currentLevel: "advanced",
+      quizCorrect: 0,
+      quizAttempted: 0,
+      accuracy: 0,
+      lastCalibrated: "2026-01-01",
+    };
+
+    // Simulate 10 quizzes, only 3 correct
+    for (let i = 0; i < 10; i++) {
+      const correct = i < 3;
+      td = {
+        ...td,
+        quizAttempted: td.quizAttempted + 1,
+        quizCorrect: td.quizCorrect + (correct ? 1 : 0),
+        accuracy: (td.quizCorrect + (correct ? 1 : 0)) / (td.quizAttempted + 1),
+      };
+      td.currentLevel = calibrateDifficulty(td.accuracy, td.currentLevel);
+    }
+
+    expect(td.accuracy).toBeLessThan(0.5);
+    expect(["beginner", "intermediate"]).toContain(td.currentLevel);
+  });
+});
+
+// ─── UserProfile Type Shape ─────────────────────────────────────────────────
+
+describe("UserProfile shape", () => {
+  it("default profile has all required fields", () => {
+    const profile: UserProfile = {
+      interests: [],
+      skillLevel: "beginner",
+      dailyGoalMinutes: 10,
+      preferredFormat: "mixed",
+      onboardingDone: false,
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActiveDate: "",
+      totalXp: 0,
+      totalMinutes: 0,
+      totalVideos: 0,
+      totalArticles: 0,
+      totalQuizCorrect: 0,
+      totalQuizAttempted: 0,
+      dailyGoalsCompleted: 0,
+      mindBlownCount: 0,
+    };
+
+    expect(profile.skillLevel).toBe("beginner");
+    expect(profile.mindBlownCount).toBe(0);
+    expect(profile.dailyGoalsCompleted).toBe(0);
   });
 });

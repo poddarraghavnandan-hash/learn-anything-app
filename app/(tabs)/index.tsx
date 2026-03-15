@@ -21,7 +21,6 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
-const CARD_HEIGHT = height - 180;
 
 export default function FeedScreen() {
   const { state, dispatch, addXp, updateStreak } = useLearning();
@@ -30,9 +29,12 @@ export default function FeedScreen() {
   const [feedCards, setFeedCards] = useState<FeedCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingQuizzes, setGeneratingQuizzes] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const quizzesGenerated = useRef(false);
 
   const interests = state.profile.interests;
+  const skillLevel = state.profile.skillLevel;
 
   // Redirect to onboarding if not done
   useEffect(() => {
@@ -49,18 +51,25 @@ export default function FeedScreen() {
   }, [state.loaded, state.profile.onboardingDone, updateStreak]);
 
   const feedQuery = trpc.feed.get.useQuery(
-    { topicSlugs: interests.length > 0 ? interests : ["python"], cursor: 0, limit: 20 },
+    { topicSlugs: interests.length > 0 ? interests : ["python"], cursor: 0, limit: 20, skillLevel },
     { enabled: state.loaded && state.profile.onboardingDone && interests.length > 0 }
   );
 
   const refreshMutation = trpc.feed.refresh.useMutation();
-  const quizMutation = trpc.quiz.generate.useMutation();
+  const quizBatchMutation = trpc.quiz.generateBatch.useMutation();
 
-  // Build feed cards from content
+  // Build feed cards from content, then generate real quizzes via LLM
   useEffect(() => {
     if (!feedQuery.data?.items) return;
     const items = feedQuery.data.items;
+    if (items.length === 0) {
+      setFeedCards([]);
+      setLoading(false);
+      return;
+    }
+
     const cards: FeedCard[] = [];
+    const quizSourceItems: { idx: number; title: string; desc: string; slug: string }[] = [];
     let quizInsertCounter = 0;
 
     for (let i = 0; i < items.length; i++) {
@@ -85,26 +94,28 @@ export default function FeedScreen() {
       });
 
       quizInsertCounter++;
-      // Insert quiz card every 3 content cards
       if (quizInsertCounter >= 3 && i < items.length - 1) {
+        // Insert placeholder quiz — will be replaced by LLM-generated quiz
+        const placeholderIdx = cards.length;
         cards.push({
           id: `quiz-placeholder-${i}`,
           cardType: "quiz",
           quiz: {
-            id: `quiz-${i}`,
-            question: `Quick check: What did you learn from "${item.title}"?`,
-            options: [
-              "I understood the key concepts",
-              "I need to review this again",
-              "This was completely new to me",
-              "I already knew this material",
-            ],
+            id: `quiz-loading-${i}`,
+            question: "Generating a quiz based on what you just saw...",
+            options: ["Loading...", "Loading...", "Loading...", "Loading..."],
             correctIndex: 0,
-            explanation: "Every interaction helps us personalize your learning path!",
+            explanation: "",
             relatedContentTitle: item.title,
             topicSlug: item.topicSlug || "",
-            difficulty: "easy",
+            difficulty: "medium",
           },
+        });
+        quizSourceItems.push({
+          idx: placeholderIdx,
+          title: item.title,
+          desc: item.description || item.title,
+          slug: item.topicSlug || "",
         });
         quizInsertCounter = 0;
       }
@@ -112,18 +123,63 @@ export default function FeedScreen() {
 
     setFeedCards(cards);
     setLoading(false);
-  }, [feedQuery.data]);
+
+    // Generate real quizzes via LLM in background
+    if (quizSourceItems.length > 0 && !quizzesGenerated.current) {
+      quizzesGenerated.current = true;
+      setGeneratingQuizzes(true);
+      const batchItems = quizSourceItems.slice(0, 5).map((q) => ({
+        contentTitle: q.title,
+        contentDescription: q.desc,
+        topicSlug: q.slug,
+      }));
+
+      quizBatchMutation
+        .mutateAsync({ items: batchItems, skillLevel })
+        .then((result) => {
+          if (result.quizzes && result.quizzes.length > 0) {
+            setFeedCards((prev) => {
+              const updated = [...prev];
+              result.quizzes.forEach((quiz: any, i: number) => {
+                if (i < quizSourceItems.length) {
+                  const targetIdx = quizSourceItems[i].idx;
+                  if (targetIdx < updated.length && updated[targetIdx].cardType === "quiz") {
+                    updated[targetIdx] = {
+                      ...updated[targetIdx],
+                      quiz: {
+                        id: quiz.id,
+                        question: quiz.question,
+                        options: quiz.options,
+                        correctIndex: quiz.correctIndex,
+                        explanation: quiz.explanation,
+                        relatedContentTitle: quiz.relatedContentTitle,
+                        topicSlug: quiz.topicSlug,
+                        difficulty: quiz.difficulty || "medium",
+                      },
+                    };
+                  }
+                }
+              });
+              return updated;
+            });
+          }
+          setGeneratingQuizzes(false);
+        })
+        .catch(() => setGeneratingQuizzes(false));
+    }
+  }, [feedQuery.data, skillLevel]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    quizzesGenerated.current = false;
     try {
-      await refreshMutation.mutateAsync({ topicSlugs: interests.slice(0, 5) });
+      await refreshMutation.mutateAsync({ topicSlugs: interests.slice(0, 5), skillLevel });
       await feedQuery.refetch();
     } catch (e) {
       // silently fail
     }
     setRefreshing(false);
-  }, [interests, refreshMutation, feedQuery]);
+  }, [interests, skillLevel, refreshMutation, feedQuery]);
 
   // Auto-refresh on first load if no content
   useEffect(() => {
@@ -135,17 +191,24 @@ export default function FeedScreen() {
   const handleContentPress = useCallback(
     (content: ContentItemData) => {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      if (content.type === "video" && content.url) {
-        router.push(`/content/${content.id}`);
-      }
+      router.push(`/content/${content.id}` as any);
     },
     [router]
   );
 
   const handleReaction = useCallback(
-    (cardId: string, reaction: string) => {
+    (cardId: string, reaction: string, content?: ContentItemData) => {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      addXp(XP_VALUES.videoComplete);
+
+      if (reaction === "mind_blown") {
+        addXp(XP_VALUES.videoComplete);
+        dispatch({ type: "INCREMENT_MIND_BLOWN" });
+      } else if (reaction === "knew_this") {
+        addXp(5);
+      } else {
+        addXp(3);
+      }
+
       dispatch({
         type: "RECORD_ENGAGEMENT",
         payload: {
@@ -157,19 +220,38 @@ export default function FeedScreen() {
           hourOfDay: new Date().getHours(),
         },
       });
+
+      // Add to spaced rep if mind_blown
+      if (reaction === "mind_blown" && content) {
+        dispatch({
+          type: "ADD_SPACED_REP",
+          payload: {
+            contentId: content.id,
+            title: content.title,
+            thumbnailUrl: content.thumbnailUrl,
+            topicSlug: content.topicSlug,
+            easeFactor: 2.5,
+            interval: 1,
+            repetition: 0,
+            lastReviewDate: new Date().toISOString().split("T")[0],
+            nextReviewDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+            memoryStrength: 20,
+          },
+        });
+      }
     },
     [addXp, dispatch]
   );
 
   const handleQuizAnswer = useCallback(
-    (quizId: string, answerIndex: number, correctIndex: number) => {
+    (quizId: string, answerIndex: number, correctIndex: number, topicSlug?: string) => {
       const correct = answerIndex === correctIndex;
       if (Platform.OS !== "web") {
         if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
       addXp(correct ? XP_VALUES.quizCorrect : XP_VALUES.quizWrong);
-      dispatch({ type: "RECORD_QUIZ", payload: { correct } });
+      dispatch({ type: "RECORD_QUIZ", payload: { correct, topicSlug } });
     },
     [addXp, dispatch]
   );
@@ -191,7 +273,7 @@ export default function FeedScreen() {
           <QuizCard
             quiz={item.quiz}
             colors={colors}
-            onAnswer={(idx) => handleQuizAnswer(item.id, idx, item.quiz!.correctIndex)}
+            onAnswer={(idx) => handleQuizAnswer(item.id, idx, item.quiz!.correctIndex, item.quiz!.topicSlug)}
           />
         );
       }
@@ -204,7 +286,7 @@ export default function FeedScreen() {
             colors={colors}
             isSaved={isSaved}
             onPress={() => handleContentPress(item.content!)}
-            onReaction={(r) => handleReaction(item.id, r)}
+            onReaction={(r) => handleReaction(item.id, r, item.content)}
             onSave={() => handleSave(item.content!.id)}
           />
         );
@@ -231,17 +313,20 @@ export default function FeedScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Learn</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
+            {skillLevel === "beginner" ? "Building foundations" : skillLevel === "intermediate" ? "Growing stronger" : "Going deep"}
+          </Text>
         </View>
         <View style={styles.headerRight}>
           <View style={[styles.xpBadge, { backgroundColor: colors.primary + "20" }]}>
             <Text style={[styles.xpText, { color: colors.primary }]}>
-              {state.profile.totalXp} XP
+              Lv.{levelInfo.level} {state.profile.totalXp} XP
             </Text>
           </View>
           {state.profile.currentStreak > 0 && (
             <View style={[styles.streakBadge, { backgroundColor: "#FF950020" }]}>
               <Text style={styles.streakText}>
-                {state.profile.currentStreak}
+                {state.profile.currentStreak}d
               </Text>
             </View>
           )}
@@ -252,15 +337,15 @@ export default function FeedScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.muted }]}>
-            Curating your feed...
+            Curating your personalized feed...
           </Text>
         </View>
       ) : feedCards.length === 0 ? (
         <View style={styles.center}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>🔍</Text>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Loading content...</Text>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>{"🔍"}</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Finding the best content for you</Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            We're fetching the best content for your interests
+            We're searching YouTube for {skillLevel}-level content on your topics
           </Text>
           <Pressable
             onPress={handleRefresh}
@@ -323,7 +408,7 @@ function ContentCard({
             <Image source={{ uri: content.thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
           ) : (
             <View style={[styles.thumbnail, { backgroundColor: colors.primary + "30" }]}>
-              <Text style={{ fontSize: 40 }}>{isVideo ? "🎬" : "📖"}</Text>
+              <Text style={{ fontSize: 40 }}>{isVideo ? "\u{1F3AC}" : "\u{1F4D6}"}</Text>
             </View>
           )}
           {isVideo && duration && (
@@ -333,9 +418,13 @@ function ContentCard({
           )}
           {isVideo && (
             <View style={styles.playOverlay}>
-              <Text style={{ fontSize: 36 }}>▶</Text>
+              <Text style={{ fontSize: 36 }}>{"\u25B6"}</Text>
             </View>
           )}
+          {/* Tap to learn badge */}
+          <View style={[styles.tapBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.tapBadgeText}>Tap to learn</Text>
+          </View>
         </View>
 
         {/* Content info */}
@@ -347,8 +436,12 @@ function ContentCard({
             <Text style={[styles.cardSource, { color: colors.muted }]} numberOfLines={1}>
               {content.channelOrAuthor || content.source}
             </Text>
-            {content.publishedAt && (
-              <Text style={[styles.cardDate, { color: colors.muted }]}>{content.publishedAt}</Text>
+            {content.topicSlug && (
+              <View style={[styles.topicPill, { backgroundColor: colors.primary + "15" }]}>
+                <Text style={[styles.topicPillText, { color: colors.primary }]}>
+                  {content.topicSlug.replace(/-/g, " ")}
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -360,21 +453,21 @@ function ContentCard({
           onPress={() => onReaction("mind_blown")}
           style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
         >
-          <Text style={styles.reactionEmoji}>🤯</Text>
+          <Text style={styles.reactionEmoji}>{"\u{1F92F}"}</Text>
           <Text style={[styles.reactionLabel, { color: colors.muted }]}>Mind blown</Text>
         </Pressable>
         <Pressable
           onPress={() => onReaction("knew_this")}
           style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
         >
-          <Text style={styles.reactionEmoji}>✅</Text>
+          <Text style={styles.reactionEmoji}>{"\u2705"}</Text>
           <Text style={[styles.reactionLabel, { color: colors.muted }]}>Knew this</Text>
         </Pressable>
         <Pressable
           onPress={onSave}
           style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
         >
-          <Text style={styles.reactionEmoji}>{isSaved ? "💾" : "🔖"}</Text>
+          <Text style={styles.reactionEmoji}>{isSaved ? "\u{1F4BE}" : "\u{1F516}"}</Text>
           <Text style={[styles.reactionLabel, { color: isSaved ? colors.primary : colors.muted }]}>
             {isSaved ? "Saved" : "Save"}
           </Text>
@@ -383,7 +476,7 @@ function ContentCard({
           onPress={() => onReaction("skip")}
           style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
         >
-          <Text style={styles.reactionEmoji}>⏭️</Text>
+          <Text style={styles.reactionEmoji}>{"\u23ED\uFE0F"}</Text>
           <Text style={[styles.reactionLabel, { color: colors.muted }]}>Skip</Text>
         </Pressable>
       </View>
@@ -391,7 +484,7 @@ function ContentCard({
   );
 }
 
-// ─── Quiz Card Component ─────────────────────────────────────────────────────
+// ─── Quiz Card Component (LearnLM-powered) ──────────────────────────────────
 
 function QuizCard({
   quiz,
@@ -404,59 +497,112 @@ function QuizCard({
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [showThinkAbout, setShowThinkAbout] = useState(true);
+  const isLoading = quiz.question.includes("Generating");
 
   const handleSelect = (idx: number) => {
-    if (revealed) return;
+    if (revealed || isLoading) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelected(idx);
     setRevealed(true);
+    setShowThinkAbout(false);
     onAnswer(idx);
   };
 
+  const isCorrect = selected === quiz.correctIndex;
+
   return (
-    <Animated.View entering={FadeIn.duration(300)} style={[styles.card, styles.quizCard, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "40" }]}>
+    <Animated.View entering={FadeIn.duration(300)} style={[styles.card, styles.quizCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "30" }]}>
       <View style={styles.quizHeader}>
-        <Text style={{ fontSize: 20 }}>🧠</Text>
+        <Text style={{ fontSize: 20 }}>{"\u{1F9E0}"}</Text>
         <Text style={[styles.quizLabel, { color: colors.primary }]}>Quick Check</Text>
+        {quiz.difficulty && (
+          <View style={[styles.difficultyBadge, {
+            backgroundColor: quiz.difficulty === "easy" ? colors.success + "20" : quiz.difficulty === "hard" ? colors.error + "20" : colors.warning + "20",
+          }]}>
+            <Text style={[styles.difficultyText, {
+              color: quiz.difficulty === "easy" ? colors.success : quiz.difficulty === "hard" ? colors.error : colors.warning,
+            }]}>
+              {quiz.difficulty}
+            </Text>
+          </View>
+        )}
       </View>
-      <Text style={[styles.quizQuestion, { color: colors.foreground }]}>{quiz.question}</Text>
-      <View style={styles.quizOptions}>
-        {quiz.options.map((opt, idx) => {
-          let bgColor = colors.surface;
-          let borderCol = colors.border;
-          if (revealed) {
-            if (idx === quiz.correctIndex) {
-              bgColor = colors.success + "30";
-              borderCol = colors.success;
-            } else if (idx === selected) {
-              bgColor = colors.error + "30";
-              borderCol = colors.error;
-            }
-          }
-          return (
-            <Pressable
-              key={idx}
-              onPress={() => handleSelect(idx)}
-              style={({ pressed }) => [
-                styles.quizOption,
-                {
-                  backgroundColor: bgColor,
-                  borderColor: borderCol,
-                  opacity: pressed && !revealed ? 0.8 : 1,
-                },
-              ]}
-            >
-              <Text style={[styles.quizOptionText, { color: colors.foreground }]}>{opt}</Text>
-              {revealed && idx === quiz.correctIndex && <Text style={{ marginLeft: 8 }}>✓</Text>}
-            </Pressable>
-          );
-        })}
-      </View>
-      {revealed && (
-        <View style={[styles.quizExplanation, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.quizExplanationText, { color: colors.muted }]}>
-            {quiz.explanation}
+
+      {isLoading ? (
+        <View style={styles.quizLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.quizLoadingText, { color: colors.muted }]}>
+            Creating a quiz from what you just watched...
           </Text>
         </View>
+      ) : (
+        <>
+          <Text style={[styles.quizQuestion, { color: colors.foreground }]}>{quiz.question}</Text>
+
+          {/* Think About prompt — encourages metacognition */}
+          {showThinkAbout && !revealed && (
+            <View style={[styles.thinkAbout, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.thinkAboutText, { color: colors.muted }]}>
+                {"💡"} Think about: {quiz.relatedContentTitle ? `What did you learn from "${quiz.relatedContentTitle}"?` : "What do you already know about this?"}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.quizOptions}>
+            {quiz.options.map((opt, idx) => {
+              let bgColor = colors.surface;
+              let borderCol = colors.border;
+              let textColor = colors.foreground;
+              if (revealed) {
+                if (idx === quiz.correctIndex) {
+                  bgColor = colors.success + "20";
+                  borderCol = colors.success;
+                  textColor = colors.success;
+                } else if (idx === selected) {
+                  bgColor = colors.error + "20";
+                  borderCol = colors.error;
+                  textColor = colors.error;
+                }
+              }
+              return (
+                <Pressable
+                  key={idx}
+                  onPress={() => handleSelect(idx)}
+                  style={({ pressed }) => [
+                    styles.quizOption,
+                    {
+                      backgroundColor: bgColor,
+                      borderColor: borderCol,
+                      opacity: pressed && !revealed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <View style={[styles.optionLetter, { backgroundColor: revealed && idx === quiz.correctIndex ? colors.success : colors.primary + "15" }]}>
+                    <Text style={[styles.optionLetterText, { color: revealed && idx === quiz.correctIndex ? "#FFF" : colors.primary }]}>
+                      {String.fromCharCode(65 + idx)}
+                    </Text>
+                  </View>
+                  <Text style={[styles.quizOptionText, { color: textColor }]}>{opt}</Text>
+                  {revealed && idx === quiz.correctIndex && <Text style={{ marginLeft: 8 }}>{"\u2713"}</Text>}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Explanation — teaches WHY */}
+          {revealed && (
+            <Animated.View entering={FadeInDown.duration(250)} style={[styles.quizExplanation, { backgroundColor: isCorrect ? colors.success + "10" : colors.error + "10" }]}>
+              <Text style={[styles.resultEmoji]}>{isCorrect ? "\u{1F389}" : "\u{1F4AA}"}</Text>
+              <Text style={[styles.resultText, { color: isCorrect ? colors.success : colors.foreground }]}>
+                {isCorrect ? "Correct!" : "Not quite — but that's how we learn!"}
+              </Text>
+              <Text style={[styles.quizExplanationText, { color: colors.foreground }]}>
+                {quiz.explanation}
+              </Text>
+            </Animated.View>
+          )}
+        </>
       )}
     </Animated.View>
   );
@@ -473,9 +619,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
   },
   headerTitle: { fontSize: 26, fontWeight: "800" },
+  headerSubtitle: { fontSize: 12, marginTop: 2 },
   headerRight: { flexDirection: "row", gap: 8, alignItems: "center" },
   xpBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  xpText: { fontSize: 13, fontWeight: "700" },
+  xpText: { fontSize: 12, fontWeight: "700" },
   streakBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   streakText: { fontSize: 13, fontWeight: "700", color: "#FF9500" },
   loadingText: { marginTop: 12, fontSize: 15 },
@@ -506,11 +653,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.15)",
   },
+  tapBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  tapBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
   cardContent: { padding: 14 },
   cardTitle: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
-  cardMeta: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+  cardMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
   cardSource: { fontSize: 13, flex: 1 },
-  cardDate: { fontSize: 12, marginLeft: 8 },
+  topicPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginLeft: 8 },
+  topicPillText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
   reactionBar: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -523,10 +680,20 @@ const styles = StyleSheet.create({
   quizCard: { padding: 20 },
   quizHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
   quizLabel: { fontSize: 14, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },
-  quizQuestion: { fontSize: 18, fontWeight: "700", lineHeight: 26, marginBottom: 16 },
+  difficultyBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginLeft: "auto" },
+  difficultyText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
+  quizLoading: { alignItems: "center", paddingVertical: 20, gap: 12 },
+  quizLoadingText: { fontSize: 14, textAlign: "center" },
+  quizQuestion: { fontSize: 18, fontWeight: "700", lineHeight: 26, marginBottom: 12 },
+  thinkAbout: { padding: 12, borderRadius: 10, marginBottom: 14 },
+  thinkAboutText: { fontSize: 13, lineHeight: 18, fontStyle: "italic" },
   quizOptions: { gap: 10 },
   quizOption: { padding: 14, borderRadius: 12, borderWidth: 1.5, flexDirection: "row", alignItems: "center" },
+  optionLetter: { width: 28, height: 28, borderRadius: 14, justifyContent: "center", alignItems: "center", marginRight: 12 },
+  optionLetterText: { fontSize: 13, fontWeight: "700" },
   quizOptionText: { fontSize: 15, fontWeight: "500", flex: 1 },
-  quizExplanation: { marginTop: 12, padding: 12, borderRadius: 10 },
-  quizExplanationText: { fontSize: 13, lineHeight: 20 },
+  quizExplanation: { marginTop: 14, padding: 14, borderRadius: 12 },
+  resultEmoji: { fontSize: 24, textAlign: "center", marginBottom: 6 },
+  resultText: { fontSize: 16, fontWeight: "700", textAlign: "center", marginBottom: 8 },
+  quizExplanationText: { fontSize: 14, lineHeight: 22 },
 });

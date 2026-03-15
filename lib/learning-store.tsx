@@ -6,8 +6,11 @@ import type {
   SpacedRepItem,
   FeedCard,
   TopicData,
+  TopicDifficulty,
+  BadgeId,
+  SkillLevel,
 } from "@/shared/types";
-import { XP_VALUES } from "@/shared/types";
+import { XP_VALUES, calibrateDifficulty, BADGE_DEFINITIONS } from "@/shared/types";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +19,8 @@ interface LearningState {
   engagements: CardEngagement[];
   spacedRep: SpacedRepItem[];
   savedContentIds: number[];
+  topicDifficulties: TopicDifficulty[];
+  unlockedBadges: BadgeId[];
   sessionStartTime: number;
   sessionMinutes: number;
   loaded: boolean;
@@ -23,6 +28,7 @@ interface LearningState {
 
 const DEFAULT_PROFILE: UserProfile = {
   interests: [],
+  skillLevel: "beginner",
   dailyGoalMinutes: 10,
   preferredFormat: "mixed",
   onboardingDone: false,
@@ -35,6 +41,8 @@ const DEFAULT_PROFILE: UserProfile = {
   totalArticles: 0,
   totalQuizCorrect: 0,
   totalQuizAttempted: 0,
+  dailyGoalsCompleted: 0,
+  mindBlownCount: 0,
 };
 
 const initialState: LearningState = {
@@ -42,6 +50,8 @@ const initialState: LearningState = {
   engagements: [],
   spacedRep: [],
   savedContentIds: [],
+  topicDifficulties: [],
+  unlockedBadges: [],
   sessionStartTime: Date.now(),
   sessionMinutes: 0,
   loaded: false,
@@ -52,6 +62,7 @@ const initialState: LearningState = {
 type Action =
   | { type: "LOAD_STATE"; payload: Partial<LearningState> }
   | { type: "SET_INTERESTS"; payload: string[] }
+  | { type: "SET_SKILL_LEVEL"; payload: SkillLevel }
   | { type: "SET_DAILY_GOAL"; payload: number }
   | { type: "SET_FORMAT"; payload: "videos" | "articles" | "mixed" }
   | { type: "COMPLETE_ONBOARDING" }
@@ -60,11 +71,14 @@ type Action =
   | { type: "UPDATE_STREAK" }
   | { type: "INCREMENT_VIDEOS" }
   | { type: "INCREMENT_ARTICLES" }
-  | { type: "RECORD_QUIZ"; payload: { correct: boolean } }
+  | { type: "RECORD_QUIZ"; payload: { correct: boolean; topicSlug?: string } }
   | { type: "ADD_SPACED_REP"; payload: SpacedRepItem }
   | { type: "UPDATE_SPACED_REP"; payload: { contentId: number; rating: number } }
   | { type: "TOGGLE_SAVE"; payload: number }
-  | { type: "UPDATE_SESSION_TIME"; payload: number };
+  | { type: "UPDATE_SESSION_TIME"; payload: number }
+  | { type: "INCREMENT_MIND_BLOWN" }
+  | { type: "INCREMENT_DAILY_GOALS" }
+  | { type: "UNLOCK_BADGE"; payload: BadgeId };
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -77,6 +91,9 @@ function reducer(state: LearningState, action: Action): LearningState {
 
     case "SET_INTERESTS":
       return { ...state, profile: { ...state.profile, interests: action.payload } };
+
+    case "SET_SKILL_LEVEL":
+      return { ...state, profile: { ...state.profile, skillLevel: action.payload } };
 
     case "SET_DAILY_GOAL":
       return { ...state, profile: { ...state.profile, dailyGoalMinutes: action.payload } };
@@ -119,14 +136,40 @@ function reducer(state: LearningState, action: Action): LearningState {
 
     case "RECORD_QUIZ": {
       const p = state.profile;
-      return {
-        ...state,
-        profile: {
-          ...p,
-          totalQuizAttempted: p.totalQuizAttempted + 1,
-          totalQuizCorrect: p.totalQuizCorrect + (action.payload.correct ? 1 : 0),
-        },
+      const newProfile = {
+        ...p,
+        totalQuizAttempted: p.totalQuizAttempted + 1,
+        totalQuizCorrect: p.totalQuizCorrect + (action.payload.correct ? 1 : 0),
       };
+
+      // Update per-topic difficulty tracking
+      let newDifficulties = [...state.topicDifficulties];
+      if (action.payload.topicSlug) {
+        const slug = action.payload.topicSlug;
+        const existing = newDifficulties.find((d) => d.topicSlug === slug);
+        if (existing) {
+          const updated = {
+            ...existing,
+            quizAttempted: existing.quizAttempted + 1,
+            quizCorrect: existing.quizCorrect + (action.payload.correct ? 1 : 0),
+            accuracy: (existing.quizCorrect + (action.payload.correct ? 1 : 0)) / (existing.quizAttempted + 1),
+            lastCalibrated: getToday(),
+          };
+          updated.currentLevel = calibrateDifficulty(updated.accuracy, updated.currentLevel);
+          newDifficulties = newDifficulties.map((d) => (d.topicSlug === slug ? updated : d));
+        } else {
+          newDifficulties.push({
+            topicSlug: slug,
+            currentLevel: p.skillLevel,
+            quizCorrect: action.payload.correct ? 1 : 0,
+            quizAttempted: 1,
+            accuracy: action.payload.correct ? 1 : 0,
+            lastCalibrated: getToday(),
+          });
+        }
+      }
+
+      return { ...state, profile: newProfile, topicDifficulties: newDifficulties };
     }
 
     case "ADD_SPACED_REP": {
@@ -175,9 +218,49 @@ function reducer(state: LearningState, action: Action): LearningState {
         profile: { ...state.profile, totalMinutes: state.profile.totalMinutes + 1 },
       };
 
+    case "INCREMENT_MIND_BLOWN":
+      return { ...state, profile: { ...state.profile, mindBlownCount: state.profile.mindBlownCount + 1 } };
+
+    case "INCREMENT_DAILY_GOALS":
+      return { ...state, profile: { ...state.profile, dailyGoalsCompleted: state.profile.dailyGoalsCompleted + 1 } };
+
+    case "UNLOCK_BADGE": {
+      if (state.unlockedBadges.includes(action.payload)) return state;
+      return { ...state, unlockedBadges: [...state.unlockedBadges, action.payload] };
+    }
+
     default:
       return state;
   }
+}
+
+// ─── Badge Checker ───────────────────────────────────────────────────────────
+
+function checkBadges(state: LearningState): BadgeId[] {
+  const newBadges: BadgeId[] = [];
+  const p = state.profile;
+  const u = state.unlockedBadges;
+
+  if (p.totalQuizAttempted >= 1 && !u.includes("first_quiz")) newBadges.push("first_quiz");
+  if (p.currentStreak >= 7 && !u.includes("streak_7")) newBadges.push("streak_7");
+  if (p.currentStreak >= 30 && !u.includes("streak_30")) newBadges.push("streak_30");
+  if (p.currentStreak >= 100 && !u.includes("streak_100")) newBadges.push("streak_100");
+  if (p.totalQuizCorrect >= 50 && !u.includes("quiz_master_50")) newBadges.push("quiz_master_50");
+  if (p.totalQuizCorrect >= 100 && !u.includes("quiz_master_100")) newBadges.push("quiz_master_100");
+  if (p.interests.length >= 5 && !u.includes("explorer_5")) newBadges.push("explorer_5");
+  if (p.interests.length >= 10 && !u.includes("explorer_10")) newBadges.push("explorer_10");
+  if (p.totalVideos >= 50 && !u.includes("video_50")) newBadges.push("video_50");
+  if (p.totalArticles >= 25 && !u.includes("article_25")) newBadges.push("article_25");
+  if (getLevel(p.totalXp).level >= 5 && !u.includes("level_5")) newBadges.push("level_5");
+  if (getLevel(p.totalXp).level >= 10 && !u.includes("level_10")) newBadges.push("level_10");
+  if (p.mindBlownCount >= 10 && !u.includes("mind_blown_10")) newBadges.push("mind_blown_10");
+  if (p.dailyGoalsCompleted >= 7 && !u.includes("daily_goal_7")) newBadges.push("daily_goal_7");
+
+  return newBadges;
+}
+
+function getLevel(xp: number) {
+  return { level: Math.floor(xp / 500) + 1 };
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -204,6 +287,12 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
+          // Migrate old profiles missing new fields
+          if (parsed.profile) {
+            if (parsed.profile.skillLevel === undefined) parsed.profile.skillLevel = "beginner";
+            if (parsed.profile.dailyGoalsCompleted === undefined) parsed.profile.dailyGoalsCompleted = 0;
+            if (parsed.profile.mindBlownCount === undefined) parsed.profile.mindBlownCount = 0;
+          }
           dispatch({ type: "LOAD_STATE", payload: { ...parsed, loaded: true, sessionStartTime: Date.now(), sessionMinutes: 0 } });
         } else {
           dispatch({ type: "LOAD_STATE", payload: { loaded: true, sessionStartTime: Date.now() } });
@@ -224,10 +313,21 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         engagements: state.engagements.slice(-100),
         spacedRep: state.spacedRep,
         savedContentIds: state.savedContentIds,
+        topicDifficulties: state.topicDifficulties,
+        unlockedBadges: state.unlockedBadges,
       };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
     }, 500);
-  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.loaded]);
+  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.loaded]);
+
+  // Badge checker
+  useEffect(() => {
+    if (!state.loaded) return;
+    const newBadges = checkBadges(state);
+    for (const badge of newBadges) {
+      dispatch({ type: "UNLOCK_BADGE", payload: badge });
+    }
+  }, [state.profile, state.loaded]);
 
   // Session time tracker
   useEffect(() => {

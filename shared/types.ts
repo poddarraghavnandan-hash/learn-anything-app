@@ -10,6 +10,7 @@ export * from "./_core/errors";
 
 export type ContentType = "video" | "article";
 export type CardType = "video" | "article" | "quiz" | "review" | "insight";
+export type SkillLevel = "beginner" | "intermediate" | "advanced";
 
 export interface FeedCard {
   id: string;
@@ -79,8 +80,65 @@ export interface TopicData {
   category: string;
 }
 
+// ─── Difficulty Calibration ──────────────────────────────────────────────────
+
+export interface TopicDifficulty {
+  topicSlug: string;
+  currentLevel: SkillLevel;
+  quizCorrect: number;
+  quizAttempted: number;
+  accuracy: number;
+  lastCalibrated: string;
+}
+
+// ─── Badges / Achievements ──────────────────────────────────────────────────
+
+export type BadgeId =
+  | "first_quiz"
+  | "streak_7"
+  | "streak_30"
+  | "streak_100"
+  | "quiz_master_50"
+  | "quiz_master_100"
+  | "explorer_5"
+  | "explorer_10"
+  | "video_50"
+  | "article_25"
+  | "level_5"
+  | "level_10"
+  | "mind_blown_10"
+  | "daily_goal_7";
+
+export interface BadgeDef {
+  id: BadgeId;
+  name: string;
+  description: string;
+  emoji: string;
+  requirement: string;
+}
+
+export const BADGE_DEFINITIONS: BadgeDef[] = [
+  { id: "first_quiz", name: "First Steps", description: "Answer your first quiz", emoji: "🎯", requirement: "1 quiz answered" },
+  { id: "streak_7", name: "Week Warrior", description: "7-day learning streak", emoji: "🔥", requirement: "7-day streak" },
+  { id: "streak_30", name: "Monthly Master", description: "30-day learning streak", emoji: "💎", requirement: "30-day streak" },
+  { id: "streak_100", name: "Century Scholar", description: "100-day learning streak", emoji: "👑", requirement: "100-day streak" },
+  { id: "quiz_master_50", name: "Quiz Whiz", description: "Answer 50 quizzes correctly", emoji: "🧠", requirement: "50 correct quizzes" },
+  { id: "quiz_master_100", name: "Quiz Legend", description: "Answer 100 quizzes correctly", emoji: "🏆", requirement: "100 correct quizzes" },
+  { id: "explorer_5", name: "Curious Mind", description: "Follow 5 topics", emoji: "🔭", requirement: "5 topics followed" },
+  { id: "explorer_10", name: "Renaissance Learner", description: "Follow 10 topics", emoji: "🌍", requirement: "10 topics followed" },
+  { id: "video_50", name: "Binge Learner", description: "Watch 50 videos", emoji: "🎬", requirement: "50 videos watched" },
+  { id: "article_25", name: "Bookworm", description: "Read 25 articles", emoji: "📚", requirement: "25 articles read" },
+  { id: "level_5", name: "Rising Star", description: "Reach level 5", emoji: "⭐", requirement: "Level 5" },
+  { id: "level_10", name: "Knowledge Titan", description: "Reach level 10", emoji: "🌟", requirement: "Level 10" },
+  { id: "mind_blown_10", name: "Mind Expander", description: "React 'Mind blown' 10 times", emoji: "🤯", requirement: "10 mind blown reactions" },
+  { id: "daily_goal_7", name: "Goal Crusher", description: "Hit daily goal 7 times", emoji: "🎯", requirement: "7 daily goals met" },
+];
+
+// ─── User Profile ────────────────────────────────────────────────────────────
+
 export interface UserProfile {
   interests: string[];
+  skillLevel: SkillLevel;
   dailyGoalMinutes: number;
   preferredFormat: "videos" | "articles" | "mixed";
   onboardingDone: boolean;
@@ -93,6 +151,8 @@ export interface UserProfile {
   totalArticles: number;
   totalQuizCorrect: number;
   totalQuizAttempted: number;
+  dailyGoalsCompleted: number;
+  mindBlownCount: number;
 }
 
 export type Reaction = "mind_blown" | "knew_this" | "save" | "skip";
@@ -141,4 +201,24 @@ export function getLevel(xp: number) {
   const idx = Math.min(level - 1, LEVEL_NAMES.length - 1);
   const xpInLevel = xp % 500;
   return { level, name: LEVEL_NAMES[idx], xpForNext: 500 - xpInLevel, progress: xpInLevel / 500 };
+}
+
+// ─── Difficulty Calibration Helpers ──────────────────────────────────────────
+
+export function calibrateDifficulty(accuracy: number, current: SkillLevel): SkillLevel {
+  if (accuracy >= 0.85 && current !== "advanced") {
+    return current === "beginner" ? "intermediate" : "advanced";
+  }
+  if (accuracy < 0.5 && current !== "beginner") {
+    return current === "advanced" ? "intermediate" : "beginner";
+  }
+  return current;
+}
+
+export function getSearchModifier(level: SkillLevel): string {
+  switch (level) {
+    case "beginner": return "for beginners explained simply";
+    case "intermediate": return "tutorial explained";
+    case "advanced": return "advanced deep dive";
+  }
 }
