@@ -696,12 +696,23 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
           explainSimplerCount: z.number().optional(),
           questionsAsked: z.number().optional(),
         }).optional().default({}),
+        // Cross-conversation memory: summaries of past conversations
+        pastConversations: z.array(z.object({
+          question: z.string(),
+          concepts: z.array(z.string()),
+          timestamp: z.string(),
+        })).optional().default([]),
       }))
       .mutation(async ({ input }) => {
         try {
           const lm = input.learnerModel;
           const historyContext = input.conversationHistory.length > 0
             ? `\n\nPrevious conversation:\n${input.conversationHistory.map(m => `${m.role}: ${m.text}`).join("\n")}`
+            : "";
+
+          // Build past conversation memory
+          const pastConvContext = input.pastConversations.length > 0
+            ? `\nPAST LEARNING JOURNEY:\n${input.pastConversations.slice(-5).map(pc => `- Asked "${pc.question}" → explored: ${pc.concepts.join(", ")}`).join("\n")}\nReference their past explorations naturally when relevant (e.g., "Remember when you explored X? This connects to that because..."). Don't force it — only mention past topics when there's a genuine connection.`
             : "";
 
           // Build learner context from the model
@@ -713,6 +724,7 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
             lm.preferredDepth ? `Preferred depth: ${lm.preferredDepth}` : "",
             lm.learningStyle ? `Learning style: ${lm.learningStyle}` : "",
             (lm.explainSimplerCount || 0) > 2 ? "This learner often needs simpler explanations — default to very clear, simple language" : "",
+            pastConvContext,
           ].filter(Boolean).join("\n");
 
           // Decide whether to include a nudge (every 2-3 messages, not every time)
@@ -1065,6 +1077,103 @@ Return JSON:
             emoji: "🤔",
             nudge: null,
           };
+        }
+      }),
+    // Transcribe voice input using LLM
+    transcribe: publicProcedure
+      .input(z.object({
+        audioBase64: z.string(),
+        mimeType: z.string().optional().default("audio/m4a"),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: "You are a transcription assistant. Transcribe the user's audio message into text. Return ONLY the transcribed text, nothing else. If you cannot understand the audio, return 'I could not understand that. Could you try again?'",
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "input_audio" as any,
+                    input_audio: {
+                      data: input.audioBase64,
+                      format: input.mimeType.includes("wav") ? "wav" : "mp3",
+                    },
+                  },
+                ] as any,
+              },
+            ],
+          });
+          return {
+            text: (response.choices[0].message.content as string) || "",
+            success: true,
+          };
+        } catch {
+          return { text: "", success: false };
+        }
+      }),
+
+    // Generate personalized suggestions based on learner model and past conversations
+    suggestions: publicProcedure
+      .input(z.object({
+        interests: z.array(z.string()),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        pastTopics: z.array(z.string()).optional().default([]),
+        confusionPoints: z.array(z.string()).optional().default([]),
+        strengthAreas: z.array(z.string()).optional().default([]),
+        questionsAsked: z.number().optional().default(0),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const hasHistory = input.pastTopics.length > 0;
+          const prompt = hasHistory
+            ? `Based on this learner's profile, generate 4 personalized question suggestions they'd love to explore next.
+
+Their interests: ${input.interests.join(", ")}
+Topics they've explored: ${input.pastTopics.join(", ")}
+Things they're good at: ${input.strengthAreas.join(", ") || "still discovering"}
+Things they found confusing: ${input.confusionPoints.join(", ") || "none yet"}
+Skill level: ${input.skillLevel}
+Questions asked so far: ${input.questionsAsked}
+
+Rules:
+- 2 suggestions should build on what they've already explored (go deeper or connect to related topics)
+- 1 suggestion should be a fun tangent related to their interests
+- 1 suggestion should gently address a confusion point (if any) from a new angle
+- Each suggestion should be a natural, curiosity-driven question (not academic-sounding)
+- Keep them short (under 50 chars each)
+
+Return JSON: { "suggestions": ["question1", "question2", "question3", "question4"], "reasons": ["why1", "why2", "why3", "why4"] }`
+            : `Generate 4 engaging starter questions for a ${input.skillLevel} learner interested in: ${input.interests.join(", ")}.
+
+Rules:
+- Questions should spark genuine curiosity about real-world phenomena
+- Mix practical ("How does X work?") with wonder ("Why does X happen?")
+- Keep them short (under 50 chars each)
+- Make them feel like questions a curious person would naturally ask
+
+Return JSON: { "suggestions": ["q1", "q2", "q3", "q4"], "reasons": ["why1", "why2", "why3", "why4"] }`;
+
+          const response = await invokeLLM({
+            messages: [
+              { role: "system", content: "You generate personalized learning question suggestions. Return valid JSON only." },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            suggestions: parsed.suggestions || [],
+            reasons: parsed.reasons || [],
+          };
+        } catch {
+          // Fallback to interest-based suggestions
+          const fallbacks = input.interests.slice(0, 4).map((i) => `How does ${i} work in real life?`);
+          return { suggestions: fallbacks, reasons: fallbacks.map(() => "Based on your interests") };
         }
       }),
   }),

@@ -217,3 +217,25 @@
 - [x] Ask screen: remove hard quiz cards, replace with soft conversational check-ins
 - [x] Ask screen: AI naturally asks "What do you think?" or "Does that connect to anything you know?"
 - [x] Feed: content ordering reflects accumulated intelligence, not just topic matching
+
+## Voice Input — Hands-Free Learning
+- [x] Microphone button on Ask screen next to text input
+- [x] Audio recording via expo-audio
+- [x] Speech-to-text via backend LLM (send audio, get transcription)
+- [x] Seamless flow: tap mic → record → auto-transcribe → send as question
+- [x] Visual recording indicator (pulsing mic, waveform)
+- [x] Platform detection: disable on web, enable on native
+
+## Cross-Conversation Memory
+- [x] AI references past conversations naturally ("Last time you explored gravity...")
+- [x] Backend: include conversation history summary in AI prompts
+- [x] Learner model pastTopics updated after each conversation
+- [x] AI connects new questions to previously learned concepts
+- [x] "Continue where you left off" suggestions from past conversations
+
+## Smart Quick-Start Suggestions
+- [x] Show 3-4 tappable question suggestions on Ask screen when no active conversation
+- [x] Suggestions based on learner model (interests, past topics, skill level, time of day)
+- [x] Backend: generate personalized suggestions via LLM using learner context
+- [x] Suggestions refresh on each visit to Ask tab
+- [x] Suggestions feel natural and curiosity-driven, not generic

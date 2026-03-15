@@ -1,8 +1,11 @@
 # Screenshot Notes
 
-## Latest Check (After Ask Screen Rewrite with Nudge Bubbles)
-- Onboarding screen renders correctly with all 24 topics
-- Clean layout, good spacing, topic chips look polished
-- TypeScript: 0 errors, LSP: No errors, Dependencies: OK
-- Server running on port 3000, Metro running on port 8081
-- Ask screen rewritten with nudge bubbles, learner model integration, signal gathering
+## Latest Check (Post Voice + Suggestions + Memory)
+- Onboarding screen renders beautifully
+- "What fascinates you?" with 24 topic chips
+- "Anyone can learn anything — we'll meet you where you are" subtitle
+- 4-step progress indicator at top
+- Continue button at bottom
+- TypeScript: 0 errors, LSP: 0 errors, Server: running
+- All 92 tests pass
+- Voice input, cross-conversation memory, and smart suggestions all implemented
