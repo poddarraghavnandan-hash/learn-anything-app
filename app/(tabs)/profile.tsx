@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, Platform, Alert } from "react-native";
+import { useCallback, useState, useEffect } from "react";
+import { View, Text, ScrollView, Pressable, StyleSheet, Platform, Alert, Linking, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -9,6 +9,10 @@ import type { BadgeId, SkillLevel } from "@/shared/types";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import Constants from "expo-constants";
+import { trpc } from "@/lib/trpc";
+
+const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
 const GOALS = [5, 10, 15, 20, 30];
 const SKILL_LEVELS: { value: SkillLevel; label: string; desc: string; emoji: string }[] = [
@@ -23,6 +27,57 @@ export default function ProfileScreen() {
   const { state, dispatch } = useLearning();
   const { profile } = state;
   const levelInfo = getLevel(profile.totalXp);
+
+  // Update check state
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "latest" | "error">("idle");
+  const [updateInfo, setUpdateInfo] = useState<{ latestVersion: string; downloadUrl: string; releaseNotes: string } | null>(null);
+  const [checkEnabled, setCheckEnabled] = useState(false);
+
+  const updateQuery = trpc.appUpdate.check.useQuery(
+    { currentVersion: APP_VERSION },
+    { enabled: checkEnabled, retry: false }
+  );
+
+  useEffect(() => {
+    if (!checkEnabled) return;
+    if (updateQuery.isLoading) {
+      setUpdateStatus("checking");
+    } else if (updateQuery.isError) {
+      setUpdateStatus("error");
+      setUpdateInfo(null);
+      setCheckEnabled(false);
+    } else if (updateQuery.data) {
+      const result = updateQuery.data;
+      if (result.hasUpdate && result.downloadUrl) {
+        setUpdateStatus("available");
+        setUpdateInfo({
+          latestVersion: result.latestVersion,
+          downloadUrl: result.downloadUrl,
+          releaseNotes: result.releaseNotes,
+        });
+      } else {
+        setUpdateStatus("latest");
+        setUpdateInfo(null);
+      }
+      setCheckEnabled(false);
+    }
+  }, [checkEnabled, updateQuery.isLoading, updateQuery.isError, updateQuery.data]);
+
+  const checkForUpdates = useCallback(() => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setUpdateStatus("checking");
+    setCheckEnabled(true);
+  }, []);
+
+  const handleDownloadUpdate = useCallback(async () => {
+    if (!updateInfo?.downloadUrl) return;
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      await Linking.openURL(updateInfo.downloadUrl);
+    } catch {
+      Alert.alert("Error", "Could not open the download link. Please try again later.");
+    }
+  }, [updateInfo]);
 
   // Badge checking
   const checkBadge = (id: BadgeId): boolean => {
@@ -261,7 +316,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Saved Content */}
-        <Animated.View entering={FadeInDown.duration(300).delay(400)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Animated.View entering={FadeInDown.duration(300).delay(350)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               {"\u{1F516}"} Saved Content
@@ -272,7 +327,103 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
-        {/* App Info */}
+        {/* App Update */}
+        <Animated.View entering={FadeInDown.duration(300).delay(400)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            {"\u{1F504}"} App Updates
+          </Text>
+          <Text style={[styles.versionText, { color: colors.muted }]}>
+            Current version: {APP_VERSION}
+          </Text>
+
+          {updateStatus === "idle" && (
+            <Pressable
+              onPress={checkForUpdates}
+              style={({ pressed }) => [
+                styles.updateBtn,
+                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={styles.updateBtnText}>Check for Updates</Text>
+            </Pressable>
+          )}
+
+          {updateStatus === "checking" && (
+            <View style={styles.updateStatusRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.updateStatusText, { color: colors.muted }]}>
+                Checking for updates...
+              </Text>
+            </View>
+          )}
+
+          {updateStatus === "latest" && (
+            <View style={styles.updateStatusRow}>
+              <Text style={{ fontSize: 18 }}>{"\u2705"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.updateStatusText, { color: colors.success }]}>
+                  You're on the latest version!
+                </Text>
+                <Pressable
+                  onPress={() => { setUpdateStatus("idle"); }}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, marginTop: 6 }]}
+                >
+                  <Text style={[styles.checkAgainText, { color: colors.primary }]}>Check again</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {updateStatus === "available" && updateInfo && (
+            <View style={[styles.updateCard, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
+              <View style={styles.updateCardHeader}>
+                <Text style={{ fontSize: 20 }}>{"\u{1F389}"}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.updateCardTitle, { color: colors.foreground }]}>
+                    Version {updateInfo.latestVersion} Available
+                  </Text>
+                  <Text style={[styles.updateCardNotes, { color: colors.muted }]}>
+                    {updateInfo.releaseNotes}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={handleDownloadUpdate}
+                style={({ pressed }) => [
+                  styles.downloadBtn,
+                  { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <Text style={styles.downloadBtnText}>Download Update</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { setUpdateStatus("idle"); }}
+                style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, alignSelf: "center", marginTop: 8 }]}
+              >
+                <Text style={[styles.checkAgainText, { color: colors.muted }]}>Dismiss</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {updateStatus === "error" && (
+            <View style={styles.updateStatusRow}>
+              <Text style={{ fontSize: 18 }}>{"\u26A0\uFE0F"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.updateStatusText, { color: colors.warning }]}>
+                  Could not check for updates. Please try again later.
+                </Text>
+                <Pressable
+                  onPress={() => { setUpdateStatus("idle"); }}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, marginTop: 6 }]}
+                >
+                  <Text style={[styles.checkAgainText, { color: colors.primary }]}>Try again</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* About */}
         <Animated.View entering={FadeInDown.duration(300).delay(450)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About</Text>
           <Text style={[styles.aboutText, { color: colors.muted }]}>
@@ -331,6 +482,18 @@ const styles = StyleSheet.create({
   formatPill: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: "center" },
   formatPillText: { fontSize: 12, fontWeight: "600" },
   savedCount: { fontSize: 13 },
+  versionText: { fontSize: 13, marginTop: 4, marginBottom: 12 },
+  updateBtn: { paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  updateBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+  updateStatusRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 4 },
+  updateStatusText: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  checkAgainText: { fontSize: 13, fontWeight: "600" },
+  updateCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginTop: 4 },
+  updateCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
+  updateCardTitle: { fontSize: 15, fontWeight: "700" },
+  updateCardNotes: { fontSize: 13, marginTop: 2, lineHeight: 18 },
+  downloadBtn: { paddingVertical: 12, borderRadius: 10, alignItems: "center" },
+  downloadBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   aboutText: { fontSize: 13, lineHeight: 20 },
   dangerSection: { marginTop: 24, alignItems: "center" },
   resetBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5 },

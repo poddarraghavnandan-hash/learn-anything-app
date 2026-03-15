@@ -239,3 +239,10 @@
 - [x] Backend: generate personalized suggestions via LLM using learner context
 - [x] Suggestions refresh on each visit to Ask tab
 - [x] Suggestions feel natural and curiosity-driven, not generic
+
+## In-App Update Check
+- [x] Add "Check for Updates" link in profile screen
+- [x] Build update checker that fetches latest APK version from published URL
+- [x] Show update available banner with download link
+- [x] Open APK download URL via Linking when update is available
+- [x] Show current app version in profile screen

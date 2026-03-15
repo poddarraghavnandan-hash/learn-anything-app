@@ -1198,6 +1198,37 @@ Return JSON: { "suggestions": ["q1", "q2", "q3", "q4"], "reasons": ["why1", "why
         }
       }),
   }),
+
+  // ─── App Update ────────────────────────────────────────────────────────
+  appUpdate: router({
+    check: publicProcedure
+      .input(z.object({ currentVersion: z.string() }))
+      .query(async ({ input, ctx }) => {
+        // Get the latest published version from the Manus platform
+        // The platform sets MANUS_APP_DOWNLOAD_URL env var when published
+        const downloadUrl = process.env.MANUS_APP_DOWNLOAD_URL || "";
+        const latestVersion = process.env.MANUS_APP_VERSION || "1.0.0";
+        
+        const parseVersion = (v: string) => {
+          const parts = v.split(".").map(Number);
+          return (parts[0] || 0) * 10000 + (parts[1] || 0) * 100 + (parts[2] || 0);
+        };
+        
+        const currentNum = parseVersion(input.currentVersion);
+        const latestNum = parseVersion(latestVersion);
+        const hasUpdate = latestNum > currentNum;
+        
+        return {
+          hasUpdate,
+          currentVersion: input.currentVersion,
+          latestVersion,
+          downloadUrl,
+          releaseNotes: hasUpdate
+            ? "A new version is available with improvements and bug fixes."
+            : "You're on the latest version!",
+        };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
