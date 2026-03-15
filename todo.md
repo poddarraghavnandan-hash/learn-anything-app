@@ -201,3 +201,19 @@
 - [x] Ask tab: conversation history with recent questions
 - [x] Navigation: Add Ask tab to tab bar, update icon mappings
 - [x] UX: Super intuitive, no clunky mode switching, directionally simple
+
+## Personal Tutor Intelligence — Subtle Signal Gathering
+- [x] Replace quiz-style baseline with natural conversational check-ins
+- [x] Design signal taxonomy: what the system observes vs. what it asks
+- [x] Embed subtle "Does that make sense?" / "Have you seen this before?" nudges in AI responses
+- [x] Track implicit signals: time spent on content, re-reads, scroll-backs, "explain simpler" taps
+- [x] Track conversational signals: follow-up questions indicate confusion, topic changes indicate boredom
+- [x] Learner profile evolves silently based on accumulated signals (no explicit "test" moments)
+- [x] AI tone adapts to individual: formal vs casual, detail-loving vs big-picture, fast vs slow pace
+- [x] Content recommendations evolve mid-session based on real-time signals
+- [x] "Feels personal" — AI remembers past conversations, references them naturally
+- [x] Backend: signal processing layer that converts raw signals into learner model updates
+- [x] Backend: AI prompts include learner context (past topics, confusion points, pace preference)
+- [x] Ask screen: remove hard quiz cards, replace with soft conversational check-ins
+- [x] Ask screen: AI naturally asks "What do you think?" or "Does that connect to anything you know?"
+- [x] Feed: content ordering reflects accumulated intelligence, not just topic matching

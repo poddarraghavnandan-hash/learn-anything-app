@@ -14,8 +14,10 @@ import type {
   CuriosityCheckResult,
   ChatConversation,
   ChatMessage,
+  LearnerModel,
+  NudgeType,
 } from "@/shared/types";
-import { XP_VALUES, calibrateDifficulty, BADGE_DEFINITIONS } from "@/shared/types";
+import { XP_VALUES, calibrateDifficulty, BADGE_DEFINITIONS, DEFAULT_LEARNER_MODEL } from "@/shared/types";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +35,8 @@ interface LearningState {
   // Chat conversations
   conversations: ChatConversation[];
   activeConversationId: string | null;
+  // Learner Model — evolves silently
+  learnerModel: LearnerModel;
   sessionStartTime: number;
   sessionMinutes: number;
   loaded: boolean;
@@ -69,6 +73,7 @@ const initialState: LearningState = {
   curiosityResults: {},
   conversations: [],
   activeConversationId: null,
+  learnerModel: { ...DEFAULT_LEARNER_MODEL },
   sessionStartTime: Date.now(),
   sessionMinutes: 0,
   loaded: false,
@@ -107,7 +112,16 @@ type Action =
   | { type: "SAVE_CONVERSATION"; payload: ChatConversation }
   | { type: "ADD_CHAT_MESSAGE"; payload: { conversationId: string; message: ChatMessage } }
   | { type: "SET_ACTIVE_CONVERSATION"; payload: string | null }
-  | { type: "UPDATE_CONVERSATION"; payload: { id: string; updates: Partial<ChatConversation> } };
+  | { type: "UPDATE_CONVERSATION"; payload: { id: string; updates: Partial<ChatConversation> } }
+  // Learner Model actions
+  | { type: "UPDATE_LEARNER_MODEL"; payload: Partial<LearnerModel> }
+  | { type: "RECORD_NUDGE_RESPONSE"; payload: { nudgeType: NudgeType; signalKey: string; value: any } }
+  | { type: "RECORD_IMPLICIT_SIGNAL"; payload: { signal: string; value: any } }
+  | { type: "ADD_CONCEPT_CONFIDENCE"; payload: { concept: string; confidence: number } }
+  | { type: "ADD_CONFUSION_POINT"; payload: string }
+  | { type: "ADD_STRENGTH_AREA"; payload: string }
+  | { type: "RECORD_EXPLAIN_SIMPLER" }
+  | { type: "RECORD_TOPIC_SWITCH" };
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -367,6 +381,169 @@ function reducer(state: LearningState, action: Action): LearningState {
       };
     }
 
+    // ─── Learner Model Actions ─────────────────────────────────────────────
+
+    case "UPDATE_LEARNER_MODEL": {
+      return {
+        ...state,
+        learnerModel: {
+          ...state.learnerModel,
+          ...action.payload,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    }
+
+    case "RECORD_NUDGE_RESPONSE": {
+      const { nudgeType } = action.payload;
+      const model = state.learnerModel;
+      const newPatterns = { ...model.nudgeResponsePatterns };
+      newPatterns[nudgeType] = (newPatterns[nudgeType] || 0) + 1;
+      return {
+        ...state,
+        learnerModel: {
+          ...model,
+          totalNudgesAnswered: model.totalNudgesAnswered + 1,
+          nudgeResponsePatterns: newPatterns,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    }
+
+    case "RECORD_IMPLICIT_SIGNAL": {
+      const { signal, value } = action.payload;
+      const m = state.learnerModel;
+      // Update specific fields based on signal type
+      if (signal === "session_length") {
+        const sessions = m.totalNudgesAnswered + 1; // rough session count
+        return {
+          ...state,
+          learnerModel: {
+            ...m,
+            avgSessionMinutes: Math.round((m.avgSessionMinutes * (sessions - 1) + value) / sessions),
+            lastUpdated: new Date().toISOString(),
+          },
+        };
+      }
+      if (signal === "peak_hour") {
+        const hours = [...m.peakHours];
+        if (!hours.includes(value)) hours.push(value);
+        return { ...state, learnerModel: { ...m, peakHours: hours.slice(-10), lastUpdated: new Date().toISOString() } };
+      }
+      if (signal === "content_format") {
+        const weights = { ...m.contentFormatWeights };
+        const key = value as "video" | "article" | "interactive";
+        weights[key] = Math.min(1, weights[key] + 0.05);
+        // Normalize
+        const total = weights.video + weights.article + weights.interactive;
+        weights.video /= total;
+        weights.article /= total;
+        weights.interactive /= total;
+        return { ...state, learnerModel: { ...m, contentFormatWeights: weights, lastUpdated: new Date().toISOString() } };
+      }
+      if (signal === "quiz_response_time") {
+        const count = m.totalNudgesAnswered + m.questionsAsked + 1;
+        return {
+          ...state,
+          learnerModel: {
+            ...m,
+            avgQuizResponseTimeMs: Math.round((m.avgQuizResponseTimeMs * (count - 1) + value) / count),
+            lastUpdated: new Date().toISOString(),
+          },
+        };
+      }
+      return state;
+    }
+
+    case "ADD_CONCEPT_CONFIDENCE": {
+      const { concept, confidence } = action.payload;
+      const m = state.learnerModel;
+      const newConfidence = { ...m.conceptConfidence };
+      // Weighted average with existing confidence
+      const existing = newConfidence[concept] || 0.5;
+      newConfidence[concept] = Math.round((existing * 0.6 + confidence * 0.4) * 100) / 100;
+      
+      // Auto-detect strengths and confusion points
+      const newStrengths = [...m.strengthAreas];
+      const newConfusion = [...m.confusionPoints];
+      if (newConfidence[concept] >= 0.8 && !newStrengths.includes(concept)) {
+        newStrengths.push(concept);
+      }
+      if (newConfidence[concept] <= 0.3 && !newConfusion.includes(concept)) {
+        newConfusion.push(concept);
+      }
+      // Remove from confusion if confidence improved
+      if (newConfidence[concept] >= 0.6) {
+        const idx = newConfusion.indexOf(concept);
+        if (idx >= 0) newConfusion.splice(idx, 1);
+      }
+      
+      return {
+        ...state,
+        learnerModel: {
+          ...m,
+          conceptConfidence: newConfidence,
+          strengthAreas: newStrengths.slice(-20),
+          confusionPoints: newConfusion.slice(-20),
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    }
+
+    case "ADD_CONFUSION_POINT": {
+      const m = state.learnerModel;
+      if (m.confusionPoints.includes(action.payload)) return state;
+      return {
+        ...state,
+        learnerModel: {
+          ...m,
+          confusionPoints: [...m.confusionPoints, action.payload].slice(-20),
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    }
+
+    case "ADD_STRENGTH_AREA": {
+      const m = state.learnerModel;
+      if (m.strengthAreas.includes(action.payload)) return state;
+      return {
+        ...state,
+        learnerModel: {
+          ...m,
+          strengthAreas: [...m.strengthAreas, action.payload].slice(-20),
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    }
+
+    case "RECORD_EXPLAIN_SIMPLER": {
+      const m = state.learnerModel;
+      return {
+        ...state,
+        learnerModel: {
+          ...m,
+          explainSimplerCount: m.explainSimplerCount + 1,
+          // If they ask for simpler often, adjust preferred depth
+          preferredDepth: m.explainSimplerCount >= 3 ? "overview" : m.preferredDepth,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    }
+
+    case "RECORD_TOPIC_SWITCH": {
+      const m = state.learnerModel;
+      return {
+        ...state,
+        learnerModel: {
+          ...m,
+          topicSwitchCount: m.topicSwitchCount + 1,
+          // Frequent switches suggest quick pace preference
+          preferredPace: m.topicSwitchCount >= 5 ? "quick" : m.preferredPace,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+    }
+
     default:
       return state;
   }
@@ -437,6 +614,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
           if (!parsed.curiosityResults) parsed.curiosityResults = {};
           if (!parsed.conversations) parsed.conversations = [];
           if (!parsed.activeConversationId) parsed.activeConversationId = null;
+          if (!parsed.learnerModel) parsed.learnerModel = { ...DEFAULT_LEARNER_MODEL };
           dispatch({ type: "LOAD_STATE", payload: { ...parsed, loaded: true, sessionStartTime: Date.now(), sessionMinutes: 0 } });
         } else {
           dispatch({ type: "LOAD_STATE", payload: { loaded: true, sessionStartTime: Date.now() } });
@@ -464,10 +642,11 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         curiosityResults: state.curiosityResults,
         conversations: state.conversations.slice(0, 20), // Keep last 20 conversations
         activeConversationId: state.activeConversationId,
+        learnerModel: state.learnerModel,
       };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
     }, 500);
-  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.ladders, state.topicProgress, state.curiosityResults, state.conversations, state.activeConversationId, state.loaded]);
+  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.ladders, state.topicProgress, state.curiosityResults, state.conversations, state.activeConversationId, state.learnerModel, state.loaded]);
 
   // Badge checker
   useEffect(() => {

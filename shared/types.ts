@@ -270,7 +270,7 @@ export interface CuriosityQuestion {
 // ─── Chat / Conversational Learning ────────────────────────────────────────
 
 export type ChatMessageRole = "user" | "assistant" | "system";
-export type ChatBubbleType = "text" | "baseline_quiz" | "content_card" | "mini_ladder" | "thinking" | "encouragement";
+export type ChatBubbleType = "text" | "baseline_quiz" | "content_card" | "mini_ladder" | "thinking" | "encouragement" | "nudge" | "reflection";
 
 export interface ChatMessage {
   id: string;
@@ -278,9 +278,66 @@ export interface ChatMessage {
   bubbleType: ChatBubbleType;
   text?: string;
   quiz?: InlineChatQuiz;
+  nudge?: NudgeData;
   contentCards?: ContentItemData[];
   miniLadder?: MiniLadderStep[];
   timestamp: number;
+}
+
+// ─── Nudge — Subtle Signal-Gathering ──────────────────────────────────────
+
+export type NudgeType =
+  | "familiarity_check"    // "Have you heard of X?"
+  | "connection_check"     // "Does that remind you of anything?"
+  | "interest_probe"       // "What part of that surprises you most?"
+  | "pace_check"           // "Want to go deeper or move on?"
+  | "application_prompt"   // "Where would you see this in real life?"
+  | "confidence_gauge"     // "Does that feel right to you?"
+  | "direction_check"      // "Where do you want to go from here?"
+  | "analogy_test";        // "How would you explain this to a friend?"
+
+export interface NudgeData {
+  nudgeType: NudgeType;
+  question: string;
+  options?: string[];       // optional quick-tap responses
+  freeResponse?: boolean;   // allow typed answer
+  signalKey: string;        // what learner model field this updates
+  emoji: string;
+}
+
+// ─── Learner Model — Evolves Silently ─────────────────────────────────────
+
+export interface LearnerModel {
+  // Pace & Style (inferred from behavior)
+  preferredPace: "quick" | "moderate" | "deep";
+  preferredTone: "casual" | "balanced" | "formal";
+  preferredDepth: "overview" | "detailed" | "expert";
+  
+  // Comprehension Map
+  conceptConfidence: Record<string, number>;  // concept → 0-1 confidence
+  confusionPoints: string[];                  // concepts they've struggled with
+  strengthAreas: string[];                    // concepts they grasp quickly
+  
+  // Engagement Patterns
+  peakHours: number[];                        // hours of day most active
+  avgSessionMinutes: number;
+  contentFormatWeights: { video: number; article: number; interactive: number };
+  
+  // Personal Context
+  pastTopics: string[];
+  realWorldConnections: string[];             // analogies that resonated
+  learningStyle: "visual" | "verbal" | "kinesthetic" | "mixed";
+  
+  // Interaction Signals
+  totalNudgesAnswered: number;
+  nudgeResponsePatterns: Record<NudgeType, number>;  // count per nudge type
+  explainSimplerCount: number;
+  topicSwitchCount: number;
+  avgQuizResponseTimeMs: number;
+  questionsAsked: number;
+  followUpDepth: number;                      // avg follow-ups per conversation
+  
+  lastUpdated: string;
 }
 
 export interface InlineChatQuiz {
@@ -311,9 +368,33 @@ export interface ChatConversation {
   baselineDone: boolean;
   miniLadder: MiniLadderStep[];
   currentStep: number;
+  signalsGathered: Record<string, any>;  // signals collected during this conversation
   createdAt: string;
   updatedAt: string;
 }
+
+export const DEFAULT_LEARNER_MODEL: LearnerModel = {
+  preferredPace: "moderate",
+  preferredTone: "casual",
+  preferredDepth: "detailed",
+  conceptConfidence: {},
+  confusionPoints: [],
+  strengthAreas: [],
+  peakHours: [],
+  avgSessionMinutes: 0,
+  contentFormatWeights: { video: 0.5, article: 0.3, interactive: 0.2 },
+  pastTopics: [],
+  realWorldConnections: [],
+  learningStyle: "mixed",
+  totalNudgesAnswered: 0,
+  nudgeResponsePatterns: {} as Record<NudgeType, number>,
+  explainSimplerCount: 0,
+  topicSwitchCount: 0,
+  avgQuizResponseTimeMs: 0,
+  questionsAsked: 0,
+  followUpDepth: 0,
+  lastUpdated: new Date().toISOString(),
+};
 
 export interface CuriosityCheckResult {
   topicSlug: string;

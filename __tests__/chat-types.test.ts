@@ -127,8 +127,10 @@ describe("ChatMessage types", () => {
       "mini_ladder",
       "thinking",
       "encouragement",
+      "nudge",
+      "reflection",
     ];
-    expect(types).toHaveLength(6);
+    expect(types).toHaveLength(8);
   });
 });
 
@@ -144,6 +146,7 @@ describe("ChatConversation", () => {
       baselineDone: false,
       miniLadder: [],
       currentStep: 0,
+      signalsGathered: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -186,6 +189,7 @@ describe("ChatConversation", () => {
         },
       ],
       currentStep: 1,
+      signalsGathered: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

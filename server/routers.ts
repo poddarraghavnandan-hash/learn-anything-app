@@ -674,6 +674,7 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
   // ─── Conversational AI Chat ──────────────────────────────────────────────
   chat: router({
     // Main endpoint: user asks a real-world question, AI maps to concepts, generates baseline, builds mini-ladder
+    // Now accepts the full learner model to personalize every response
     ask: publicProcedure
       .input(z.object({
         question: z.string().min(1),
@@ -682,12 +683,53 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
           role: z.enum(["user", "assistant"]),
           text: z.string(),
         })).optional().default([]),
+        messageCount: z.number().optional().default(0),
+        learnerModel: z.object({
+          preferredPace: z.enum(["quick", "moderate", "deep"]).optional(),
+          preferredTone: z.enum(["casual", "balanced", "formal"]).optional(),
+          preferredDepth: z.enum(["overview", "detailed", "expert"]).optional(),
+          strengthAreas: z.array(z.string()).optional(),
+          confusionPoints: z.array(z.string()).optional(),
+          conceptConfidence: z.record(z.string(), z.number()).optional(),
+          realWorldConnections: z.array(z.string()).optional(),
+          learningStyle: z.enum(["visual", "verbal", "kinesthetic", "mixed"]).optional(),
+          explainSimplerCount: z.number().optional(),
+          questionsAsked: z.number().optional(),
+        }).optional().default({}),
       }))
       .mutation(async ({ input }) => {
         try {
+          const lm = input.learnerModel;
           const historyContext = input.conversationHistory.length > 0
             ? `\n\nPrevious conversation:\n${input.conversationHistory.map(m => `${m.role}: ${m.text}`).join("\n")}`
             : "";
+
+          // Build learner context from the model
+          const learnerContext = [
+            lm.strengthAreas?.length ? `Strengths: ${lm.strengthAreas.join(", ")}` : "",
+            lm.confusionPoints?.length ? `Has struggled with: ${lm.confusionPoints.join(", ")} — approach these gently` : "",
+            lm.realWorldConnections?.length ? `Analogies that resonated before: ${lm.realWorldConnections.slice(-3).join("; ")}` : "",
+            lm.preferredPace ? `Preferred pace: ${lm.preferredPace}` : "",
+            lm.preferredDepth ? `Preferred depth: ${lm.preferredDepth}` : "",
+            lm.learningStyle ? `Learning style: ${lm.learningStyle}` : "",
+            (lm.explainSimplerCount || 0) > 2 ? "This learner often needs simpler explanations — default to very clear, simple language" : "",
+          ].filter(Boolean).join("\n");
+
+          // Decide whether to include a nudge (every 2-3 messages, not every time)
+          const shouldNudge = input.messageCount > 0 && input.messageCount % 2 === 1;
+          const nudgeInstruction = shouldNudge ? `
+
+SUBTLE NUDGE: Weave ONE natural check-in into your response. Pick the most appropriate type:
+- "familiarity_check": "Have you come across [concept] before?" — reveals prior knowledge
+- "connection_check": "Does that remind you of anything from your experience?" — reveals mental models
+- "interest_probe": "What part of that surprises you most?" — reveals engagement & curiosity direction
+- "pace_check": "Want me to go deeper into this, or shall we move on?" — reveals preferred pace
+- "application_prompt": "Where might you see this in everyday life?" — reveals real-world thinking
+- "confidence_gauge": "How does that sit with you — does it click?" — reveals comprehension
+- "analogy_test": "How would you explain this to a friend?" — reveals depth of understanding
+
+Make the nudge feel NATURAL — like a thoughtful tutor checking in, not a quiz. Blend it into the conversation.
+Include the nudge in "nudge" field of your JSON response.` : "";
 
           const response = await invokeLLM({
             messages: [
@@ -697,14 +739,16 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
 
 ${getLevelPrompt(input.skillLevel)}
 
-You are a brilliant, warm learning companion. The user asks real-world questions like "Why does Earth orbit the Sun?" or "How do I learn to read?" or "What is quantum entanglement?"
+You are a brilliant, warm learning companion who KNOWS this specific learner. You adapt your tone, pace, and depth based on what you know about them.
+
+${learnerContext ? `ABOUT THIS LEARNER:\n${learnerContext}` : "This is a new learner — be warm and welcoming."}
 
 Your job is to:
 1. UNDERSTAND their real question and map it to underlying concepts
-2. RESPOND conversationally — warm, encouraging, never condescending
-3. CONNECT to real-world examples they can relate to
+2. RESPOND in a way that feels PERSONAL — reference their strengths, avoid their pain points
+3. CONNECT to real-world examples they can relate to (use analogies that worked before if available)
 4. TEACH the concept step by step, building from what they likely know
-5. SUGGEST what to explore next
+5. Boost their confidence — acknowledge what they already know before teaching new things
 
 IMPORTANT RULES:
 - Keep responses concise (3-5 short paragraphs max)
@@ -713,6 +757,7 @@ IMPORTANT RULES:
 - If the question is vague, gently guide them toward something specific
 - Never say "I can't" — always find a way to help them learn
 - Use markdown for emphasis (**bold** for key terms)
+- Make it feel like a 1-on-1 conversation with a brilliant friend, not a textbook${nudgeInstruction}
 
 Return JSON:
 {
@@ -722,7 +767,14 @@ Return JSON:
   "followUpQuestion": "An engaging question to keep them curious",
   "suggestedSearchQueries": ["youtube search query 1", "youtube search query 2"],
   "difficulty": "beginner|intermediate|advanced",
-  "emoji": "relevant emoji for the topic"
+  "emoji": "relevant emoji for the topic"${shouldNudge ? `,
+  "nudge": {
+    "nudgeType": "one of: familiarity_check, connection_check, interest_probe, pace_check, application_prompt, confidence_gauge, analogy_test",
+    "question": "The natural check-in question woven into your response",
+    "options": ["Quick-tap option 1", "Quick-tap option 2", "Quick-tap option 3"],
+    "signalKey": "what this reveals about the learner",
+    "emoji": "relevant emoji"
+  }` : ""}
 }`,
               },
               {
@@ -742,6 +794,7 @@ Return JSON:
             suggestedSearchQueries: parsed.suggestedSearchQueries || [`${input.question} explained`],
             difficulty: parsed.difficulty || input.skillLevel,
             emoji: parsed.emoji || "🧠",
+            nudge: parsed.nudge || null,
           };
         } catch (e) {
           console.error("[Chat] LLM failed:", e);
@@ -753,6 +806,7 @@ Return JSON:
             suggestedSearchQueries: [`${input.question} explained simply`],
             difficulty: input.skillLevel,
             emoji: "🧠",
+            nudge: null,
           };
         }
       }),
@@ -923,15 +977,37 @@ Return JSON:
       }),
 
     // Follow-up: user says "I don't get it" or asks a follow-up
+    // Now learner-model-aware for personalized responses
     followUp: publicProcedure
       .input(z.object({
         originalQuestion: z.string(),
         followUpMessage: z.string(),
         previousResponse: z.string(),
         skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        messageCount: z.number().optional().default(0),
+        learnerModel: z.object({
+          preferredPace: z.enum(["quick", "moderate", "deep"]).optional(),
+          preferredTone: z.enum(["casual", "balanced", "formal"]).optional(),
+          preferredDepth: z.enum(["overview", "detailed", "expert"]).optional(),
+          strengthAreas: z.array(z.string()).optional(),
+          confusionPoints: z.array(z.string()).optional(),
+          realWorldConnections: z.array(z.string()).optional(),
+          explainSimplerCount: z.number().optional(),
+        }).optional().default({}),
       }))
       .mutation(async ({ input }) => {
         try {
+          const lm = input.learnerModel;
+          const learnerContext = [
+            lm.confusionPoints?.length ? `Has struggled with: ${lm.confusionPoints.join(", ")}` : "",
+            lm.strengthAreas?.length ? `Good at: ${lm.strengthAreas.join(", ")}` : "",
+            lm.realWorldConnections?.length ? `Analogies that worked: ${lm.realWorldConnections.slice(-2).join("; ")}` : "",
+            (lm.explainSimplerCount || 0) > 2 ? "This learner often needs simpler explanations" : "",
+          ].filter(Boolean).join("\n");
+
+          // Nudge on every 3rd follow-up
+          const shouldNudge = input.messageCount > 1 && input.messageCount % 3 === 0;
+
           const response = await invokeLLM({
             messages: [
               {
@@ -940,19 +1016,31 @@ Return JSON:
 
 ${getLevelPrompt(input.skillLevel)}
 
-The learner is continuing a conversation about their question. They may:
-- Say they don't understand → Explain simpler with a different analogy
+${learnerContext ? `ABOUT THIS LEARNER:\n${learnerContext}` : ""}
+
+The learner is continuing a conversation. They may:
+- Say they don't understand → Explain simpler with a DIFFERENT analogy (not the same one!)
 - Ask a follow-up → Answer it and connect back to the original question
 - Want to change direction → Smoothly pivot to the new topic
-- Express frustration → Be extra encouraging and break it down further
+- Express frustration → Be extra encouraging, validate their effort, and break it down further
+- Answer a check-in question → Acknowledge their answer warmly and use it to personalize your next explanation
 
-Keep responses concise (2-4 short paragraphs). Always be warm and encouraging.
+Keep responses concise (2-4 short paragraphs). Always be warm and personal.${shouldNudge ? `
+
+Weave in ONE subtle check-in: either "confidence_gauge" ("Does that click now?"), "pace_check" ("Want to explore this more or move forward?"), or "connection_check" ("Does this connect to anything you've experienced?"). Include in "nudge" field.` : ""}
 
 Return JSON:
 {
   "response": "Your conversational response (markdown supported)",
   "suggestedSearchQueries": ["youtube search query if relevant"],
-  "emoji": "relevant emoji"
+  "emoji": "relevant emoji"${shouldNudge ? `,
+  "nudge": {
+    "nudgeType": "confidence_gauge|pace_check|connection_check",
+    "question": "Natural check-in question",
+    "options": ["Option 1", "Option 2", "Option 3"],
+    "signalKey": "what this reveals",
+    "emoji": "emoji"
+  }` : ""}
 }`,
               },
               {
@@ -968,12 +1056,14 @@ Return JSON:
             response: parsed.response || "Let me try explaining that differently...",
             suggestedSearchQueries: parsed.suggestedSearchQueries || [],
             emoji: parsed.emoji || "💡",
+            nudge: parsed.nudge || null,
           };
         } catch {
           return {
             response: "Let me try a different approach. Can you tell me which part is confusing?",
             suggestedSearchQueries: [],
             emoji: "🤔",
+            nudge: null,
           };
         }
       }),
