@@ -230,7 +230,7 @@ export default function ProfileScreen() {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Your Interests</Text>
             <Pressable
-              onPress={() => router.push("/(tabs)/discover")}
+              onPress={() => router.push("/onboarding")}
               style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
             >
               <Text style={[styles.editLink, { color: colors.primary }]}>Edit</Text>
@@ -423,6 +423,35 @@ export default function ProfileScreen() {
           )}
         </Animated.View>
 
+        {/* Optional Sign In */}
+        <Animated.View entering={FadeInDown.duration(300).delay(425)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {"\u{1F511}"} Account
+            </Text>
+          </View>
+          <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+            Sign in to sync your progress across devices. Everything works offline too — this is optional.
+          </Text>
+          <Pressable
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // TODO: Implement auth flow when backend auth is connected
+              if (Platform.OS === "web") {
+                alert("Sign in coming soon! Your progress is saved locally.");
+              } else {
+                Alert.alert("Coming Soon", "Sign in will be available in a future update. Your progress is saved locally on this device.");
+              }
+            }}
+            style={({ pressed }) => [
+              styles.signInBtn,
+              { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30", opacity: pressed ? 0.85 : 1 },
+            ]}
+          >
+            <Text style={[styles.signInText, { color: colors.primary }]}>Sign In (Optional)</Text>
+          </Pressable>
+        </Animated.View>
+
         {/* About */}
         <Animated.View entering={FadeInDown.duration(300).delay(450)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About</Text>
@@ -496,6 +525,8 @@ const styles = StyleSheet.create({
   downloadBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   aboutText: { fontSize: 13, lineHeight: 20 },
   dangerSection: { marginTop: 24, alignItems: "center" },
+  signInBtn: { paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", marginTop: 4 },
+  signInText: { fontSize: 15, fontWeight: "700" },
   resetBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5 },
   resetText: { fontSize: 14, fontWeight: "600" },
 });

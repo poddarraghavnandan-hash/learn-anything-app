@@ -142,6 +142,8 @@ export interface UserProfile {
   dailyGoalMinutes: number;
   preferredFormat: "videos" | "articles" | "mixed";
   onboardingDone: boolean;
+  age?: number;                    // used for cold-start curation
+  displayName?: string;            // optional, set via sign-in or manually
   currentStreak: number;
   longestStreak: number;
   lastActiveDate: string;

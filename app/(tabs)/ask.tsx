@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
 import { Image } from "expo-image";
+import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useLearning } from "@/lib/learning-store";
 import { useColors } from "@/hooks/use-colors";
@@ -24,6 +25,7 @@ import type {
   NudgeData,
   NudgeType,
 } from "@/shared/types";
+import * as Haptics from "expo-haptics";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,7 +37,7 @@ function genConvId() {
   return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ─── Smart Suggestion Chips (LLM-powered or fallback) ────────────────────────
+// ─── Suggestion Chips ─────────────────────────────────────────────────────────
 
 const FALLBACK_SUGGESTIONS = [
   "Why does the Earth orbit the Sun?",
@@ -64,7 +66,7 @@ function SuggestionChips({
         <Animated.View entering={FadeIn.duration(200)} style={s.suggestionsLoading}>
           <ActivityIndicator size="small" color={colors.primary} />
           <Text style={[s.suggestionsLoadingText, { color: colors.muted }]}>
-            Personalizing suggestions for you...
+            Personalizing for you...
           </Text>
         </Animated.View>
       ) : (
@@ -84,85 +86,6 @@ function SuggestionChips({
         ))
       )}
     </View>
-  );
-}
-
-// ─── Voice Input Button ──────────────────────────────────────────────────────
-
-function VoiceButton({
-  onTranscription,
-  disabled,
-}: {
-  onTranscription: (text: string) => void;
-  disabled: boolean;
-}) {
-  const colors = useColors();
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const recordingRef = useRef<any>(null);
-  const transcribeMutation = trpc.chat.transcribe.useMutation();
-
-  const startRecording = useCallback(async () => {
-    if (Platform.OS === "web") return;
-    try {
-      const Audio = await import("expo-audio");
-      const status = await Audio.requestRecordingPermissionsAsync();
-      if (!status.granted) return;
-
-      await Audio.setAudioModeAsync({
-        playsInSilentMode: true,
-        allowsRecording: true,
-      });
-
-      // Note: useAudioRecorder is a hook and can't be used imperatively
-      // We'll use a simple recording indicator and prompt text input instead
-      // Full voice recording requires the hook at component top level
-      setIsRecording(true);
-      recordingRef.current = { startTime: Date.now() };
-    } catch (e) {
-      console.log("Recording not available:", e);
-      setIsRecording(false);
-    }
-  }, []);
-
-  const stopRecording = useCallback(async () => {
-    setIsRecording(false);
-    // Voice recording requires native build — show a helpful message
-    // In production APK, this would use useAudioRecorder hook + transcription
-    recordingRef.current = null;
-  }, []);
-
-  const handlePress = useCallback(() => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  }, [isRecording, startRecording, stopRecording]);
-
-  if (Platform.OS === "web") return null;
-
-  return (
-    <TouchableOpacity
-      onPress={handlePress}
-      disabled={disabled || isTranscribing}
-      activeOpacity={0.7}
-      style={[
-        s.voiceBtn,
-        {
-          backgroundColor: isRecording ? colors.error + "20" : colors.surface,
-          borderColor: isRecording ? colors.error : colors.border,
-        },
-      ]}
-    >
-      {isTranscribing ? (
-        <ActivityIndicator size="small" color={colors.primary} />
-      ) : (
-        <Text style={[s.voiceIcon, { color: isRecording ? colors.error : colors.muted }]}>
-          {isRecording ? "⏹" : "🎤"}
-        </Text>
-      )}
-    </TouchableOpacity>
   );
 }
 
@@ -225,6 +148,7 @@ function QuizBubble({
 
   const handleSelect = (idx: number) => {
     if (answered) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelected(idx);
     onAnswer(idx === quiz.correctIndex);
   };
@@ -245,15 +169,8 @@ function QuizBubble({
         let optTextColor = colors.foreground;
 
         if (answered) {
-          if (isCorrect) {
-            optBg = colors.success + "20";
-            optBorder = colors.success;
-            optTextColor = colors.success;
-          } else if (isSelected && !isCorrect) {
-            optBg = colors.error + "20";
-            optBorder = colors.error;
-            optTextColor = colors.error;
-          }
+          if (isCorrect) { optBg = colors.success + "20"; optBorder = colors.success; optTextColor = colors.success; }
+          else if (isSelected && !isCorrect) { optBg = colors.error + "20"; optBorder = colors.error; optTextColor = colors.error; }
         }
 
         return (
@@ -278,82 +195,89 @@ function QuizBubble({
   );
 }
 
-function ContentCardBubble({ msg }: { msg: ChatMessage }) {
+// ─── Video Suggestion (one at a time, skippable) ─────────────────────────────
+
+function VideoSuggestion({
+  msg,
+  onWatch,
+  onSkip,
+}: {
+  msg: ChatMessage;
+  onWatch: (url: string) => void;
+  onSkip: () => void;
+}) {
   const colors = useColors();
   const cards = msg.contentCards || [];
-  if (cards.length === 0) return null;
+  const [dismissed, setDismissed] = useState(false);
+
+  if (cards.length === 0 || dismissed) return null;
+
+  // Show only the most relevant video (first one)
+  const card = cards[0];
+  const duration = card.durationSeconds
+    ? `${Math.floor(card.durationSeconds / 60)}:${String(card.durationSeconds % 60).padStart(2, "0")}`
+    : null;
 
   return (
     <Animated.View entering={FadeInDown.duration(300)}>
-      <Text style={[s.contentLabel, { color: colors.muted }]}>Videos to help you learn</Text>
-      {cards.slice(0, 3).map((card, i) => (
+      <View style={[s.videoSuggestion, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[s.videoLabel, { color: colors.primary }]}>Recommended Video</Text>
+
         <TouchableOpacity
-          key={card.externalId || i}
-          onPress={() => { if (card.url) Linking.openURL(card.url); }}
+          onPress={() => {
+            if (card.url) onWatch(card.url);
+          }}
           activeOpacity={0.7}
-          style={[s.contentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={s.videoCard}
         >
           {card.thumbnailUrl ? (
-            <Image source={{ uri: card.thumbnailUrl }} style={s.contentThumb} contentFit="cover" />
+            <View style={s.videoThumbWrap}>
+              <Image source={{ uri: card.thumbnailUrl }} style={s.videoThumb} contentFit="cover" />
+              {duration && (
+                <View style={s.videoDuration}>
+                  <Text style={s.videoDurationText}>{duration}</Text>
+                </View>
+              )}
+            </View>
           ) : null}
-          <View style={s.contentInfo}>
-            <Text numberOfLines={2} style={[s.contentTitle, { color: colors.foreground }]}>
+          <View style={s.videoInfo}>
+            <Text numberOfLines={2} style={[s.videoTitle, { color: colors.foreground }]}>
               {card.title}
             </Text>
-            <Text numberOfLines={1} style={[s.contentChannel, { color: colors.muted }]}>
+            <Text numberOfLines={1} style={[s.videoChannel, { color: colors.muted }]}>
               {card.channelOrAuthor || card.source}
             </Text>
           </View>
         </TouchableOpacity>
-      ))}
-    </Animated.View>
-  );
-}
 
-function LadderBubble({ msg }: { msg: ChatMessage }) {
-  const colors = useColors();
-  const steps = msg.miniLadder || [];
-  if (steps.length === 0) return null;
-
-  return (
-    <Animated.View
-      entering={FadeInDown.duration(300)}
-      style={[s.ladderCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-    >
-      <Text style={[s.ladderTitle, { color: colors.foreground }]}>Your Learning Path</Text>
-      {steps.map((step, i) => (
-        <View key={i} style={s.ladderStep}>
-          <View style={[s.ladderDot, { backgroundColor: colors.primary }]}>
-            <Text style={s.ladderDotText}>{step.order}</Text>
-          </View>
-          <View style={s.ladderStepContent}>
-            <Text style={[s.ladderStepTitle, { color: colors.foreground }]}>{step.title}</Text>
-            <Text style={[s.ladderStepDesc, { color: colors.muted }]}>{step.description}</Text>
-            {step.realWorldConnection ? (
-              <Text style={[s.ladderRealWorld, { color: colors.primary }]}>
-                Real world: {step.realWorldConnection}
-              </Text>
-            ) : null}
-          </View>
+        <View style={s.videoActions}>
+          <TouchableOpacity
+            onPress={() => {
+              if (card.url) onWatch(card.url);
+            }}
+            activeOpacity={0.7}
+            style={[s.watchBtn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={s.watchBtnText}>Watch</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setDismissed(true);
+              onSkip();
+            }}
+            activeOpacity={0.7}
+            style={[s.skipBtn, { borderColor: colors.border }]}
+          >
+            <Text style={[s.skipBtnText, { color: colors.muted }]}>Skip</Text>
+          </TouchableOpacity>
         </View>
-      ))}
+      </View>
     </Animated.View>
   );
 }
 
-function EncouragementBubble({ msg }: { msg: ChatMessage }) {
-  const colors = useColors();
-  return (
-    <Animated.View
-      entering={FadeIn.duration(250)}
-      style={[s.encourageCard, { backgroundColor: colors.primary + "15" }]}
-    >
-      <Text style={[s.encourageText, { color: colors.primary }]}>{msg.text}</Text>
-    </Animated.View>
-  );
-}
-
-// ─── Nudge Bubble — Subtle Signal-Gathering ──────────────────────────────────
+// ─── Nudge Bubble ─────────────────────────────────────────────────────────────
 
 function NudgeBubble({
   msg,
@@ -426,6 +350,20 @@ function NudgeBubble({
   );
 }
 
+// ─── Encouragement Bubble ─────────────────────────────────────────────────────
+
+function EncouragementBubble({ msg }: { msg: ChatMessage }) {
+  const colors = useColors();
+  return (
+    <Animated.View
+      entering={FadeIn.duration(250)}
+      style={[s.encourageCard, { backgroundColor: colors.primary + "15" }]}
+    >
+      <Text style={[s.encourageText, { color: colors.primary }]}>{msg.text}</Text>
+    </Animated.View>
+  );
+}
+
 // ─── Recent Conversations ─────────────────────────────────────────────────────
 
 function RecentConversations({
@@ -465,6 +403,7 @@ function RecentConversations({
 export default function AskScreen() {
   const colors = useColors();
   const { state, dispatch, addXp } = useLearning();
+  const params = useLocalSearchParams<{ q?: string }>();
   const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -475,6 +414,7 @@ export default function AskScreen() {
   const [suggestionReasons, setSuggestionReasons] = useState<string[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const hasAutoAsked = useRef(false);
 
   const askMutation = trpc.chat.ask.useMutation();
   const baselineMutation = trpc.chat.baseline.useMutation();
@@ -489,9 +429,7 @@ export default function AskScreen() {
   }, []);
 
   const loadSmartSuggestions = useCallback(async () => {
-    // Only fetch smart suggestions if the user has some history
     if (state.learnerModel.questionsAsked === 0 && state.profile.interests.length === 0) return;
-
     setSuggestionsLoading(true);
     try {
       const result = await suggestionsMutation.mutateAsync({
@@ -505,8 +443,8 @@ export default function AskScreen() {
         setSmartSuggestions(result.suggestions);
         setSuggestionReasons(result.reasons);
       }
-    } catch (e) {
-      console.log("Suggestions fallback to defaults");
+    } catch {
+      // Fallback to defaults
     } finally {
       setSuggestionsLoading(false);
     }
@@ -524,6 +462,15 @@ export default function AskScreen() {
       }
     }
   }, []);
+
+  // ─── Auto-ask from Home search bar (q param) ─────────────────────────────
+
+  useEffect(() => {
+    if (params.q && !hasAutoAsked.current) {
+      hasAutoAsked.current = true;
+      handleAsk(params.q);
+    }
+  }, [params.q]);
 
   const scrollToEnd = useCallback(() => {
     setTimeout(() => {
@@ -560,12 +507,12 @@ export default function AskScreen() {
     };
   }, [state.learnerModel]);
 
-  // ─── Build Past Conversation Summaries for Memory ───────────────────────────
+  // ─── Build Past Conversation Summaries ───────────────────────────────────
 
   const getPastConversationSummaries = useCallback(() => {
     return state.conversations
-      .filter((c) => c.id !== activeConvId) // exclude current
-      .slice(-5) // last 5 conversations
+      .filter((c) => c.id !== activeConvId)
+      .slice(-5)
       .map((c) => ({
         question: c.originalQuestion,
         concepts: c.mappedConcepts,
@@ -589,42 +536,26 @@ export default function AskScreen() {
             updates.preferredDepth = "overview";
           }
           break;
-
-        case "confidence_gauge":
+        case "confidence_gauge": {
+          const conv = state.conversations.find((c) => c.id === activeConvId);
           if (response.toLowerCase().includes("yes") || response.toLowerCase().includes("click") || response.toLowerCase().includes("makes sense")) {
-            const conv = state.conversations.find((c) => c.id === activeConvId);
             if (conv?.mappedConcepts.length) {
               updates.strengthAreas = [...state.learnerModel.strengthAreas, conv.mappedConcepts[0]];
             }
           } else {
-            const conv2 = state.conversations.find((c) => c.id === activeConvId);
-            if (conv2?.mappedConcepts.length) {
-              updates.confusionPoints = [...state.learnerModel.confusionPoints, conv2.mappedConcepts[0]];
+            if (conv?.mappedConcepts.length) {
+              updates.confusionPoints = [...state.learnerModel.confusionPoints, conv.mappedConcepts[0]];
             }
           }
           break;
-
-        case "familiarity_check":
-          // "Have you heard of X?" — reveals prior knowledge
-          break;
-
+        }
         case "connection_check":
-          if (response && response.length > 5) {
-            updates.realWorldConnections = [...state.learnerModel.realWorldConnections, response];
-          }
-          break;
-
-        case "interest_probe":
-          // What excites them — store for future curation
-          break;
-
         case "application_prompt":
           if (response && response.length > 5) {
             updates.realWorldConnections = [...state.learnerModel.realWorldConnections, response];
           }
           break;
-
-        case "analogy_test":
+        case "analogy_test": {
           if (response && response.length > 20) {
             const conv3 = state.conversations.find((c) => c.id === activeConvId);
             if (conv3?.mappedConcepts.length) {
@@ -632,8 +563,8 @@ export default function AskScreen() {
             }
           }
           break;
-
-        case "direction_check":
+        }
+        default:
           break;
       }
 
@@ -649,7 +580,6 @@ export default function AskScreen() {
         },
       });
 
-      // Send the nudge response as a follow-up
       if (activeConvId && response) {
         handleFollowUp(response);
       }
@@ -657,7 +587,7 @@ export default function AskScreen() {
     [state.conversations, state.learnerModel, activeConvId, dispatch]
   );
 
-  // ─── Handle New Question ──────────────────────────────────────────────────
+  // ─── Handle New Question (focused: one concept at a time) ──────────────────
 
   const handleAsk = useCallback(
     async (question: string) => {
@@ -706,7 +636,7 @@ export default function AskScreen() {
       scrollToEnd();
 
       try {
-        // Step 1: AI understands the question, with learner model + past conversation memory
+        // Step 1: AI explains ONE concept clearly (no data dump)
         const aiResponse = await askMutation.mutateAsync({
           question: question.trim(),
           skillLevel: state.profile.skillLevel,
@@ -718,6 +648,7 @@ export default function AskScreen() {
 
         setMessageCount(1);
 
+        // AI response — one focused explanation
         const aiMsg: ChatMessage = {
           id: genId(),
           role: "assistant",
@@ -734,7 +665,7 @@ export default function AskScreen() {
         });
         scrollToEnd();
 
-        // Step 1b: If AI returned a nudge, show it
+        // Show nudge if returned (one check-in question)
         if (aiResponse.nudge) {
           const nudgeMsg: ChatMessage = {
             id: genId(),
@@ -748,51 +679,19 @@ export default function AskScreen() {
           scrollToEnd();
         }
 
-        // Step 2: Generate baseline quiz (fun, not test-like)
-        if (aiResponse.mappedConcepts.length > 0) {
-          const baselineResult = await baselineMutation.mutateAsync({
-            question: question.trim(),
-            mappedConcepts: aiResponse.mappedConcepts,
-          });
-
-          if (baselineResult.questions.length > 0) {
-            const introMsg: ChatMessage = {
-              id: genId(),
-              role: "assistant",
-              bubbleType: "text",
-              text: "Quick curiosity check — just for fun, no pressure at all:",
-              timestamp: Date.now(),
-            };
-            setMessages((prev) => [...prev, introMsg]);
-            dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: introMsg } });
-
-            for (const q of baselineResult.questions) {
-              const quizMsg: ChatMessage = {
-                id: genId(),
-                role: "assistant",
-                bubbleType: "baseline_quiz",
-                quiz: q,
-                timestamp: Date.now(),
-              };
-              setMessages((prev) => [...prev, quizMsg]);
-              dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: quizMsg } });
-            }
-            scrollToEnd();
-          }
-        }
-
-        // Step 3: Fetch YouTube content
+        // Step 2: Show ONE relevant video (skippable) — not a list dump
         if (aiResponse.suggestedSearchQueries.length > 0) {
           const contentResult = await fetchContentMutation.mutateAsync({
             searchQuery: aiResponse.suggestedSearchQueries[0],
           });
 
           if (contentResult.items.length > 0) {
+            // Only show the single most relevant video
             const contentMsg: ChatMessage = {
               id: genId(),
               role: "assistant",
               bubbleType: "content_card",
-              contentCards: contentResult.items as ContentItemData[],
+              contentCards: [contentResult.items[0] as ContentItemData],
               timestamp: Date.now(),
             };
             setMessages((prev) => [...prev, contentMsg]);
@@ -801,16 +700,18 @@ export default function AskScreen() {
           }
         }
 
-        // Step 4: Follow-up prompt
-        const followUpMsg: ChatMessage = {
-          id: genId(),
-          role: "assistant",
-          bubbleType: "encouragement",
-          text: aiResponse.followUpQuestion,
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, followUpMsg]);
-        dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: followUpMsg } });
+        // Step 3: Follow-up prompt to keep the conversation going
+        if (aiResponse.followUpQuestion) {
+          const followUpMsg: ChatMessage = {
+            id: genId(),
+            role: "assistant",
+            bubbleType: "encouragement",
+            text: aiResponse.followUpQuestion,
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, followUpMsg]);
+          dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: followUpMsg } });
+        }
 
         addXp(15);
         dispatch({ type: "UPDATE_STREAK" });
@@ -831,7 +732,7 @@ export default function AskScreen() {
     [isThinking, state.profile.skillLevel, state.learnerModel, dispatch, askMutation, baselineMutation, fetchContentMutation, addXp, scrollToEnd, getLearnerSnapshot, getPastConversationSummaries]
   );
 
-  // ─── Handle Follow-up ─────────────────────────────────────────────────────
+  // ─── Handle Follow-up (focused conversation) ─────────────────────────────
 
   const handleFollowUp = useCallback(
     async (text: string) => {
@@ -841,7 +742,7 @@ export default function AskScreen() {
       const newCount = messageCount + 1;
       setMessageCount(newCount);
 
-      // Check for "I don't understand" signals
+      // Detect confusion signals
       const lowerText = text.toLowerCase();
       const isConfusion = lowerText.includes("don't understand") || lowerText.includes("confused") ||
         lowerText.includes("don't get") || lowerText.includes("explain simpler") ||
@@ -888,6 +789,7 @@ export default function AskScreen() {
           },
         });
 
+        // One focused response
         const aiMsg: ChatMessage = {
           id: genId(),
           role: "assistant",
@@ -913,7 +815,7 @@ export default function AskScreen() {
           scrollToEnd();
         }
 
-        // Fetch new content if suggested
+        // Show ONE relevant video if suggested (skippable)
         if (result.suggestedSearchQueries.length > 0) {
           const contentResult = await fetchContentMutation.mutateAsync({
             searchQuery: result.suggestedSearchQueries[0],
@@ -924,7 +826,7 @@ export default function AskScreen() {
               id: genId(),
               role: "assistant",
               bubbleType: "content_card",
-              contentCards: contentResult.items as ContentItemData[],
+              contentCards: [contentResult.items[0] as ContentItemData],
               timestamp: Date.now(),
             };
             setMessages((prev) => [...prev, contentMsg]);
@@ -948,23 +850,6 @@ export default function AskScreen() {
       }
     },
     [isThinking, activeConvId, messages, messageCount, state.conversations, state.profile.skillLevel, state.learnerModel, dispatch, followUpMutation, fetchContentMutation, addXp, scrollToEnd]
-  );
-
-  // ─── Handle Voice Transcription ──────────────────────────────────────────
-
-  const handleVoiceTranscription = useCallback(
-    (text: string) => {
-      if (text.trim()) {
-        setInputText(text);
-        // Auto-submit after transcription for seamless experience
-        if (showWelcome || !activeConvId) {
-          handleAsk(text);
-        } else {
-          handleFollowUp(text);
-        }
-      }
-    },
-    [showWelcome, activeConvId, handleAsk, handleFollowUp]
   );
 
   // ─── Handle Submit ────────────────────────────────────────────────────────
@@ -1001,6 +886,18 @@ export default function AskScreen() {
     [addXp, dispatch, state.conversations, state.learnerModel, activeConvId]
   );
 
+  // ─── Handle Video Actions ─────────────────────────────────────────────────
+
+  const handleVideoWatch = useCallback((url: string) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL(url);
+    addXp(5);
+  }, [addXp]);
+
+  const handleVideoSkip = useCallback(() => {
+    // User skipped — that's fine, they can continue the conversation
+  }, []);
+
   // ─── Load / New Conversation ──────────────────────────────────────────────
 
   const handleSelectConversation = useCallback(
@@ -1020,7 +917,6 @@ export default function AskScreen() {
     setShowWelcome(true);
     setMessageCount(0);
     dispatch({ type: "SET_ACTIVE_CONVERSATION", payload: null });
-    // Refresh suggestions for the new conversation
     loadSmartSuggestions();
   }, [dispatch, loadSmartSuggestions]);
 
@@ -1034,9 +930,7 @@ export default function AskScreen() {
         case "baseline_quiz":
           return <QuizBubble msg={item} onAnswer={handleQuizAnswer} />;
         case "content_card":
-          return <ContentCardBubble msg={item} />;
-        case "mini_ladder":
-          return <LadderBubble msg={item} />;
+          return <VideoSuggestion msg={item} onWatch={handleVideoWatch} onSkip={handleVideoSkip} />;
         case "thinking":
           return <ThinkingBubble />;
         case "encouragement":
@@ -1047,7 +941,7 @@ export default function AskScreen() {
           return <TextBubble msg={item} />;
       }
     },
-    [handleQuizAnswer, handleNudgeResponse]
+    [handleQuizAnswer, handleNudgeResponse, handleVideoWatch, handleVideoSkip]
   );
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -1089,7 +983,7 @@ export default function AskScreen() {
                 What do you want to learn?
               </Text>
               <Text style={[s.welcomeDesc, { color: colors.muted }]}>
-                Ask any real-world question — I'll explain it at your level, check in to make sure it clicks, and find the best content to help you understand.
+                Ask any question — I'll explain one concept at a time, check that it clicks, and find the best video to help you understand.
               </Text>
             </Animated.View>
 
@@ -1114,9 +1008,8 @@ export default function AskScreen() {
           />
         )}
 
-        {/* Input Bar with Voice Button */}
+        {/* Input Bar */}
         <View style={[s.inputBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <VoiceButton onTranscription={handleVoiceTranscription} disabled={isThinking} />
           <TextInput
             value={inputText}
             onChangeText={setInputText}
@@ -1202,7 +1095,7 @@ const s = StyleSheet.create({
   recentWrap: { marginTop: 8 },
   recentTitle: { fontSize: 13, fontWeight: "600", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
   recentItem: { paddingVertical: 12, borderBottomWidth: 0.5 },
-  recentQuestion: { fontSize: 15, fontWeight: "500" },
+  recentQuestion: { fontSize: 15, fontWeight: "600" },
   recentMeta: { fontSize: 12, marginTop: 2 },
 
   // Messages
@@ -1228,30 +1121,43 @@ const s = StyleSheet.create({
   funFactLabel: { fontSize: 12, fontWeight: "700", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
   funFactText: { fontSize: 13, lineHeight: 19 },
 
-  // Content Cards
-  contentLabel: { fontSize: 12, fontWeight: "600", marginBottom: 8, marginTop: 4, textTransform: "uppercase", letterSpacing: 0.5 },
-  contentCard: { flexDirection: "row", borderRadius: 12, borderWidth: 1, overflow: "hidden", marginBottom: 8 },
-  contentThumb: { width: 100, height: 70 },
-  contentInfo: { flex: 1, padding: 10, justifyContent: "center" },
-  contentTitle: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
-  contentChannel: { fontSize: 11, marginTop: 4 },
-
-  // Ladder
-  ladderCard: { alignSelf: "flex-start", maxWidth: "90%", padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 8 },
-  ladderTitle: { fontSize: 16, fontWeight: "700", marginBottom: 12 },
-  ladderStep: { flexDirection: "row", marginBottom: 12 },
-  ladderDot: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", marginRight: 12, marginTop: 2 },
-  ladderDotText: { color: "#FFF", fontSize: 13, fontWeight: "700" },
-  ladderStepContent: { flex: 1 },
-  ladderStepTitle: { fontSize: 14, fontWeight: "600", marginBottom: 2 },
-  ladderStepDesc: { fontSize: 12, lineHeight: 17 },
-  ladderRealWorld: { fontSize: 11, marginTop: 4, fontStyle: "italic" },
+  // Video Suggestion (one at a time, skippable)
+  videoSuggestion: {
+    alignSelf: "flex-start",
+    maxWidth: "92%",
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 8,
+  },
+  videoLabel: { fontSize: 12, fontWeight: "700", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 },
+  videoCard: { borderRadius: 12, overflow: "hidden" },
+  videoThumbWrap: { position: "relative" },
+  videoThumb: { width: "100%", height: 140, borderRadius: 10 },
+  videoDuration: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  videoDurationText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
+  videoInfo: { paddingTop: 10 },
+  videoTitle: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  videoChannel: { fontSize: 12, marginTop: 4 },
+  videoActions: { flexDirection: "row", gap: 10, marginTop: 12 },
+  watchBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
+  watchBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
+  skipBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", borderWidth: 1 },
+  skipBtnText: { fontSize: 14, fontWeight: "600" },
 
   // Encouragement
   encourageCard: { alignSelf: "flex-start", maxWidth: "85%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, marginBottom: 8 },
   encourageText: { fontSize: 14, fontWeight: "500", fontStyle: "italic", lineHeight: 20 },
 
-  // Nudge — Subtle check-in cards
+  // Nudge
   nudgeCard: {
     alignSelf: "flex-start",
     maxWidth: "90%",
@@ -1272,17 +1178,6 @@ const s = StyleSheet.create({
   },
   nudgeOptionText: { fontSize: 14, fontWeight: "500" },
   nudgeAck: { fontSize: 12, marginTop: 10, fontStyle: "italic", textAlign: "center" },
-
-  // Voice Button
-  voiceBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  voiceIcon: { fontSize: 18 },
 
   // Input Bar
   inputBar: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 0.5, gap: 8 },

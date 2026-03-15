@@ -1,768 +1,600 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   FlatList,
   Pressable,
+  TextInput,
   StyleSheet,
-  ActivityIndicator,
   Platform,
-  Image,
+  ActivityIndicator,
+  Linking,
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
-import { useLearning } from "@/lib/learning-store";
 import { useColors } from "@/hooks/use-colors";
+import { useLearning } from "@/lib/learning-store";
 import { trpc } from "@/lib/trpc";
-import { XP_VALUES, getLevel } from "@/shared/types";
-import type { FeedCard, ContentItemData, QuizData } from "@/shared/types";
+import type { FeedCard, ContentItemData, QuizData, InsightData, ReviewData } from "@/shared/types";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
 
-export default function FeedScreen() {
-  const { state, dispatch, addXp, updateStreak } = useLearning();
-  const colors = useColors();
-  const router = useRouter();
-  const [feedCards, setFeedCards] = useState<FeedCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-  const quizzesGenerated = useRef(false);
+// ─── Topic pill data (matches onboarding + discover) ──────────────────────────
 
-  const interests = state.profile.interests;
-  const skillLevel = state.profile.skillLevel;
+const TOPIC_CATEGORIES = [
+  { key: "all", label: "For You", emoji: "✨" },
+  { key: "Science", label: "Science", emoji: "🔬" },
+  { key: "Programming", label: "Code", emoji: "💻" },
+  { key: "AI & Data", label: "AI", emoji: "🤖" },
+  { key: "Humanities", label: "Humanities", emoji: "📜" },
+  { key: "Creative", label: "Creative", emoji: "🎨" },
+  { key: "Business", label: "Business", emoji: "💼" },
+  { key: "Health", label: "Health", emoji: "💪" },
+];
 
-  // Redirect to onboarding if not done
-  useEffect(() => {
-    if (state.loaded && !state.profile.onboardingDone) {
-      router.replace("/onboarding");
-    }
-  }, [state.loaded, state.profile.onboardingDone, router]);
+// ─── Feed Card Components ─────────────────────────────────────────────────────
 
-  // Update streak on mount
-  useEffect(() => {
-    if (state.loaded && state.profile.onboardingDone) {
-      updateStreak();
-    }
-  }, [state.loaded, state.profile.onboardingDone, updateStreak]);
-
-  // Get active learning paths (topics with ladders)
-  const activePaths = useMemo(() => {
-    return Object.entries(state.ladders)
-      .map(([slug, ladder]) => {
-        const progress = state.topicProgress[slug];
-        if (!progress || !ladder) return null;
-        const totalSteps = ladder.steps.length;
-        const completedCount = progress.completedSteps.length;
-        if (completedCount >= totalSteps) return null; // fully completed
-        const currentStep = ladder.steps[progress.currentStepIndex];
-        return {
-          slug,
-          name: ladder.topicName,
-          currentStepIndex: progress.currentStepIndex,
-          currentStepTitle: currentStep?.title || "Next step",
-          completedCount,
-          totalSteps,
-          progress: totalSteps > 0 ? completedCount / totalSteps : 0,
-          lastActivity: progress.lastActivityAt,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => new Date(b!.lastActivity).getTime() - new Date(a!.lastActivity).getTime())
-      .slice(0, 5) as {
-        slug: string;
-        name: string;
-        currentStepIndex: number;
-        currentStepTitle: string;
-        completedCount: number;
-        totalSteps: number;
-        progress: number;
-        lastActivity: string;
-      }[];
-  }, [state.ladders, state.topicProgress]);
-
-  const feedQuery = trpc.feed.get.useQuery(
-    { topicSlugs: interests.length > 0 ? interests : ["python"], cursor: 0, limit: 20, skillLevel },
-    { enabled: state.loaded && state.profile.onboardingDone && interests.length > 0 }
-  );
-
-  const refreshMutation = trpc.feed.refresh.useMutation();
-  const quizBatchMutation = trpc.quiz.generateBatch.useMutation();
-
-  // Build feed cards from content, then generate real quizzes via LLM
-  useEffect(() => {
-    if (!feedQuery.data?.items) return;
-    const items = feedQuery.data.items;
-    if (items.length === 0) {
-      setFeedCards([]);
-      setLoading(false);
-      return;
-    }
-
-    const cards: FeedCard[] = [];
-    const quizSourceItems: { idx: number; title: string; desc: string; slug: string }[] = [];
-    let quizInsertCounter = 0;
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      cards.push({
-        id: `content-${item.id}`,
-        cardType: item.type === "video" ? "video" : "article",
-        content: {
-          id: item.id,
-          externalId: item.externalId,
-          type: item.type as "video" | "article",
-          title: item.title,
-          description: item.description || "",
-          url: item.url || "",
-          thumbnailUrl: item.thumbnailUrl || "",
-          source: item.source,
-          channelOrAuthor: item.channelOrAuthor || "",
-          durationSeconds: item.durationSeconds || 0,
-          topicSlug: item.topicSlug || "",
-          publishedAt: item.publishedAt || "",
-        },
-      });
-
-      quizInsertCounter++;
-      if (quizInsertCounter >= 3 && i < items.length - 1) {
-        const placeholderIdx = cards.length;
-        cards.push({
-          id: `quiz-placeholder-${i}`,
-          cardType: "quiz",
-          quiz: {
-            id: `quiz-loading-${i}`,
-            question: "Generating a quiz based on what you just saw...",
-            options: ["Loading...", "Loading...", "Loading...", "Loading..."],
-            correctIndex: 0,
-            explanation: "",
-            relatedContentTitle: item.title,
-            topicSlug: item.topicSlug || "",
-            difficulty: "medium",
-          },
-        });
-        quizSourceItems.push({
-          idx: placeholderIdx,
-          title: item.title,
-          desc: item.description || item.title,
-          slug: item.topicSlug || "",
-        });
-        quizInsertCounter = 0;
-      }
-    }
-
-    setFeedCards(cards);
-    setLoading(false);
-
-    // Generate real quizzes via LLM in background
-    if (quizSourceItems.length > 0 && !quizzesGenerated.current) {
-      quizzesGenerated.current = true;
-      const batchItems = quizSourceItems.slice(0, 5).map((q) => ({
-        contentTitle: q.title,
-        contentDescription: q.desc,
-        topicSlug: q.slug,
-      }));
-
-      quizBatchMutation
-        .mutateAsync({ items: batchItems, skillLevel })
-        .then((result) => {
-          if (result.quizzes && result.quizzes.length > 0) {
-            setFeedCards((prev) => {
-              const updated = [...prev];
-              result.quizzes.forEach((quiz: any, i: number) => {
-                if (i < quizSourceItems.length) {
-                  const targetIdx = quizSourceItems[i].idx;
-                  if (targetIdx < updated.length && updated[targetIdx].cardType === "quiz") {
-                    updated[targetIdx] = {
-                      ...updated[targetIdx],
-                      quiz: {
-                        id: quiz.id,
-                        question: quiz.question,
-                        options: quiz.options,
-                        correctIndex: quiz.correctIndex,
-                        explanation: quiz.explanation,
-                        relatedContentTitle: quiz.relatedContentTitle,
-                        topicSlug: quiz.topicSlug,
-                        difficulty: quiz.difficulty || "medium",
-                      },
-                    };
-                  }
-                }
-              });
-              return updated;
-            });
-          }
-        })
-        .catch(() => {});
-    }
-  }, [feedQuery.data, skillLevel]);
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    quizzesGenerated.current = false;
-    try {
-      await refreshMutation.mutateAsync({ topicSlugs: interests.slice(0, 5), skillLevel });
-      await feedQuery.refetch();
-    } catch (e) {}
-    setRefreshing(false);
-  }, [interests, skillLevel, refreshMutation, feedQuery]);
-
-  // Auto-refresh on first load if no content
-  useEffect(() => {
-    if (state.loaded && state.profile.onboardingDone && feedQuery.data?.items?.length === 0 && !refreshing) {
-      handleRefresh();
-    }
-  }, [state.loaded, state.profile.onboardingDone, feedQuery.data, refreshing, handleRefresh]);
-
-  const handleContentPress = useCallback(
-    (content: ContentItemData) => {
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      router.push(`/content/${content.id}` as any);
-    },
-    [router]
-  );
-
-  const handleReaction = useCallback(
-    (cardId: string, reaction: string, content?: ContentItemData) => {
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      if (reaction === "mind_blown") {
-        addXp(XP_VALUES.videoComplete);
-        dispatch({ type: "INCREMENT_MIND_BLOWN" });
-      } else if (reaction === "knew_this") {
-        addXp(5);
-      } else {
-        addXp(3);
-      }
-      dispatch({
-        type: "RECORD_ENGAGEMENT",
-        payload: {
-          cardId,
-          cardType: "video",
-          timeSpentMs: 5000,
-          reaction: reaction as any,
-          timestamp: Date.now(),
-          hourOfDay: new Date().getHours(),
-        },
-      });
-      if (reaction === "mind_blown" && content) {
-        dispatch({
-          type: "ADD_SPACED_REP",
-          payload: {
-            contentId: content.id,
-            title: content.title,
-            thumbnailUrl: content.thumbnailUrl,
-            topicSlug: content.topicSlug,
-            easeFactor: 2.5,
-            interval: 1,
-            repetition: 0,
-            lastReviewDate: new Date().toISOString().split("T")[0],
-            nextReviewDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-            memoryStrength: 20,
-          },
-        });
-      }
-    },
-    [addXp, dispatch]
-  );
-
-  const handleQuizAnswer = useCallback(
-    (quizId: string, answerIndex: number, correctIndex: number, topicSlug?: string) => {
-      const correct = answerIndex === correctIndex;
-      if (Platform.OS !== "web") {
-        if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      addXp(correct ? XP_VALUES.quizCorrect : XP_VALUES.quizWrong);
-      dispatch({ type: "RECORD_QUIZ", payload: { correct, topicSlug } });
-    },
-    [addXp, dispatch]
-  );
-
-  const handleSave = useCallback(
-    (contentId: number) => {
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      dispatch({ type: "TOGGLE_SAVE", payload: contentId });
-    },
-    [dispatch]
-  );
-
-  const handleContinuePath = useCallback(
-    (slug: string) => {
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const ladder = state.ladders[slug];
-      router.push({
-        pathname: "/topic/[slug]",
-        params: { slug, name: ladder?.topicName || slug, emoji: "" },
-      } as any);
-    },
-    [router, state.ladders]
-  );
-
-  const levelInfo = getLevel(state.profile.totalXp);
-
-  const renderCard = useCallback(
-    ({ item }: { item: FeedCard }) => {
-      if (item.cardType === "quiz" && item.quiz) {
-        return (
-          <QuizCard
-            quiz={item.quiz}
-            colors={colors}
-            onAnswer={(idx) => handleQuizAnswer(item.id, idx, item.quiz!.correctIndex, item.quiz!.topicSlug)}
-          />
-        );
-      }
-      if (item.content) {
-        const isSaved = state.savedContentIds.includes(item.content.id);
-        return (
-          <ContentCard
-            content={item.content}
-            colors={colors}
-            isSaved={isSaved}
-            onPress={() => handleContentPress(item.content!)}
-            onReaction={(r) => handleReaction(item.id, r, item.content)}
-            onSave={() => handleSave(item.content!.id)}
-          />
-        );
-      }
-      return null;
-    },
-    [colors, state.savedContentIds, handleContentPress, handleReaction, handleQuizAnswer, handleSave]
-  );
-
-  if (!state.loaded) {
-    return (
-      <ScreenContainer className="flex-1">
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </ScreenContainer>
-    );
-  }
-
-  // Header component for FlatList
-  const ListHeader = () => (
-    <View>
-      {/* Continue Learning Section */}
-      {activePaths.length > 0 && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.continueSection}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Continue Learning</Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>Pick up where you left off</Text>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pathsScroll}
-          >
-            {activePaths.map((path) => (
-              <Pressable
-                key={path.slug}
-                onPress={() => handleContinuePath(path.slug)}
-                style={({ pressed }) => [
-                  styles.pathCard,
-                  {
-                    backgroundColor: colors.primary + "08",
-                    borderColor: colors.primary + "30",
-                    opacity: pressed ? 0.9 : 1,
-                  },
-                ]}
-              >
-                <View style={styles.pathHeader}>
-                  <Text style={[styles.pathName, { color: colors.foreground }]} numberOfLines={1}>
-                    {path.name}
-                  </Text>
-                  <Text style={[styles.pathProgress, { color: colors.primary }]}>
-                    {path.completedCount}/{path.totalSteps}
-                  </Text>
-                </View>
-
-                {/* Progress bar */}
-                <View style={[styles.pathProgressBar, { backgroundColor: colors.border }]}>
-                  <View
-                    style={[
-                      styles.pathProgressFill,
-                      { backgroundColor: colors.primary, width: `${path.progress * 100}%` },
-                    ]}
-                  />
-                </View>
-
-                <Text style={[styles.pathStep, { color: colors.muted }]} numberOfLines={1}>
-                  Step {path.currentStepIndex + 1}: {path.currentStepTitle}
-                </Text>
-
-                <View style={[styles.pathContinueBtn, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.pathContinueBtnText}>Continue →</Text>
-                </View>
-              </Pressable>
-            ))}
-
-            {/* Discover new topics card */}
-            <Pressable
-              onPress={() => router.push("/(tabs)/discover" as any)}
-              style={({ pressed }) => [
-                styles.pathCard,
-                styles.discoverCard,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.9 : 1,
-                },
-              ]}
-            >
-              <Text style={{ fontSize: 32, textAlign: "center", marginBottom: 8 }}>+</Text>
-              <Text style={[styles.discoverText, { color: colors.foreground }]}>Start a new{"\n"}learning path</Text>
-            </Pressable>
-          </ScrollView>
-        </Animated.View>
-      )}
-
-      {/* Feed section header */}
-      <View style={styles.feedSectionHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Your Feed</Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
-          Curated content based on your interests and level
-        </Text>
-      </View>
-    </View>
-  );
-
-  return (
-    <ScreenContainer className="flex-1">
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Learn</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-            {activePaths.length > 0
-              ? `${activePaths.length} active path${activePaths.length > 1 ? "s" : ""}`
-              : skillLevel === "beginner"
-              ? "Building foundations"
-              : skillLevel === "intermediate"
-              ? "Growing stronger"
-              : "Going deep"}
-          </Text>
-        </View>
-        <View style={styles.headerRight}>
-          <View style={[styles.xpBadge, { backgroundColor: colors.primary + "20" }]}>
-            <Text style={[styles.xpText, { color: colors.primary }]}>
-              Lv.{levelInfo.level} {state.profile.totalXp} XP
-            </Text>
-          </View>
-          {state.profile.currentStreak > 0 && (
-            <View style={[styles.streakBadge, { backgroundColor: "#FF950020" }]}>
-              <Text style={styles.streakText}>{state.profile.currentStreak}d</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {loading || feedQuery.isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.muted }]}>
-            Curating your personalized feed...
-          </Text>
-        </View>
-      ) : feedCards.length === 0 && activePaths.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>🔍</Text>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Finding the best content for you</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            We're searching for {skillLevel}-level content on your topics
-          </Text>
-          <Pressable
-            onPress={handleRefresh}
-            style={({ pressed }) => [
-              styles.refreshBtn,
-              { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
-            ]}
-          >
-            <Text style={styles.refreshBtnText}>{refreshing ? "Fetching..." : "Refresh Feed"}</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={feedCards}
-          renderItem={renderCard}
-          keyExtractor={(item) => item.id}
-          ListHeaderComponent={ListHeader}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16, gap: 16 }}
-          onRefresh={handleRefresh}
-          refreshing={refreshing}
-        />
-      )}
-    </ScreenContainer>
-  );
-}
-
-// ─── Content Card Component ──────────────────────────────────────────────────
-
-function ContentCard({
-  content,
+function VideoCard({
+  card,
   colors,
-  isSaved,
   onPress,
-  onReaction,
-  onSave,
 }: {
-  content: ContentItemData;
-  colors: any;
-  isSaved: boolean;
-  onPress: () => void;
-  onReaction: (r: string) => void;
-  onSave: () => void;
+  card: FeedCard;
+  colors: ReturnType<typeof useColors>;
+  onPress: (card: FeedCard) => void;
 }) {
-  const isVideo = content.type === "video";
+  const content = card.content;
+  if (!content) return null;
+
   const duration = content.durationSeconds
     ? `${Math.floor(content.durationSeconds / 60)}:${String(content.durationSeconds % 60).padStart(2, "0")}`
     : null;
 
   return (
-    <Animated.View entering={FadeInDown.duration(300)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}>
-        {/* Thumbnail */}
-        <View style={styles.thumbnailContainer}>
-          {content.thumbnailUrl ? (
-            <Image source={{ uri: content.thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
-          ) : (
-            <View style={[styles.thumbnail, { backgroundColor: colors.primary + "30" }]}>
-              <Text style={{ fontSize: 40 }}>{isVideo ? "🎬" : "📖"}</Text>
-            </View>
-          )}
-          {isVideo && duration && (
-            <View style={styles.durationBadge}>
-              <Text style={styles.durationText}>{duration}</Text>
-            </View>
-          )}
-          {isVideo && (
-            <View style={styles.playOverlay}>
-              <Text style={{ fontSize: 36 }}>▶</Text>
-            </View>
-          )}
-          <View style={[styles.tapBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.tapBadgeText}>Tap to learn</Text>
-          </View>
-        </View>
-
-        {/* Content info */}
-        <View style={styles.cardContent}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={2}>
-            {content.title}
-          </Text>
-          <View style={styles.cardMeta}>
-            <Text style={[styles.cardSource, { color: colors.muted }]} numberOfLines={1}>
-              {content.channelOrAuthor || content.source}
-            </Text>
-            {content.topicSlug && (
-              <View style={[styles.topicPill, { backgroundColor: colors.primary + "15" }]}>
-                <Text style={[styles.topicPillText, { color: colors.primary }]}>
-                  {content.topicSlug.replace(/-/g, " ")}
+    <Animated.View entering={FadeInDown.duration(300)}>
+      <Pressable
+        onPress={() => onPress(card)}
+        style={({ pressed }) => [
+          styles.feedCard,
+          { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.95 : 1 },
+        ]}
+      >
+        {content.thumbnailUrl ? (
+          <View style={styles.thumbWrap}>
+            <Image source={{ uri: content.thumbnailUrl }} style={styles.thumb} contentFit="cover" />
+            {duration && (
+              <View style={styles.durationBadge}>
+                <Text style={styles.durationText}>{duration}</Text>
+              </View>
+            )}
+            {content.topicEmoji && (
+              <View style={[styles.topicBadge, { backgroundColor: colors.primary + "E0" }]}>
+                <Text style={styles.topicBadgeText}>
+                  {content.topicEmoji} {content.topicName || content.topicSlug}
                 </Text>
               </View>
             )}
           </View>
+        ) : null}
+        <View style={styles.cardBody}>
+          <Text numberOfLines={2} style={[styles.cardTitle, { color: colors.foreground }]}>
+            {content.title}
+          </Text>
+          <View style={styles.cardMeta}>
+            <Text numberOfLines={1} style={[styles.cardSource, { color: colors.muted }]}>
+              {content.channelOrAuthor || content.source}
+            </Text>
+          </View>
         </View>
       </Pressable>
-
-      {/* Reaction bar */}
-      <View style={[styles.reactionBar, { borderTopColor: colors.border }]}>
-        <Pressable onPress={() => onReaction("mind_blown")} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
-          <Text style={styles.reactionEmoji}>🤯</Text>
-          <Text style={[styles.reactionLabel, { color: colors.muted }]}>Mind blown</Text>
-        </Pressable>
-        <Pressable onPress={() => onReaction("knew_this")} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
-          <Text style={styles.reactionEmoji}>✅</Text>
-          <Text style={[styles.reactionLabel, { color: colors.muted }]}>Knew this</Text>
-        </Pressable>
-        <Pressable onPress={onSave} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
-          <Text style={styles.reactionEmoji}>{isSaved ? "💾" : "🔖"}</Text>
-          <Text style={[styles.reactionLabel, { color: isSaved ? colors.primary : colors.muted }]}>
-            {isSaved ? "Saved" : "Save"}
-          </Text>
-        </Pressable>
-        <Pressable onPress={() => onReaction("skip")} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
-          <Text style={styles.reactionEmoji}>⏭️</Text>
-          <Text style={[styles.reactionLabel, { color: colors.muted }]}>Skip</Text>
-        </Pressable>
-      </View>
     </Animated.View>
   );
 }
 
-// ─── Quiz Card Component (LearnLM-powered) ──────────────────────────────────
-
 function QuizCard({
-  quiz,
+  card,
   colors,
   onAnswer,
 }: {
-  quiz: QuizData;
-  colors: any;
-  onAnswer: (idx: number) => void;
+  card: FeedCard;
+  colors: ReturnType<typeof useColors>;
+  onAnswer: (correct: boolean, topicSlug: string) => void;
 }) {
+  const quiz = card.quiz;
   const [selected, setSelected] = useState<number | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [showThinkAbout, setShowThinkAbout] = useState(true);
-  const isLoading = quiz.question.includes("Generating");
+  if (!quiz) return null;
+  const answered = selected !== null;
 
   const handleSelect = (idx: number) => {
-    if (revealed || isLoading) return;
+    if (answered) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelected(idx);
-    setRevealed(true);
-    setShowThinkAbout(false);
-    onAnswer(idx);
+    onAnswer(idx === quiz.correctIndex, quiz.topicSlug);
   };
 
-  const isCorrect = selected === quiz.correctIndex;
-
   return (
-    <Animated.View entering={FadeIn.duration(300)} style={[styles.card, styles.quizCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "30" }]}>
-      <View style={styles.quizHeader}>
-        <Text style={{ fontSize: 20 }}>🧠</Text>
-        <Text style={[styles.quizLabel, { color: colors.primary }]}>Quick Check</Text>
-        {quiz.difficulty && (
-          <View style={[styles.difficultyBadge, {
-            backgroundColor: quiz.difficulty === "easy" ? colors.success + "20" : quiz.difficulty === "hard" ? colors.error + "20" : colors.warning + "20",
-          }]}>
-            <Text style={[styles.difficultyText, {
-              color: quiz.difficulty === "easy" ? colors.success : quiz.difficulty === "hard" ? colors.error : colors.warning,
-            }]}>
-              {quiz.difficulty}
-            </Text>
-          </View>
+    <Animated.View entering={FadeInDown.duration(300)}>
+      <View style={[styles.quizFeedCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.quizHeader}>
+          <Text style={[styles.quizLabel, { color: colors.primary }]}>Quick Check</Text>
+          {quiz.topicEmoji && <Text style={{ fontSize: 18 }}>{quiz.topicEmoji}</Text>}
+        </View>
+        <Text style={[styles.quizQuestion, { color: colors.foreground }]}>{quiz.question}</Text>
+
+        {quiz.options.map((opt, idx) => {
+          const isCorrect = idx === quiz.correctIndex;
+          const isSelected = idx === selected;
+          let bg = "transparent";
+          let border = colors.border;
+          let textColor = colors.foreground;
+
+          if (answered) {
+            if (isCorrect) { bg = colors.success + "20"; border = colors.success; textColor = colors.success; }
+            else if (isSelected) { bg = colors.error + "20"; border = colors.error; textColor = colors.error; }
+          }
+
+          return (
+            <Pressable
+              key={idx}
+              onPress={() => handleSelect(idx)}
+              style={({ pressed }) => [
+                styles.quizOption,
+                { backgroundColor: bg, borderColor: border, opacity: pressed && !answered ? 0.8 : 1 },
+              ]}
+            >
+              <Text style={[styles.quizOptionText, { color: textColor }]}>{opt}</Text>
+            </Pressable>
+          );
+        })}
+
+        {answered && (
+          <Animated.View entering={FadeIn.duration(250)} style={[styles.explanationBox, { backgroundColor: colors.primary + "08" }]}>
+            <Text style={[styles.explanationText, { color: colors.muted }]}>{quiz.explanation}</Text>
+          </Animated.View>
         )}
       </View>
-
-      {isLoading ? (
-        <View style={styles.quizLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={[styles.quizLoadingText, { color: colors.muted }]}>
-            Creating a quiz from what you just watched...
-          </Text>
-        </View>
-      ) : (
-        <>
-          <Text style={[styles.quizQuestion, { color: colors.foreground }]}>{quiz.question}</Text>
-
-          {showThinkAbout && !revealed && (
-            <View style={[styles.thinkAbout, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.thinkAboutText, { color: colors.muted }]}>
-                💡 Think about: {quiz.relatedContentTitle ? `What did you learn from "${quiz.relatedContentTitle}"?` : "What do you already know about this?"}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.quizOptions}>
-            {quiz.options.map((opt, idx) => {
-              let bgColor = colors.surface;
-              let borderCol = colors.border;
-              let textColor = colors.foreground;
-              if (revealed) {
-                if (idx === quiz.correctIndex) {
-                  bgColor = colors.success + "20";
-                  borderCol = colors.success;
-                  textColor = colors.success;
-                } else if (idx === selected) {
-                  bgColor = colors.error + "20";
-                  borderCol = colors.error;
-                  textColor = colors.error;
-                }
-              }
-              return (
-                <Pressable
-                  key={idx}
-                  onPress={() => handleSelect(idx)}
-                  style={({ pressed }) => [
-                    styles.quizOption,
-                    {
-                      backgroundColor: bgColor,
-                      borderColor: borderCol,
-                      opacity: pressed && !revealed ? 0.8 : 1,
-                    },
-                  ]}
-                >
-                  <View style={[styles.optionLetter, { backgroundColor: revealed && idx === quiz.correctIndex ? colors.success : colors.primary + "15" }]}>
-                    <Text style={[styles.optionLetterText, { color: revealed && idx === quiz.correctIndex ? "#FFF" : colors.primary }]}>
-                      {String.fromCharCode(65 + idx)}
-                    </Text>
-                  </View>
-                  <Text style={[styles.quizOptionText, { color: textColor }]}>{opt}</Text>
-                  {revealed && idx === quiz.correctIndex && <Text style={{ marginLeft: 8 }}>✓</Text>}
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {revealed && (
-            <Animated.View entering={FadeInDown.duration(250)} style={[styles.quizExplanation, { backgroundColor: isCorrect ? colors.success + "10" : colors.error + "10" }]}>
-              <Text style={styles.resultEmoji}>{isCorrect ? "🎉" : "💪"}</Text>
-              <Text style={[styles.resultText, { color: isCorrect ? colors.success : colors.foreground }]}>
-                {isCorrect ? "Correct!" : "Not quite — but that's how we learn!"}
-              </Text>
-              <Text style={[styles.quizExplanationText, { color: colors.foreground }]}>
-                {quiz.explanation}
-              </Text>
-            </Animated.View>
-          )}
-        </>
-      )}
     </Animated.View>
   );
 }
 
+function InsightCard({ card, colors }: { card: FeedCard; colors: ReturnType<typeof useColors> }) {
+  const insight = card.insight;
+  if (!insight) return null;
+
+  return (
+    <Animated.View entering={FadeInDown.duration(300)}>
+      <View style={[styles.insightCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "20" }]}>
+        <View style={styles.insightHeader}>
+          <Text style={{ fontSize: 18 }}>{insight.emojiA || "💡"}</Text>
+          <Text style={[styles.insightConnector, { color: colors.primary }]}>connects to</Text>
+          <Text style={{ fontSize: 18 }}>{insight.emojiB || "🔗"}</Text>
+        </View>
+        <Text style={[styles.insightTitle, { color: colors.foreground }]}>{insight.title}</Text>
+        <Text style={[styles.insightBody, { color: colors.muted }]}>{insight.body}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── Main Home Screen ─────────────────────────────────────────────────────────
+
+export default function HomeScreen() {
+  const colors = useColors();
+  const router = useRouter();
+  const { state, dispatch, addXp } = useLearning();
+  const { profile } = state;
+  const [askInput, setAskInput] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Feed data
+  const feedQuery = trpc.feed.get.useQuery(
+    { topicSlugs: profile.interests, skillLevel: profile.skillLevel },
+    { enabled: profile.onboardingDone && profile.interests.length > 0 }
+  );
+  const refreshMutation = trpc.feed.refresh.useMutation();
+
+  // Topics for the pills
+  const topicsQuery = trpc.topics.list.useQuery(undefined, { enabled: profile.onboardingDone });
+  const allTopics = topicsQuery.data || [];
+
+  // Transform feed items into FeedCard format
+  const feedCards: FeedCard[] = useMemo(() => {
+    const items = feedQuery.data?.items || [];
+    const cards: FeedCard[] = items.map((item: any, idx: number) => ({
+      id: `feed-${item.id || idx}`,
+      cardType: (item.type === "video" ? "video" : "article") as FeedCard["cardType"],
+      content: {
+        id: item.id,
+        externalId: item.externalId,
+        type: item.type,
+        title: item.title,
+        description: item.description,
+        url: item.url,
+        thumbnailUrl: item.thumbnailUrl,
+        source: item.source,
+        channelOrAuthor: item.channelOrAuthor,
+        durationSeconds: item.durationSeconds,
+        topicSlug: item.topicSlug,
+        topicEmoji: allTopics.find((t) => t.slug === item.topicSlug)?.emoji || "",
+        topicName: allTopics.find((t) => t.slug === item.topicSlug)?.name || "",
+        publishedAt: item.publishedAt,
+      },
+    }));
+    if (selectedCategory === "all") return cards;
+    return cards.filter((c) => {
+      const slug = c.content?.topicSlug || "";
+      const topic = allTopics.find((t) => t.slug === slug);
+      return topic?.category === selectedCategory;
+    });
+  }, [feedQuery.data, selectedCategory, allTopics]);
+
+  // Greeting based on time of day
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
+  const displayName = profile.displayName || (profile.age && profile.age < 16 ? "learner" : null);
+
+  // Handle ask submission — navigate to Ask tab with the question
+  const handleAskSubmit = useCallback(() => {
+    if (!askInput.trim()) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({ pathname: "/(tabs)/ask", params: { q: askInput.trim() } } as any);
+    setAskInput("");
+  }, [askInput, router]);
+
+  // Handle card press
+  const handleCardPress = useCallback(
+    (card: FeedCard) => {
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (card.content?.url) {
+        router.push({
+          pathname: "/content/[id]",
+          params: {
+            id: String(card.content.id || 0),
+            title: card.content.title,
+            url: card.content.url,
+            thumbnailUrl: card.content.thumbnailUrl || "",
+            source: card.content.source || "",
+            channelOrAuthor: card.content.channelOrAuthor || "",
+            topicSlug: card.content.topicSlug || "",
+            topicEmoji: card.content.topicEmoji || "",
+            description: card.content.description || "",
+          },
+        } as any);
+      }
+    },
+    [router]
+  );
+
+  // Handle quiz answer
+  const handleQuizAnswer = useCallback(
+    (correct: boolean, topicSlug: string) => {
+      addXp(correct ? 15 : 5);
+      dispatch({ type: "RECORD_QUIZ", payload: { correct, topicSlug } });
+    },
+    [addXp, dispatch]
+  );
+
+  // Handle topic pill press — navigate to topic detail
+  const handleTopicPress = useCallback(
+    (slug: string, name: string, emoji: string) => {
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const hasCuriosityResult = !!state.curiosityResults?.[slug];
+      if (hasCuriosityResult) {
+        router.push({ pathname: "/topic/[slug]", params: { slug, name, emoji } } as any);
+      } else {
+        router.push({ pathname: "/curiosity-check", params: { slug, name, emoji } } as any);
+      }
+    },
+    [router, state.curiosityResults]
+  );
+
+  // Refresh feed
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshMutation.mutateAsync({
+        topicSlugs: profile.interests.slice(0, 5),
+        skillLevel: profile.skillLevel,
+      });
+      feedQuery.refetch();
+    } catch {}
+    setRefreshing(false);
+  }, [profile.interests, profile.skillLevel, refreshMutation, feedQuery]);
+
+  // ─── Render Feed Item ────────────────────────────────────────────────────────
+
+  const renderFeedItem = useCallback(
+    ({ item }: { item: FeedCard }) => {
+      switch (item.cardType) {
+        case "video":
+        case "article":
+          return <VideoCard card={item} colors={colors} onPress={handleCardPress} />;
+        case "quiz":
+          return <QuizCard card={item} colors={colors} onAnswer={handleQuizAnswer} />;
+        case "insight":
+          return <InsightCard card={item} colors={colors} />;
+        default:
+          return <VideoCard card={item} colors={colors} onPress={handleCardPress} />;
+      }
+    },
+    [colors, handleCardPress, handleQuizAnswer]
+  );
+
+  // ─── Header Component (Ask bar + Topics) ─────────────────────────────────────
+
+  const ListHeader = useMemo(
+    () => (
+      <View style={styles.headerSection}>
+        {/* Greeting */}
+        <Animated.View entering={FadeIn.duration(400)}>
+          <Text style={[styles.greeting, { color: colors.foreground }]}>
+            {greeting}{displayName ? `, ${displayName}` : ""}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.muted }]}>
+            What would you like to learn today?
+          </Text>
+        </Animated.View>
+
+        {/* Ask Input Bar */}
+        <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+          <View style={[styles.askBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={styles.askIcon}>💬</Text>
+            <TextInput
+              value={askInput}
+              onChangeText={setAskInput}
+              placeholder="Ask anything..."
+              placeholderTextColor={colors.muted}
+              style={[styles.askInput, { color: colors.foreground }]}
+              returnKeyType="send"
+              onSubmitEditing={handleAskSubmit}
+              blurOnSubmit
+            />
+            {askInput.trim().length > 0 && (
+              <Pressable
+                onPress={handleAskSubmit}
+                style={({ pressed }) => [
+                  styles.askSendBtn,
+                  { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+                ]}
+              >
+                <Text style={styles.askSendIcon}>→</Text>
+              </Pressable>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* Your Topics (horizontal scroll) */}
+        {profile.interests.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+            <Text style={[styles.sectionLabel, { color: colors.muted }]}>Your Topics</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.topicPillsContainer}
+            >
+              {allTopics
+                .filter((t) => profile.interests.includes(t.slug))
+                .map((topic) => (
+                  <Pressable
+                    key={topic.slug}
+                    onPress={() => handleTopicPress(topic.slug, topic.name, topic.emoji)}
+                    style={({ pressed }) => [
+                      styles.topicPill,
+                      {
+                        backgroundColor: colors.primary + "12",
+                        borderColor: colors.primary + "30",
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.topicPillEmoji}>{topic.emoji}</Text>
+                    <Text style={[styles.topicPillName, { color: colors.foreground }]}>{topic.name}</Text>
+                  </Pressable>
+                ))}
+              {/* Explore more pill */}
+              <Pressable
+                onPress={() => {
+                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedCategory("all");
+                }}
+                style={({ pressed }) => [
+                  styles.topicPill,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                <Text style={styles.topicPillEmoji}>+</Text>
+                <Text style={[styles.topicPillName, { color: colors.muted }]}>Explore</Text>
+              </Pressable>
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* Category Filter Pills */}
+        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryPillsContainer}
+          >
+            {TOPIC_CATEGORIES.map((cat) => {
+              const isActive = selectedCategory === cat.key;
+              return (
+                <Pressable
+                  key={cat.key}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedCategory(cat.key);
+                  }}
+                  style={({ pressed }) => [
+                    styles.categoryPill,
+                    {
+                      backgroundColor: isActive ? colors.primary : colors.surface,
+                      borderColor: isActive ? colors.primary : colors.border,
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.categoryPillText, { color: isActive ? "#FFF" : colors.foreground }]}>
+                    {cat.emoji} {cat.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+
+        {/* Feed section label */}
+        <View style={styles.feedLabelRow}>
+          <Text style={[styles.sectionLabel, { color: colors.muted }]}>
+            {selectedCategory === "all" ? "Your Feed" : `${TOPIC_CATEGORIES.find((c) => c.key === selectedCategory)?.label || ""} Feed`}
+          </Text>
+        </View>
+      </View>
+    ),
+    [greeting, displayName, askInput, colors, profile.interests, allTopics, selectedCategory, handleAskSubmit, handleTopicPress]
+  );
+
+  // ─── Empty State ─────────────────────────────────────────────────────────────
+
+  const EmptyFeed = useMemo(
+    () => (
+      <View style={styles.emptyWrap}>
+        {feedQuery.isLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} />
+        ) : (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.emptyContent}>
+            <Text style={styles.emptyEmoji}>🌱</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+              Your feed is growing
+            </Text>
+            <Text style={[styles.emptyDesc, { color: colors.muted }]}>
+              As you explore topics and ask questions, your personalized feed will fill with content matched to your level and interests.
+            </Text>
+            <Pressable
+              onPress={handleRefresh}
+              style={({ pressed }) => [
+                styles.refreshBtn,
+                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={styles.refreshBtnText}>Load Content</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+      </View>
+    ),
+    [feedQuery.isLoading, colors, handleRefresh]
+  );
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <ScreenContainer className="flex-1">
+      <FlatList
+        data={feedCards}
+        renderItem={renderFeedItem}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={EmptyFeed}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+      />
+    </ScreenContainer>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 },
-  header: {
+  listContent: { paddingBottom: 20 },
+
+  // Header Section
+  headerSection: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
+  greeting: { fontSize: 26, fontWeight: "800", lineHeight: 32 },
+  subtitle: { fontSize: 15, marginTop: 4, marginBottom: 16, lineHeight: 20 },
+
+  // Ask Bar
+  askBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: 0.5,
-  },
-  headerTitle: { fontSize: 26, fontWeight: "800" },
-  headerSubtitle: { fontSize: 12, marginTop: 2 },
-  headerRight: { flexDirection: "row", gap: 8, alignItems: "center" },
-  xpBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  xpText: { fontSize: 12, fontWeight: "700" },
-  streakBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  streakText: { fontSize: 13, fontWeight: "700", color: "#FF9500" },
-  loadingText: { marginTop: 12, fontSize: 15 },
-  emptyTitle: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, textAlign: "center", marginBottom: 20 },
-  refreshBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-  refreshBtnText: { color: "#FFF", fontSize: 15, fontWeight: "600" },
-
-  // Continue Learning section
-  continueSection: { paddingTop: 16, paddingBottom: 8 },
-  sectionTitle: { fontSize: 20, fontWeight: "800" },
-  sectionSubtitle: { fontSize: 13, marginTop: 2, marginBottom: 12 },
-  pathsScroll: { gap: 12, paddingRight: 16 },
-  pathCard: {
-    width: 220,
-    padding: 16,
     borderRadius: 16,
-    borderWidth: 1.5,
+    borderWidth: 1,
+    marginBottom: 20,
+    gap: 10,
   },
-  pathHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  pathName: { fontSize: 15, fontWeight: "700", flex: 1, marginRight: 8 },
-  pathProgress: { fontSize: 13, fontWeight: "700" },
-  pathProgressBar: { height: 4, borderRadius: 2, overflow: "hidden", marginBottom: 8 },
-  pathProgressFill: { height: "100%", borderRadius: 2 },
-  pathStep: { fontSize: 12, marginBottom: 10, lineHeight: 16 },
-  pathContinueBtn: { paddingVertical: 8, borderRadius: 10, alignItems: "center" },
-  pathContinueBtnText: { color: "#FFF", fontSize: 13, fontWeight: "700" },
-  discoverCard: { justifyContent: "center", alignItems: "center" },
-  discoverText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
-  feedSectionHeader: { paddingTop: 8, paddingBottom: 4 },
+  askIcon: { fontSize: 18 },
+  askInput: { flex: 1, fontSize: 16, padding: 0, lineHeight: 20 },
+  askSendBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  askSendIcon: { color: "#FFF", fontSize: 16, fontWeight: "700" },
 
-  // Content cards
-  card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
-  thumbnailContainer: { position: "relative", width: "100%", height: 200 },
-  thumbnail: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
+  // Section Labels
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+
+  // Topic Pills (your topics)
+  topicPillsContainer: { gap: 8, paddingBottom: 16 },
+  topicPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  topicPillEmoji: { fontSize: 16 },
+  topicPillName: { fontSize: 14, fontWeight: "600" },
+
+  // Category Pills
+  categoryPillsContainer: { gap: 8, paddingBottom: 16 },
+  categoryPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryPillText: { fontSize: 13, fontWeight: "600" },
+
+  // Feed Label
+  feedLabelRow: { marginTop: 4 },
+
+  // Feed Cards
+  feedCard: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  thumbWrap: { position: "relative" },
+  thumb: { width: "100%", height: 180, borderTopLeftRadius: 15, borderTopRightRadius: 15 },
   durationBadge: {
     position: "absolute",
     bottom: 8,
@@ -773,59 +605,61 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   durationText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
-  playOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.15)",
-  },
-  tapBadge: {
+  topicBadge: {
     position: "absolute",
     top: 8,
     left: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 10,
   },
-  tapBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
-  cardContent: { padding: 14 },
+  topicBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
+  cardBody: { padding: 14 },
   cardTitle: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
-  cardMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 },
-  cardSource: { fontSize: 13, flex: 1 },
-  topicPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginLeft: 8 },
-  topicPillText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
-  reactionBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 10,
-    borderTopWidth: 0.5,
-  },
-  reactionBtn: { alignItems: "center", paddingHorizontal: 8 },
-  reactionEmoji: { fontSize: 20, marginBottom: 2 },
-  reactionLabel: { fontSize: 10, fontWeight: "500" },
+  cardMeta: { flexDirection: "row", alignItems: "center", marginTop: 6 },
+  cardSource: { fontSize: 13 },
 
-  // Quiz cards
-  quizCard: { padding: 20 },
+  // Quiz Feed Card
+  quizFeedCard: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 18,
+  },
   quizHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-  quizLabel: { fontSize: 14, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },
-  difficultyBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginLeft: "auto" },
-  difficultyText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
-  quizLoading: { alignItems: "center", paddingVertical: 20, gap: 12 },
-  quizLoadingText: { fontSize: 14, textAlign: "center" },
-  quizQuestion: { fontSize: 18, fontWeight: "700", lineHeight: 26, marginBottom: 12 },
-  thinkAbout: { padding: 12, borderRadius: 10, marginBottom: 14 },
-  thinkAboutText: { fontSize: 13, lineHeight: 18, fontStyle: "italic" },
-  quizOptions: { gap: 10 },
-  quizOption: { padding: 14, borderRadius: 12, borderWidth: 1.5, flexDirection: "row", alignItems: "center" },
-  optionLetter: { width: 28, height: 28, borderRadius: 14, justifyContent: "center", alignItems: "center", marginRight: 12 },
-  optionLetterText: { fontSize: 13, fontWeight: "700" },
-  quizOptionText: { fontSize: 15, fontWeight: "500", flex: 1 },
-  quizExplanation: { marginTop: 14, padding: 14, borderRadius: 12 },
-  resultEmoji: { fontSize: 24, textAlign: "center", marginBottom: 6 },
-  resultText: { fontSize: 16, fontWeight: "700", textAlign: "center", marginBottom: 8 },
-  quizExplanationText: { fontSize: 14, lineHeight: 22 },
+  quizLabel: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  quizQuestion: { fontSize: 17, fontWeight: "700", lineHeight: 24, marginBottom: 14 },
+  quizOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 8,
+  },
+  quizOptionText: { fontSize: 15, fontWeight: "500" },
+  explanationBox: { marginTop: 8, padding: 12, borderRadius: 10 },
+  explanationText: { fontSize: 13, lineHeight: 20 },
+
+  // Insight Card
+  insightCard: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 18,
+  },
+  insightHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  insightConnector: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+  insightTitle: { fontSize: 16, fontWeight: "700", lineHeight: 22, marginBottom: 6 },
+  insightBody: { fontSize: 14, lineHeight: 21 },
+
+  // Empty State
+  emptyWrap: { alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 },
+  emptyContent: { alignItems: "center" },
+  emptyEmoji: { fontSize: 48, marginBottom: 16 },
+  emptyTitle: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
+  emptyDesc: { fontSize: 14, textAlign: "center", lineHeight: 21, maxWidth: 280, marginBottom: 20 },
+  refreshBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  refreshBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
 });

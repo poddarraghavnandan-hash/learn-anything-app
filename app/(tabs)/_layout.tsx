@@ -30,15 +30,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Feed",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="play.circle.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="discover"
-        options={{
-          title: "Discover",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="safari.fill" color={color} />,
+          title: "Home",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -60,6 +53,13 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.fill" color={color} />,
+        }}
+      />
+      {/* Hide discover tab - content merged into Home */}
+      <Tabs.Screen
+        name="discover"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

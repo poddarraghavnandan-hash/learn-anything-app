@@ -1,9 +1,10 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   View,
   Text,
   Pressable,
   ScrollView,
+  TextInput,
   Dimensions,
   StyleSheet,
   Platform,
@@ -18,8 +19,6 @@ import Animated, {
   FadeIn,
   FadeInDown,
   FadeInUp,
-  FadeInRight,
-  SlideInRight,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -31,38 +30,77 @@ import Animated, {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// ─── Topics as curiosities, not checkboxes ──────────────────────────────────
+// ─── Age groups for curated topics ─────────────────────────────────────────
 
-const CURIOSITIES = [
-  { slug: "python", emoji: "🐍", name: "Python", spark: "Build anything with code" },
-  { slug: "javascript", emoji: "⚡", name: "JavaScript", spark: "Power the web" },
-  { slug: "machine-learning", emoji: "🤖", name: "AI & Machine Learning", spark: "Teach machines to think" },
-  { slug: "data-science", emoji: "📊", name: "Data Science", spark: "Find stories in numbers" },
-  { slug: "web-development", emoji: "🌐", name: "Web Development", spark: "Create for the internet" },
-  { slug: "physics", emoji: "⚛️", name: "Physics", spark: "Understand how everything works" },
-  { slug: "quantum-physics", emoji: "🔬", name: "Quantum Physics", spark: "Explore the impossible" },
-  { slug: "astronomy", emoji: "🔭", name: "Astronomy", spark: "Wonder at the cosmos" },
-  { slug: "biology", emoji: "🧬", name: "Biology", spark: "Decode life itself" },
-  { slug: "mathematics", emoji: "🔢", name: "Mathematics", spark: "The language of the universe" },
-  { slug: "chemistry", emoji: "🧪", name: "Chemistry", spark: "What everything is made of" },
-  { slug: "history", emoji: "📜", name: "History", spark: "Learn from the past" },
-  { slug: "philosophy", emoji: "💭", name: "Philosophy", spark: "Ask the deepest questions" },
-  { slug: "psychology", emoji: "🧠", name: "Psychology", spark: "Understand the mind" },
-  { slug: "economics", emoji: "💰", name: "Economics", spark: "How the world trades" },
-  { slug: "entrepreneurship", emoji: "🚀", name: "Startups", spark: "Build something new" },
-  { slug: "design", emoji: "🎨", name: "Design", spark: "Make things beautiful" },
-  { slug: "music-theory", emoji: "🎵", name: "Music Theory", spark: "The math behind melody" },
-  { slug: "writing", emoji: "✍️", name: "Writing", spark: "Express your ideas" },
-  { slug: "photography", emoji: "📷", name: "Photography", spark: "See the world differently" },
-  { slug: "reading", emoji: "📖", name: "Reading", spark: "Expand your world" },
-  { slug: "fitness", emoji: "💪", name: "Fitness", spark: "Master your body" },
-  { slug: "nutrition", emoji: "🥗", name: "Nutrition", spark: "Fuel yourself right" },
-  { slug: "finance", emoji: "💵", name: "Personal Finance", spark: "Grow your wealth" },
-  { slug: "public-speaking", emoji: "🎤", name: "Public Speaking", spark: "Command any room" },
-  { slug: "marketing", emoji: "📣", name: "Marketing", spark: "Spread ideas that stick" },
-  { slug: "productivity", emoji: "⏱️", name: "Productivity", spark: "Do more with less" },
-  { slug: "languages", emoji: "🌍", name: "Languages", spark: "Connect across cultures" },
+const AGE_RANGES = [
+  { label: "Under 10", value: 8, emoji: "🧒" },
+  { label: "10 – 14", value: 12, emoji: "🎒" },
+  { label: "15 – 18", value: 16, emoji: "🎓" },
+  { label: "19 – 25", value: 22, emoji: "🚀" },
+  { label: "26 – 40", value: 33, emoji: "💼" },
+  { label: "40+", value: 50, emoji: "🌟" },
 ];
+
+// ─── Topics curated by age group ───────────────────────────────────────────
+
+const ALL_TOPICS = [
+  // Science & Nature — universal appeal
+  { slug: "physics", emoji: "⚛️", name: "Physics", spark: "How everything works", minAge: 10 },
+  { slug: "quantum-physics", emoji: "🔬", name: "Quantum Physics", spark: "Explore the impossible", minAge: 15 },
+  { slug: "astronomy", emoji: "🔭", name: "Astronomy", spark: "Wonder at the cosmos", minAge: 6 },
+  { slug: "biology", emoji: "🧬", name: "Biology", spark: "Decode life itself", minAge: 8 },
+  { slug: "chemistry", emoji: "🧪", name: "Chemistry", spark: "What everything is made of", minAge: 10 },
+  { slug: "mathematics", emoji: "🔢", name: "Mathematics", spark: "The language of the universe", minAge: 6 },
+  { slug: "earth-science", emoji: "🌍", name: "Earth Science", spark: "Our planet's secrets", minAge: 6 },
+
+  // Technology & Code
+  { slug: "python", emoji: "🐍", name: "Python", spark: "Build anything with code", minAge: 10 },
+  { slug: "javascript", emoji: "⚡", name: "JavaScript", spark: "Power the web", minAge: 12 },
+  { slug: "machine-learning", emoji: "🤖", name: "AI & Machine Learning", spark: "Teach machines to think", minAge: 14 },
+  { slug: "data-science", emoji: "📊", name: "Data Science", spark: "Find stories in numbers", minAge: 15 },
+  { slug: "web-development", emoji: "🌐", name: "Web Development", spark: "Create for the internet", minAge: 12 },
+  { slug: "robotics", emoji: "🦾", name: "Robotics", spark: "Build machines that move", minAge: 8 },
+
+  // Humanities & Social
+  { slug: "history", emoji: "📜", name: "History", spark: "Learn from the past", minAge: 8 },
+  { slug: "philosophy", emoji: "💭", name: "Philosophy", spark: "Ask the deepest questions", minAge: 14 },
+  { slug: "psychology", emoji: "🧠", name: "Psychology", spark: "Understand the mind", minAge: 13 },
+  { slug: "economics", emoji: "💰", name: "Economics", spark: "How the world trades", minAge: 14 },
+  { slug: "geography", emoji: "🗺️", name: "Geography", spark: "Explore every corner of Earth", minAge: 6 },
+
+  // Creative
+  { slug: "design", emoji: "🎨", name: "Design", spark: "Make things beautiful", minAge: 10 },
+  { slug: "music-theory", emoji: "🎵", name: "Music Theory", spark: "The math behind melody", minAge: 8 },
+  { slug: "writing", emoji: "✍️", name: "Writing", spark: "Express your ideas", minAge: 8 },
+  { slug: "photography", emoji: "📷", name: "Photography", spark: "See the world differently", minAge: 12 },
+  { slug: "drawing", emoji: "✏️", name: "Drawing", spark: "Bring ideas to life", minAge: 6 },
+  { slug: "storytelling", emoji: "📖", name: "Storytelling", spark: "Craft worlds with words", minAge: 6 },
+
+  // Life & Practical
+  { slug: "entrepreneurship", emoji: "🚀", name: "Startups", spark: "Build something new", minAge: 15 },
+  { slug: "finance", emoji: "💵", name: "Personal Finance", spark: "Grow your wealth", minAge: 15 },
+  { slug: "public-speaking", emoji: "🎤", name: "Public Speaking", spark: "Command any room", minAge: 12 },
+  { slug: "fitness", emoji: "💪", name: "Fitness", spark: "Master your body", minAge: 10 },
+  { slug: "nutrition", emoji: "🥗", name: "Nutrition", spark: "Fuel yourself right", minAge: 10 },
+  { slug: "languages", emoji: "🌍", name: "Languages", spark: "Connect across cultures", minAge: 6 },
+  { slug: "cooking", emoji: "🍳", name: "Cooking", spark: "Create delicious things", minAge: 8 },
+  { slug: "reading", emoji: "📚", name: "Reading", spark: "Expand your world", minAge: 6 },
+
+  // Kids-focused
+  { slug: "animals", emoji: "🐾", name: "Animals", spark: "The amazing animal kingdom", minAge: 4, maxAge: 14 },
+  { slug: "space", emoji: "🚀", name: "Space", spark: "Rockets, planets, and stars", minAge: 4, maxAge: 14 },
+  { slug: "dinosaurs", emoji: "🦕", name: "Dinosaurs", spark: "Giants of the past", minAge: 4, maxAge: 12 },
+  { slug: "inventions", emoji: "💡", name: "Inventions", spark: "Ideas that changed the world", minAge: 6, maxAge: 16 },
+] as const;
+
+type TopicItem = {
+  slug: string;
+  emoji: string;
+  name: string;
+  spark: string;
+  minAge: number;
+  maxAge?: number;
+};
 
 // ─── How It Works steps ─────────────────────────────────────────────────────
 
@@ -70,19 +108,19 @@ const HOW_IT_WORKS = [
   {
     icon: "💬",
     title: "Ask anything",
-    description: "Type a question about anything that interests you. \"Why is the sky blue?\" \"How do stocks work?\" There are no wrong questions.",
+    description: "Type a question about anything — \"Why is the sky blue?\" or \"How does gravity work?\" There are no wrong questions.",
     color: "#6C63FF",
   },
   {
     icon: "🧭",
-    title: "Your path unfolds",
-    description: "AI understands what you already know and builds a personalized learning path — just for you. Videos, explanations, and gentle check-ins along the way.",
+    title: "AI builds your path",
+    description: "We figure out what you already know and create a personalized course — videos, explanations, and check-ins that adapt to you.",
     color: "#10B981",
   },
   {
-    icon: "🌱",
-    title: "Grow at your pace",
-    description: "The app remembers what you've learned and adapts to how you think. No tests, no pressure — just genuine understanding that deepens over time.",
+    icon: "🎯",
+    title: "Real understanding",
+    description: "This isn't edutainment. When you finish a topic here, you'll genuinely understand and be able to apply those concepts. We make sure it sticks.",
     color: "#F59E0B",
   },
 ];
@@ -145,14 +183,25 @@ function FloatingParticle({ delay, x, size, color }: { delay: number; x: number;
 // ─── Main Onboarding ────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(0); // 0=Welcome, 1=Age, 2=HowItWorks, 3=Topics
+  const [selectedAge, setSelectedAge] = useState<number | null>(null);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const { dispatch } = useLearning();
   const router = useRouter();
   const colors = useColors();
   const refreshMutation = trpc.feed.refresh.useMutation();
 
-  const TOTAL_STEPS = 3;
+  const TOTAL_STEPS = 4;
+
+  // Filter topics by age
+  const curatedTopics = useMemo(() => {
+    if (!selectedAge) return ALL_TOPICS as unknown as TopicItem[];
+    return (ALL_TOPICS as unknown as TopicItem[]).filter((t) => {
+      const meetsMin = selectedAge >= t.minAge;
+      const meetsMax = t.maxAge ? selectedAge <= t.maxAge : true;
+      return meetsMin && meetsMax;
+    });
+  }, [selectedAge]);
 
   const toggleTopic = useCallback((slug: string) => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -163,20 +212,19 @@ export default function OnboardingScreen() {
 
   const handleFinish = useCallback(async () => {
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (selectedAge) dispatch({ type: "SET_AGE", payload: selectedAge });
     dispatch({ type: "SET_INTERESTS", payload: selectedTopics });
-    dispatch({ type: "SET_SKILL_LEVEL", payload: "beginner" }); // AI will discover real level naturally
-    dispatch({ type: "SET_DAILY_GOAL", payload: 10 }); // Sensible default, adjustable later
-    dispatch({ type: "SET_FORMAT", payload: "mixed" }); // Best of both worlds
+    dispatch({ type: "SET_SKILL_LEVEL", payload: "beginner" });
+    dispatch({ type: "SET_DAILY_GOAL", payload: 10 });
+    dispatch({ type: "SET_FORMAT", payload: "mixed" });
     dispatch({ type: "COMPLETE_ONBOARDING" });
     dispatch({ type: "UPDATE_STREAK" });
 
-    // Start fetching content in background
     refreshMutation.mutate({ topicSlugs: selectedTopics.slice(0, 5), skillLevel: "beginner" });
-
     router.replace("/(tabs)");
-  }, [selectedTopics, dispatch, router, refreshMutation]);
+  }, [selectedAge, selectedTopics, dispatch, router, refreshMutation]);
 
-  const canProceed = step === 2 ? selectedTopics.length >= 1 : true;
+  const canProceed = step === 1 ? selectedAge !== null : step === 3 ? selectedTopics.length >= 1 : true;
 
   const goNext = useCallback(() => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -197,7 +245,6 @@ export default function OnboardingScreen() {
         {/* ─── Step 0: Welcome — The Invitation ─── */}
         {step === 0 && (
           <View style={styles.fullStep}>
-            {/* Floating particles background */}
             <View style={styles.particleContainer}>
               <FloatingParticle delay={0} x={SCREEN_WIDTH * 0.1} size={8} color={`${colors.primary}40`} />
               <FloatingParticle delay={1200} x={SCREEN_WIDTH * 0.3} size={6} color={`${colors.primary}30`} />
@@ -207,36 +254,31 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.welcomeContent}>
-              {/* App icon / brand mark */}
               <Animated.View entering={FadeIn.duration(800)} style={styles.brandMark}>
                 <Text style={styles.brandEmoji}>✨</Text>
               </Animated.View>
 
-              {/* Main headline */}
               <Animated.View entering={FadeInDown.delay(300).duration(700)}>
                 <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>
                   Anyone can learn{"\n"}anything.
                 </Text>
               </Animated.View>
 
-              {/* Philosophy statement */}
               <Animated.View entering={FadeInDown.delay(600).duration(700)}>
                 <Text style={[styles.welcomePhilosophy, { color: colors.muted }]}>
                   Your curiosity is the curriculum. Ask a question, explore an idea, follow your wonder — and we'll build a learning path that's uniquely yours.
                 </Text>
               </Animated.View>
 
-              {/* Gentle invitation */}
               <Animated.View entering={FadeInDown.delay(900).duration(700)} style={styles.invitationContainer}>
                 <View style={[styles.invitationCard, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}20` }]}>
                   <Text style={[styles.invitationText, { color: colors.foreground }]}>
-                    No sign-ups. No tests. No wrong answers.{"\n"}Just you and your curiosity.
+                    Real education that adapts to you.{"\n"}Not a pastime — genuine understanding.
                   </Text>
                 </View>
               </Animated.View>
             </View>
 
-            {/* Bottom CTA */}
             <Animated.View entering={FadeInUp.delay(1200).duration(600)} style={styles.welcomeBottom}>
               <Pressable
                 onPress={goNext}
@@ -249,17 +291,94 @@ export default function OnboardingScreen() {
                   },
                 ]}
               >
-                <Text style={styles.primaryBtnText}>Begin exploring</Text>
+                <Text style={styles.primaryBtnText}>Get started</Text>
               </Pressable>
-              <Text style={[styles.welcomeFootnote, { color: colors.muted }]}>
-                Free forever. No account needed.
-              </Text>
             </Animated.View>
           </View>
         )}
 
-        {/* ─── Step 1: How It Works ─── */}
+        {/* ─── Step 1: How old are you? ─── */}
         {step === 1 && (
+          <View style={styles.fullStep}>
+            <View style={styles.ageContent}>
+              <Animated.View entering={FadeInDown.duration(500)}>
+                <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                  How old are you?
+                </Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+                  This helps us pick the right topics and teaching style for you.
+                </Text>
+              </Animated.View>
+
+              <View style={styles.ageGrid}>
+                {AGE_RANGES.map((range, index) => {
+                  const isSelected = selectedAge === range.value;
+                  return (
+                    <Animated.View
+                      key={range.value}
+                      entering={FadeInDown.delay(100 + index * 80).duration(400)}
+                    >
+                      <Pressable
+                        onPress={() => {
+                          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setSelectedAge(range.value);
+                        }}
+                        style={({ pressed }) => [
+                          styles.ageCard,
+                          {
+                            backgroundColor: isSelected ? colors.primary : colors.surface,
+                            borderColor: isSelected ? colors.primary : colors.border,
+                            opacity: pressed ? 0.9 : 1,
+                            transform: [{ scale: pressed ? 0.96 : 1 }],
+                          },
+                        ]}
+                      >
+                        <Text style={styles.ageEmoji}>{range.emoji}</Text>
+                        <Text
+                          style={[
+                            styles.ageLabel,
+                            { color: isSelected ? "#FFFFFF" : colors.foreground },
+                          ]}
+                        >
+                          {range.label}
+                        </Text>
+                      </Pressable>
+                    </Animated.View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.bottomBar}>
+              <Pressable
+                onPress={goBack}
+                style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Text style={[styles.backText, { color: colors.muted }]}>Back</Text>
+              </Pressable>
+              <Pressable
+                onPress={goNext}
+                disabled={!canProceed}
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  {
+                    flex: 1,
+                    backgroundColor: canProceed ? colors.primary : colors.border,
+                    opacity: pressed ? 0.9 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  },
+                ]}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {selectedAge ? "Continue" : "Select your age"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* ─── Step 2: How It Works ─── */}
+        {step === 2 && (
           <View style={styles.fullStep}>
             <ScrollView
               style={styles.howItWorksScroll}
@@ -275,7 +394,6 @@ export default function OnboardingScreen() {
                 </Text>
               </Animated.View>
 
-              {/* How it works cards */}
               <View style={styles.howCardsContainer}>
                 {HOW_IT_WORKS.map((item, index) => (
                   <Animated.View
@@ -285,10 +403,7 @@ export default function OnboardingScreen() {
                     <View
                       style={[
                         styles.howCard,
-                        {
-                          backgroundColor: colors.surface,
-                          borderColor: colors.border,
-                        },
+                        { backgroundColor: colors.surface, borderColor: colors.border },
                       ]}
                     >
                       <View style={styles.howCardHeader}>
@@ -310,18 +425,16 @@ export default function OnboardingScreen() {
                 ))}
               </View>
 
-              {/* Philosophy note */}
               <Animated.View entering={FadeInDown.delay(900).duration(500)}>
                 <View style={[styles.philosophyNote, { backgroundColor: `${colors.primary}08`, borderColor: `${colors.primary}15` }]}>
                   <Text style={styles.philosophyNoteIcon}>🎓</Text>
                   <Text style={[styles.philosophyNoteText, { color: colors.muted }]}>
-                    Built on learning science — spaced repetition, active recall, and the forgetting curve — so what you learn actually sticks.
+                    Built on learning science — spaced repetition, active recall, and adaptive difficulty — so what you learn actually sticks.
                   </Text>
                 </View>
               </Animated.View>
             </ScrollView>
 
-            {/* Bottom navigation */}
             <View style={styles.bottomBar}>
               <Pressable
                 onPress={goBack}
@@ -347,8 +460,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* ─── Step 2: What sparks your curiosity? ─── */}
-        {step === 2 && (
+        {/* ─── Step 3: What sparks your curiosity? (Age-curated) ─── */}
+        {step === 3 && (
           <View style={styles.fullStep}>
             <Animated.View entering={FadeInDown.duration(400)} style={styles.topicsHeader}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
@@ -364,7 +477,7 @@ export default function OnboardingScreen() {
               contentContainerStyle={styles.topicsGrid}
               showsVerticalScrollIndicator={false}
             >
-              {CURIOSITIES.map((topic, index) => {
+              {curatedTopics.map((topic, index) => {
                 const selected = selectedTopics.includes(topic.slug);
                 return (
                   <Animated.View
@@ -416,7 +529,7 @@ export default function OnboardingScreen() {
               <View style={{ height: 20 }} />
             </ScrollView>
 
-            {/* Selection count + CTA */}
+            {/* Optional sign-in hint + CTA */}
             <View style={styles.bottomBar}>
               <Pressable
                 onPress={goBack}
@@ -454,18 +567,11 @@ export default function OnboardingScreen() {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  fullStep: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  fullStep: { flex: 1 },
 
   // ── Welcome (Step 0) ──
-  particleContainer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
+  particleContainer: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
   welcomeContent: {
     flex: 1,
     justifyContent: "center",
@@ -473,12 +579,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingBottom: 8,
   },
-  brandMark: {
-    marginBottom: 20,
-  },
-  brandEmoji: {
-    fontSize: 48,
-  },
+  brandMark: { marginBottom: 20 },
+  brandEmoji: { fontSize: 48 },
   welcomeTitle: {
     fontSize: 32,
     fontWeight: "800",
@@ -493,10 +595,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingHorizontal: 4,
   },
-  invitationContainer: {
-    marginTop: 24,
-    width: "100%",
-  },
+  invitationContainer: { marginTop: 24, width: "100%" },
   invitationCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -515,15 +614,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  welcomeFootnote: {
-    fontSize: 13,
-    textAlign: "center",
-  },
 
-  // ── How It Works (Step 1) ──
-  howItWorksScroll: {
+  // ── Age Selection (Step 1) ──
+  ageContent: {
     flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 40,
   },
+  ageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 24,
+    justifyContent: "center",
+  },
+  ageCard: {
+    width: (SCREEN_WIDTH - 72) / 2,
+    paddingVertical: 20,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: "center",
+    gap: 8,
+  },
+  ageEmoji: { fontSize: 32 },
+  ageLabel: { fontSize: 16, fontWeight: "700" },
+
+  // ── How It Works (Step 2) ──
+  howItWorksScroll: { flex: 1 },
   howItWorksContent: {
     paddingHorizontal: 24,
     paddingTop: 32,
@@ -544,14 +661,8 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     paddingHorizontal: 10,
   },
-  howCardsContainer: {
-    gap: 16,
-  },
-  howCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 22,
-  },
+  howCardsContainer: { gap: 16 },
+  howCard: { borderRadius: 20, borderWidth: 1, padding: 22 },
   howCardHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -565,9 +676,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  howCardIcon: {
-    fontSize: 28,
-  },
+  howCardIcon: { fontSize: 28 },
   howCardStep: {
     width: 28,
     height: 28,
@@ -575,19 +684,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  howCardStepText: {
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  howCardTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  howCardDesc: {
-    fontSize: 14,
-    lineHeight: 21,
-  },
+  howCardStepText: { fontSize: 14, fontWeight: "800" },
+  howCardTitle: { fontSize: 20, fontWeight: "700", marginBottom: 6 },
+  howCardDesc: { fontSize: 14, lineHeight: 21 },
   philosophyNote: {
     marginTop: 24,
     borderRadius: 16,
@@ -597,30 +696,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12,
   },
-  philosophyNoteIcon: {
-    fontSize: 22,
-    marginTop: 1,
-  },
-  philosophyNoteText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 20,
-  },
+  philosophyNoteIcon: { fontSize: 22, marginTop: 1 },
+  philosophyNoteText: { flex: 1, fontSize: 13, lineHeight: 20 },
 
-  // ── Topics (Step 2) ──
-  topicsHeader: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 4,
-  },
-  topicsScroll: {
-    flex: 1,
-  },
-  topicsGrid: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    gap: 10,
-  },
+  // ── Topics (Step 3) ──
+  topicsHeader: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 4 },
+  topicsScroll: { flex: 1 },
+  topicsGrid: { paddingHorizontal: 20, paddingTop: 8, gap: 10 },
   topicChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -630,22 +712,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     gap: 12,
   },
-  topicEmoji: {
-    fontSize: 24,
-  },
-  topicTextWrap: {
-    flex: 1,
-  },
-  topicName: {
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 20,
-  },
-  topicSpark: {
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 1,
-  },
+  topicEmoji: { fontSize: 24 },
+  topicTextWrap: { flex: 1 },
+  topicName: { fontSize: 16, fontWeight: "700", lineHeight: 20 },
+  topicSpark: { fontSize: 12, lineHeight: 16, marginTop: 1 },
   topicCheck: {
     width: 24,
     height: 24,
@@ -654,11 +724,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  topicCheckText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
-  },
+  topicCheckText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
 
   // ── Shared bottom bar ──
   bottomBar: {
@@ -668,23 +734,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     gap: 12,
   },
-  backBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  backText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  backBtn: { paddingHorizontal: 16, paddingVertical: 14 },
+  backText: { fontSize: 16, fontWeight: "600" },
   primaryBtn: {
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
     width: "100%",
   },
-  primaryBtnText: {
-    color: "#FFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
+  primaryBtnText: { color: "#FFF", fontSize: 17, fontWeight: "700" },
 });

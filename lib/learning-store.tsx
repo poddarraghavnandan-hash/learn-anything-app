@@ -87,6 +87,8 @@ type Action =
   | { type: "SET_SKILL_LEVEL"; payload: SkillLevel }
   | { type: "SET_DAILY_GOAL"; payload: number }
   | { type: "SET_FORMAT"; payload: "videos" | "articles" | "mixed" }
+  | { type: "SET_AGE"; payload: number }
+  | { type: "SET_DISPLAY_NAME"; payload: string }
   | { type: "COMPLETE_ONBOARDING" }
   | { type: "ADD_XP"; payload: number }
   | { type: "RECORD_ENGAGEMENT"; payload: CardEngagement }
@@ -143,6 +145,12 @@ function reducer(state: LearningState, action: Action): LearningState {
 
     case "SET_FORMAT":
       return { ...state, profile: { ...state.profile, preferredFormat: action.payload } };
+
+    case "SET_AGE":
+      return { ...state, profile: { ...state.profile, age: action.payload } };
+
+    case "SET_DISPLAY_NAME":
+      return { ...state, profile: { ...state.profile, displayName: action.payload } };
 
     case "COMPLETE_ONBOARDING":
       return { ...state, profile: { ...state.profile, onboardingDone: true } };

@@ -254,3 +254,17 @@
 - [x] Create warm, inspiring welcome experience that feels holistic
 - [x] Reduce friction — feel like exploring, not configuring
 - [x] Ensure the experience works for all ages and backgrounds
+
+## Major UX Overhaul — Real Education, Not Edutainment
+- [x] Onboarding: Add age input step for cold-start curation (kid vs teen vs adult content)
+- [x] Onboarding: Remove "free forever" and "no account needed" messaging
+- [x] Onboarding: Add optional sign-in option (not required, but available)
+- [x] Home tab: Merge Ask input bar at top of home screen
+- [x] Home tab: Show topic list below Ask input
+- [x] Home tab: Show content feed below topics
+- [x] Ask flow: One question/info request at a time (no data dumps)
+- [x] Ask flow: Play most relevant video after each concept, user can skip
+- [x] Ask flow: Improve conversational flow — teach step by step
+- [x] Remove Explore tab duplication — topics accessible from Home
+- [x] Age-based cold start: curate initial topics and content difficulty based on age
+- [x] Education quality: ensure courses deliver real mastery, not just entertainment
