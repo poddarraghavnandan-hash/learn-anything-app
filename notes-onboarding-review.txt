@@ -1,0 +1,10 @@
+Topics Screen Review:
+- "What sparks your curiosity?" title renders correctly
+- Subtitle: "Pick a few ideas that excite you. You can always explore more later."
+- Topics are displayed as full-width cards with emoji, name, and spark description
+- Each topic has a descriptive spark line (e.g., "Build anything with code", "The language of the universe")
+- Scrollable list of 28 topics
+- "Back" button and "Pick at least one" CTA at bottom
+- The CTA changes text based on selection count
+- Overall: feels much more like exploring ideas than filling out a form
+- The spark descriptions add personality and invitation to each topic

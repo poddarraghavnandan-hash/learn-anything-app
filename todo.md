@@ -246,3 +246,11 @@
 - [x] Show update available banner with download link
 - [x] Open APK download URL via Linking when update is available
 - [x] Show current app version in profile screen
+
+## Onboarding Redesign — Open, Holistic, Inviting
+- [x] Redesign startup page to feel like an open invitation to learn and explore
+- [x] Make onboarding more intuitive and less like a form/quiz
+- [x] Add "How It Works" section explaining the learning approach
+- [x] Create warm, inspiring welcome experience that feels holistic
+- [x] Reduce friction — feel like exploring, not configuring
+- [x] Ensure the experience works for all ages and backgrounds
