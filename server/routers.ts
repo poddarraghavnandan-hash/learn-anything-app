@@ -31,6 +31,52 @@ function getLevelPrompt(skillLevel: string): string {
   }
 }
 
+// Helper to fetch YouTube videos for a specific search query and save to DB
+async function fetchYouTubeForQuery(searchQuery: string, topicSlug: string, maxResults: number = 10) {
+  try {
+    const result = await callDataApi("Youtube/search", {
+      query: { q: searchQuery, hl: "en", gl: "US" },
+    }) as any;
+
+    const contents = result?.contents || [];
+    const items = contents
+      .filter((c: any) => c.type === "video" && c.video)
+      .slice(0, maxResults)
+      .map((c: any) => {
+        const v = c.video;
+        const durationText = v.lengthText || "";
+        let durationSeconds = 0;
+        const parts = durationText.split(":").map(Number);
+        if (parts.length === 3) durationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        else if (parts.length === 2) durationSeconds = parts[0] * 60 + parts[1];
+        else if (parts.length === 1) durationSeconds = parts[0];
+
+        return {
+          externalId: v.videoId || `yt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          type: "video" as const,
+          title: v.title || "Untitled",
+          description: v.descriptionSnippet || v.title || "",
+          url: `https://www.youtube.com/watch?v=${v.videoId}`,
+          thumbnailUrl: v.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+          source: "youtube",
+          channelOrAuthor: v.channelTitle || v.channelName || "Unknown",
+          durationSeconds,
+          topicSlug,
+          qualityScore: 0.5,
+          publishedAt: v.publishedTimeText || null,
+        };
+      });
+
+    if (items.length > 0) {
+      await db.upsertContentItems(items);
+    }
+    return items;
+  } catch (e) {
+    console.error(`[YouTube] Failed to fetch for query "${searchQuery}":`, e);
+    return [];
+  }
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -83,53 +129,220 @@ export const appRouter = router({
           : "advanced deep dive in-depth analysis";
 
         for (const topic of topicRows) {
-          try {
-            const keywords = topic.searchKeywords || topic.name;
-            const searchQuery = `${keywords} ${levelModifier}`;
-
-            const result = await callDataApi("Youtube/search", {
-              query: { q: searchQuery, hl: "en", gl: "US" },
-            }) as any;
-
-            const contents = result?.contents || [];
-            const items = contents
-              .filter((c: any) => c.type === "video" && c.video)
-              .slice(0, 10)
-              .map((c: any) => {
-                const v = c.video;
-                const durationText = v.lengthText || "";
-                let durationSeconds = 0;
-                const parts = durationText.split(":").map(Number);
-                if (parts.length === 3) durationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
-                else if (parts.length === 2) durationSeconds = parts[0] * 60 + parts[1];
-                else if (parts.length === 1) durationSeconds = parts[0];
-
-                return {
-                  externalId: v.videoId || `yt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                  type: "video" as const,
-                  title: v.title || "Untitled",
-                  description: v.descriptionSnippet || v.title || "",
-                  url: `https://www.youtube.com/watch?v=${v.videoId}`,
-                  thumbnailUrl: v.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
-                  source: "youtube",
-                  channelOrAuthor: v.channelTitle || v.channelName || "Unknown",
-                  durationSeconds,
-                  topicSlug: topic.slug,
-                  qualityScore: 0.5,
-                  publishedAt: v.publishedTimeText || null,
-                };
-              });
-
-            if (items.length > 0) {
-              await db.upsertContentItems(items);
-              totalFetched += items.length;
-            }
-          } catch (e) {
-            console.error(`[Feed] Failed to fetch for topic ${topic.slug}:`, e);
-          }
+          const keywords = topic.searchKeywords || topic.name;
+          const searchQuery = `${keywords} ${levelModifier}`;
+          const items = await fetchYouTubeForQuery(searchQuery, topic.slug, 10);
+          totalFetched += items.length;
         }
 
         return { fetched: totalFetched };
+      }),
+
+    // NEW: Fetch content for a specific learning ladder step
+    refreshForStep: publicProcedure
+      .input(z.object({
+        topicSlug: z.string(),
+        stepSearchQuery: z.string(),
+        stepTitle: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        // Use the step-specific search query from the learning ladder
+        const items = await fetchYouTubeForQuery(input.stepSearchQuery, input.topicSlug, 8);
+        return {
+          fetched: items.length,
+          items: items.map((item: any) => ({
+            id: 0, // Will be assigned by DB
+            externalId: item.externalId,
+            type: item.type,
+            title: item.title,
+            description: item.description,
+            url: item.url,
+            thumbnailUrl: item.thumbnailUrl,
+            source: item.source,
+            channelOrAuthor: item.channelOrAuthor,
+            durationSeconds: item.durationSeconds,
+            topicSlug: item.topicSlug,
+            publishedAt: item.publishedAt,
+          })),
+        };
+      }),
+  }),
+
+  // ─── Curiosity Check — Fun Baseline Assessment ────────────────────────────
+  curiosityCheck: router({
+    generate: publicProcedure
+      .input(z.object({
+        topicSlug: z.string(),
+        topicName: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+You are creating a fun "Curiosity Check" — a game-show-style quiz that discovers what a learner already knows about a topic. This is NOT a test. It's a playful exploration.
+
+CRITICAL RULES:
+- Generate exactly 5 questions that range from very easy (common knowledge) to hard (expert level)
+- Each question should feel like a fun trivia game, NOT a school exam
+- Use engaging, conversational language
+- Every question MUST have a fun fact that's revealed after answering (regardless of right/wrong)
+- The fun fact should make the learner go "wow, that's cool!" and want to learn more
+- Questions should progressively reveal what the learner knows
+- Emojis should match the vibe of each question
+
+Question difficulty progression:
+1. Very Easy — Something almost anyone would know (common sense level)
+2. Easy — Basic knowledge about the topic
+3. Medium — Requires some familiarity with the subject
+4. Hard — Requires real knowledge of the field
+5. Expert — Only someone who has studied this would know
+
+Return JSON:
+{
+  "questions": [
+    {
+      "question": "Fun, conversational question text",
+      "options": ["option A", "option B", "option C", "option D"],
+      "correctIndex": 0,
+      "difficulty": "easy|medium|hard",
+      "funFact": "A genuinely surprising and delightful fact related to this question",
+      "emoji": "relevant emoji"
+    }
+  ],
+  "topicIntro": "A 1-sentence exciting intro to this topic that makes the learner curious"
+}`,
+              },
+              {
+                role: "user",
+                content: `Create a Curiosity Check for the topic: ${input.topicName} (${input.topicSlug})`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            questions: (parsed.questions || []).slice(0, 5).map((q: any) => ({
+              question: q.question || "What do you know about this topic?",
+              options: q.options || ["A", "B", "C", "D"],
+              correctIndex: q.correctIndex ?? 0,
+              difficulty: q.difficulty || "medium",
+              funFact: q.funFact || "Every expert was once a beginner!",
+              emoji: q.emoji || "🧠",
+            })),
+            topicIntro: parsed.topicIntro || `Let's explore ${input.topicName} together!`,
+          };
+        } catch (e) {
+          console.error("[CuriosityCheck] LLM generation failed:", e);
+          // Fallback questions
+          return {
+            questions: [
+              { question: `What interests you most about ${input.topicName}?`, options: ["The basics", "How it works", "Real-world applications", "Advanced concepts"], correctIndex: 0, difficulty: "easy" as const, funFact: `${input.topicName} is one of the most fascinating subjects to explore!`, emoji: "🌟" },
+              { question: `How would you rate your familiarity with ${input.topicName}?`, options: ["Brand new to me", "I've heard of it", "I know some basics", "I'm quite familiar"], correctIndex: 0, difficulty: "easy" as const, funFact: "Research shows that just being curious about a topic makes you learn it faster!", emoji: "🧠" },
+              { question: `What's the best way to start learning ${input.topicName}?`, options: ["Watch videos", "Read articles", "Practice exercises", "All of the above"], correctIndex: 3, difficulty: "medium" as const, funFact: "Studies show that mixing different learning methods (multimodal learning) improves retention by up to 75%!", emoji: "📚" },
+            ],
+            topicIntro: `Let's discover what you already know about ${input.topicName}!`,
+          };
+        }
+      }),
+  }),
+
+  // ─── Learning Ladder Generation (Enhanced) ────────────────────────────────
+  learningPath: router({
+    generate: publicProcedure
+      .input(z.object({
+        topicSlug: z.string(),
+        topicName: z.string(),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        startingStep: z.number().optional().default(0),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+${getLevelPrompt(input.skillLevel)}
+
+You are generating a STRUCTURED LEARNING LADDER — a real curriculum that takes a learner from their current level to mastery. This is NOT a random list. It's a carefully scaffolded progression where each step builds on the previous one.
+
+CRITICAL RULES:
+- Generate 6-10 steps that form a REAL prerequisite chain
+- Each step MUST have a specific YouTube search query that will find relevant educational content
+- The search queries must be SPECIFIC (e.g., "Newton's laws of motion explained" NOT just "physics")
+- Each step must explain WHY it matters and how it connects to the next step
+- Include prerequisites — what the learner should understand before this step
+- Estimate realistic time for each step (10-30 minutes)
+- The progression should feel natural and achievable
+- For beginners: start with absolute fundamentals, use everyday language
+- For advanced: skip basics, focus on deeper concepts and connections
+
+EXAMPLES of good progressions:
+- Physics: Classical Mechanics → Energy & Work → Waves & Sound → Electricity → Magnetism → Optics → Quantum Basics → Relativity
+- Reading: Letter Recognition → Phonics → Sight Words → Simple Sentences → Short Stories → Chapter Books
+- Programming: Variables → Conditionals → Loops → Functions → Data Structures → Algorithms
+
+Return JSON:
+{
+  "steps": [
+    {
+      "order": 1,
+      "title": "Clear, specific step title",
+      "description": "What the learner will understand after completing this step (2-3 sentences)",
+      "whyItMatters": "Why this step is important and how it connects to the bigger picture",
+      "searchQuery": "Specific YouTube search query for this exact concept",
+      "estimatedMinutes": 15,
+      "prerequisites": ["concept 1", "concept 2"]
+    }
+  ],
+  "totalEstimatedHours": 5,
+  "encouragement": "A genuinely motivating message about learning this topic — reference the core belief that anyone can learn anything"
+}`,
+              },
+              {
+                role: "user",
+                content: `Create a learning ladder for: ${input.topicName} (${input.topicSlug})
+Learner level: ${input.skillLevel}
+${input.startingStep > 0 ? `The learner already knows the basics (starting from step ${input.startingStep + 1}). Skip foundational content they already understand.` : "Start from the very beginning — assume no prior knowledge."}`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            steps: (parsed.steps || []).map((s: any, i: number) => ({
+              order: s.order || i + 1,
+              title: s.title || `Step ${i + 1}`,
+              description: s.description || "Learn this concept",
+              whyItMatters: s.whyItMatters || "Every concept builds your understanding",
+              searchQuery: s.searchQuery || `${input.topicName} ${s.title || "basics"}`,
+              estimatedMinutes: s.estimatedMinutes || 15,
+              prerequisites: s.prerequisites || [],
+            })),
+            totalEstimatedHours: parsed.totalEstimatedHours || 0,
+            encouragement: parsed.encouragement || `Anyone can learn ${input.topicName} — one step at a time!`,
+          };
+        } catch (e) {
+          console.error("[LearningPath] LLM generation failed:", e);
+          return {
+            steps: [
+              { order: 1, title: "Start with the basics", description: `Learn the fundamentals of ${input.topicName}. Every expert started here.`, whyItMatters: "A strong foundation makes everything else easier to understand.", searchQuery: `${input.topicName} for beginners introduction`, estimatedMinutes: 15, prerequisites: [] },
+              { order: 2, title: "Core concepts", description: `Understand the key ideas that make ${input.topicName} work.`, whyItMatters: "These are the building blocks you'll use for everything else.", searchQuery: `${input.topicName} core concepts explained simply`, estimatedMinutes: 20, prerequisites: ["basics"] },
+              { order: 3, title: "Deeper understanding", description: "Connect the dots between concepts and see the bigger picture.", whyItMatters: "This is where real understanding begins — not just memorization.", searchQuery: `${input.topicName} how it works in depth`, estimatedMinutes: 20, prerequisites: ["core concepts"] },
+              { order: 4, title: "Real-world applications", description: `See how ${input.topicName} applies to the real world.`, whyItMatters: "Understanding real applications makes abstract concepts concrete.", searchQuery: `${input.topicName} real world applications examples`, estimatedMinutes: 25, prerequisites: ["deeper understanding"] },
+              { order: 5, title: "Advanced topics", description: "Explore the cutting edge and challenge yourself.", whyItMatters: "This is where you go from knowing to truly understanding.", searchQuery: `${input.topicName} advanced topics explained`, estimatedMinutes: 30, prerequisites: ["real-world applications"] },
+            ],
+            totalEstimatedHours: 2,
+            encouragement: `Anyone can learn ${input.topicName} — one step at a time! The variable is time, not talent.`,
+          };
+        }
       }),
   }),
 
@@ -201,7 +414,6 @@ You are summarizing a learning resource. Return JSON:
         }
       }),
 
-    // "I don't understand" — re-explain at a simpler level
     simplify: publicProcedure
       .input(z.object({
         title: z.string(),
@@ -245,8 +457,8 @@ Return JSON:
           };
         } catch (e) {
           return {
-            explanation: `Let's simplify "${input.title}": Start with the basics and build up from there. The key idea is to understand the fundamental concept before diving into details.`,
-            analogy: "Think of it like building blocks — you need the bottom pieces before the top ones make sense.",
+            explanation: `Let's simplify "${input.title}": Start with the basics and build up from there.`,
+            analogy: "Think of it like building with blocks — you need the bottom ones before you can stack higher.",
             tryThis: "Try explaining this concept to someone else in your own words.",
             simplerLevel,
           };
@@ -292,10 +504,10 @@ CRITICAL RULES:
 Return JSON:
 {
   "question": "the question text",
-  "thinkAbout": "A hint that encourages the learner to think before answering (e.g., 'Think about what happens when...')",
+  "thinkAbout": "A hint that encourages the learner to think before answering",
   "options": ["option A", "option B", "option C", "option D"],
   "correctIndex": 0,
-  "explanation": "2-3 sentence explanation of WHY this is correct. Teach the concept, don't just state the answer.",
+  "explanation": "2-3 sentence explanation of WHY this is correct. Teach the concept.",
   "encouragement": "A brief encouraging message regardless of whether they got it right or wrong"
 }`,
               },
@@ -334,7 +546,7 @@ Return JSON:
               "None of the above",
             ],
             correctIndex: 0,
-            explanation: "The main idea is always the most important takeaway. Focus on understanding the core concept before details.",
+            explanation: "The main idea is always the most important takeaway.",
             encouragement: "Keep going — curiosity is the first step to mastery!",
             relatedContentTitle: input.contentTitle,
             topicSlug: input.topicSlug,
@@ -368,7 +580,6 @@ Return JSON:
 ${getLevelPrompt(input.skillLevel)}
 
 For each content item, generate one quiz question that tests UNDERSTANDING, not just recall.
-Each question must be directly about its content.
 Return JSON: { "quizzes": [{ "question": "...", "thinkAbout": "...", "options": ["A","B","C","D"], "correctIndex": 0, "explanation": "...", "encouragement": "..." }] }`,
               },
               {
@@ -399,69 +610,6 @@ Return JSON: { "quizzes": [{ "question": "...", "thinkAbout": "...", "options": 
       }),
   }),
 
-  // ─── Learning Path Generation ────────────────────────────────────────────
-  learningPath: router({
-    generate: publicProcedure
-      .input(z.object({
-        topicSlug: z.string(),
-        topicName: z.string(),
-        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
-      }))
-      .mutation(async ({ input }) => {
-        try {
-          const response = await invokeLLM({
-            messages: [
-              {
-                role: "system",
-                content: `${LEARNLM_SYSTEM}
-
-${getLevelPrompt(input.skillLevel)}
-
-Generate a structured learning path for this topic. Break it into progressive steps from foundations to mastery.
-Return JSON:
-{
-  "steps": [
-    {
-      "order": 1,
-      "title": "Step title",
-      "description": "What the learner will understand after this step",
-      "searchQuery": "YouTube search query to find content for this step",
-      "estimatedMinutes": 10
-    }
-  ],
-  "totalEstimatedHours": 5,
-  "encouragement": "A motivating message about learning this topic"
-}
-Generate 5-8 steps that progressively build knowledge. Each step should be achievable in one session.`,
-              },
-              {
-                role: "user",
-                content: `Create a learning path for: ${input.topicName} (${input.topicSlug})\nLearner level: ${input.skillLevel}`,
-              },
-            ],
-            response_format: { type: "json_object" },
-          });
-
-          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
-          return {
-            steps: parsed.steps || [],
-            totalEstimatedHours: parsed.totalEstimatedHours || 0,
-            encouragement: parsed.encouragement || "You've got this!",
-          };
-        } catch (e) {
-          return {
-            steps: [
-              { order: 1, title: "Start with the basics", description: `Learn the fundamentals of ${input.topicName}`, searchQuery: `${input.topicName} for beginners`, estimatedMinutes: 15 },
-              { order: 2, title: "Build your foundation", description: "Understand core concepts", searchQuery: `${input.topicName} core concepts explained`, estimatedMinutes: 20 },
-              { order: 3, title: "Practice and apply", description: "Put your knowledge to work", searchQuery: `${input.topicName} practice exercises`, estimatedMinutes: 25 },
-            ],
-            totalEstimatedHours: 1,
-            encouragement: `Anyone can learn ${input.topicName} — one step at a time!`,
-          };
-        }
-      }),
-  }),
-
   // ─── Insight Generation ───────────────────────────────────────────────────
   insight: router({
     generate: publicProcedure
@@ -488,12 +636,12 @@ Generate 5-8 steps that progressively build knowledge. Each step should be achie
               {
                 role: "system",
                 content: `${LEARNLM_SYSTEM}
-Generate a fascinating "Did you know?" insight that connects two different learning topics. Make it genuinely surprising and educational.
-Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight connecting the two topics in a way that deepens understanding of both" }`,
+Generate a fascinating "Did you know?" insight that connects two different learning topics.
+Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight connecting the two topics" }`,
               },
               {
                 role: "user",
-                content: `Connect these two topics with a fascinating insight:\n1. ${topicRows[0].name} (${topicRows[0].emoji})\n2. ${topicRows[1].name} (${topicRows[1].emoji})`,
+                content: `Connect these two topics:\n1. ${topicRows[0].name} (${topicRows[0].emoji})\n2. ${topicRows[1].name} (${topicRows[1].emoji})`,
               },
             ],
             response_format: { type: "json_object" },
@@ -513,7 +661,7 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
           return {
             id: `insight-fallback-${Date.now()}`,
             title: "Cross-Topic Connection",
-            body: `${topicRows[0].name} and ${topicRows[1].name} share surprising connections that deepen your understanding of both.`,
+            body: `${topicRows[0].name} and ${topicRows[1].name} share surprising connections.`,
             topicA: topicRows[0].slug,
             topicB: topicRows[1].slug,
             emojiA: topicRows[0].emoji,

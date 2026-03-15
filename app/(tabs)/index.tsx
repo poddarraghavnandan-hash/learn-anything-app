@@ -1,14 +1,14 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
   FlatList,
-  Dimensions,
   Pressable,
   StyleSheet,
   ActivityIndicator,
   Platform,
   Image,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -20,8 +20,6 @@ import type { FeedCard, ContentItemData, QuizData } from "@/shared/types";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
-const { width, height } = Dimensions.get("window");
-
 export default function FeedScreen() {
   const { state, dispatch, addXp, updateStreak } = useLearning();
   const colors = useColors();
@@ -29,7 +27,6 @@ export default function FeedScreen() {
   const [feedCards, setFeedCards] = useState<FeedCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [generatingQuizzes, setGeneratingQuizzes] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const quizzesGenerated = useRef(false);
 
@@ -49,6 +46,41 @@ export default function FeedScreen() {
       updateStreak();
     }
   }, [state.loaded, state.profile.onboardingDone, updateStreak]);
+
+  // Get active learning paths (topics with ladders)
+  const activePaths = useMemo(() => {
+    return Object.entries(state.ladders)
+      .map(([slug, ladder]) => {
+        const progress = state.topicProgress[slug];
+        if (!progress || !ladder) return null;
+        const totalSteps = ladder.steps.length;
+        const completedCount = progress.completedSteps.length;
+        if (completedCount >= totalSteps) return null; // fully completed
+        const currentStep = ladder.steps[progress.currentStepIndex];
+        return {
+          slug,
+          name: ladder.topicName,
+          currentStepIndex: progress.currentStepIndex,
+          currentStepTitle: currentStep?.title || "Next step",
+          completedCount,
+          totalSteps,
+          progress: totalSteps > 0 ? completedCount / totalSteps : 0,
+          lastActivity: progress.lastActivityAt,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(b!.lastActivity).getTime() - new Date(a!.lastActivity).getTime())
+      .slice(0, 5) as {
+        slug: string;
+        name: string;
+        currentStepIndex: number;
+        currentStepTitle: string;
+        completedCount: number;
+        totalSteps: number;
+        progress: number;
+        lastActivity: string;
+      }[];
+  }, [state.ladders, state.topicProgress]);
 
   const feedQuery = trpc.feed.get.useQuery(
     { topicSlugs: interests.length > 0 ? interests : ["python"], cursor: 0, limit: 20, skillLevel },
@@ -95,7 +127,6 @@ export default function FeedScreen() {
 
       quizInsertCounter++;
       if (quizInsertCounter >= 3 && i < items.length - 1) {
-        // Insert placeholder quiz — will be replaced by LLM-generated quiz
         const placeholderIdx = cards.length;
         cards.push({
           id: `quiz-placeholder-${i}`,
@@ -127,7 +158,6 @@ export default function FeedScreen() {
     // Generate real quizzes via LLM in background
     if (quizSourceItems.length > 0 && !quizzesGenerated.current) {
       quizzesGenerated.current = true;
-      setGeneratingQuizzes(true);
       const batchItems = quizSourceItems.slice(0, 5).map((q) => ({
         contentTitle: q.title,
         contentDescription: q.desc,
@@ -163,9 +193,8 @@ export default function FeedScreen() {
               return updated;
             });
           }
-          setGeneratingQuizzes(false);
         })
-        .catch(() => setGeneratingQuizzes(false));
+        .catch(() => {});
     }
   }, [feedQuery.data, skillLevel]);
 
@@ -175,9 +204,7 @@ export default function FeedScreen() {
     try {
       await refreshMutation.mutateAsync({ topicSlugs: interests.slice(0, 5), skillLevel });
       await feedQuery.refetch();
-    } catch (e) {
-      // silently fail
-    }
+    } catch (e) {}
     setRefreshing(false);
   }, [interests, skillLevel, refreshMutation, feedQuery]);
 
@@ -199,7 +226,6 @@ export default function FeedScreen() {
   const handleReaction = useCallback(
     (cardId: string, reaction: string, content?: ContentItemData) => {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
       if (reaction === "mind_blown") {
         addXp(XP_VALUES.videoComplete);
         dispatch({ type: "INCREMENT_MIND_BLOWN" });
@@ -208,7 +234,6 @@ export default function FeedScreen() {
       } else {
         addXp(3);
       }
-
       dispatch({
         type: "RECORD_ENGAGEMENT",
         payload: {
@@ -220,8 +245,6 @@ export default function FeedScreen() {
           hourOfDay: new Date().getHours(),
         },
       });
-
-      // Add to spaced rep if mind_blown
       if (reaction === "mind_blown" && content) {
         dispatch({
           type: "ADD_SPACED_REP",
@@ -264,10 +287,22 @@ export default function FeedScreen() {
     [dispatch]
   );
 
+  const handleContinuePath = useCallback(
+    (slug: string) => {
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const ladder = state.ladders[slug];
+      router.push({
+        pathname: "/topic/[slug]",
+        params: { slug, name: ladder?.topicName || slug, emoji: "" },
+      } as any);
+    },
+    [router, state.ladders]
+  );
+
   const levelInfo = getLevel(state.profile.totalXp);
 
   const renderCard = useCallback(
-    ({ item, index }: { item: FeedCard; index: number }) => {
+    ({ item }: { item: FeedCard }) => {
       if (item.cardType === "quiz" && item.quiz) {
         return (
           <QuizCard
@@ -277,7 +312,6 @@ export default function FeedScreen() {
           />
         );
       }
-
       if (item.content) {
         const isSaved = state.savedContentIds.includes(item.content.id);
         return (
@@ -291,13 +325,12 @@ export default function FeedScreen() {
           />
         );
       }
-
       return null;
     },
     [colors, state.savedContentIds, handleContentPress, handleReaction, handleQuizAnswer, handleSave]
   );
 
-  if (!state.loaded || !state.profile.onboardingDone) {
+  if (!state.loaded) {
     return (
       <ScreenContainer className="flex-1">
         <View style={styles.center}>
@@ -307,6 +340,92 @@ export default function FeedScreen() {
     );
   }
 
+  // Header component for FlatList
+  const ListHeader = () => (
+    <View>
+      {/* Continue Learning Section */}
+      {activePaths.length > 0 && (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.continueSection}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Continue Learning</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>Pick up where you left off</Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pathsScroll}
+          >
+            {activePaths.map((path) => (
+              <Pressable
+                key={path.slug}
+                onPress={() => handleContinuePath(path.slug)}
+                style={({ pressed }) => [
+                  styles.pathCard,
+                  {
+                    backgroundColor: colors.primary + "08",
+                    borderColor: colors.primary + "30",
+                    opacity: pressed ? 0.9 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.pathHeader}>
+                  <Text style={[styles.pathName, { color: colors.foreground }]} numberOfLines={1}>
+                    {path.name}
+                  </Text>
+                  <Text style={[styles.pathProgress, { color: colors.primary }]}>
+                    {path.completedCount}/{path.totalSteps}
+                  </Text>
+                </View>
+
+                {/* Progress bar */}
+                <View style={[styles.pathProgressBar, { backgroundColor: colors.border }]}>
+                  <View
+                    style={[
+                      styles.pathProgressFill,
+                      { backgroundColor: colors.primary, width: `${path.progress * 100}%` },
+                    ]}
+                  />
+                </View>
+
+                <Text style={[styles.pathStep, { color: colors.muted }]} numberOfLines={1}>
+                  Step {path.currentStepIndex + 1}: {path.currentStepTitle}
+                </Text>
+
+                <View style={[styles.pathContinueBtn, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.pathContinueBtnText}>Continue →</Text>
+                </View>
+              </Pressable>
+            ))}
+
+            {/* Discover new topics card */}
+            <Pressable
+              onPress={() => router.push("/(tabs)/discover" as any)}
+              style={({ pressed }) => [
+                styles.pathCard,
+                styles.discoverCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.9 : 1,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 32, textAlign: "center", marginBottom: 8 }}>+</Text>
+              <Text style={[styles.discoverText, { color: colors.foreground }]}>Start a new{"\n"}learning path</Text>
+            </Pressable>
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      {/* Feed section header */}
+      <View style={styles.feedSectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Your Feed</Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+          Curated content based on your interests and level
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
     <ScreenContainer className="flex-1">
       {/* Header */}
@@ -314,7 +433,13 @@ export default function FeedScreen() {
         <View>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Learn</Text>
           <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-            {skillLevel === "beginner" ? "Building foundations" : skillLevel === "intermediate" ? "Growing stronger" : "Going deep"}
+            {activePaths.length > 0
+              ? `${activePaths.length} active path${activePaths.length > 1 ? "s" : ""}`
+              : skillLevel === "beginner"
+              ? "Building foundations"
+              : skillLevel === "intermediate"
+              ? "Growing stronger"
+              : "Going deep"}
           </Text>
         </View>
         <View style={styles.headerRight}>
@@ -325,9 +450,7 @@ export default function FeedScreen() {
           </View>
           {state.profile.currentStreak > 0 && (
             <View style={[styles.streakBadge, { backgroundColor: "#FF950020" }]}>
-              <Text style={styles.streakText}>
-                {state.profile.currentStreak}d
-              </Text>
+              <Text style={styles.streakText}>{state.profile.currentStreak}d</Text>
             </View>
           )}
         </View>
@@ -340,12 +463,12 @@ export default function FeedScreen() {
             Curating your personalized feed...
           </Text>
         </View>
-      ) : feedCards.length === 0 ? (
+      ) : feedCards.length === 0 && activePaths.length === 0 ? (
         <View style={styles.center}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>{"🔍"}</Text>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>🔍</Text>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Finding the best content for you</Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            We're searching YouTube for {skillLevel}-level content on your topics
+            We're searching for {skillLevel}-level content on your topics
           </Text>
           <Pressable
             onPress={handleRefresh}
@@ -354,9 +477,7 @@ export default function FeedScreen() {
               { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
             ]}
           >
-            <Text style={styles.refreshBtnText}>
-              {refreshing ? "Fetching..." : "Refresh Feed"}
-            </Text>
+            <Text style={styles.refreshBtnText}>{refreshing ? "Fetching..." : "Refresh Feed"}</Text>
           </Pressable>
         </View>
       ) : (
@@ -365,9 +486,8 @@ export default function FeedScreen() {
           data={feedCards}
           renderItem={renderCard}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={ListHeader}
           showsVerticalScrollIndicator={false}
-          snapToAlignment="start"
-          decelerationRate="fast"
           contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 16, gap: 16 }}
           onRefresh={handleRefresh}
           refreshing={refreshing}
@@ -408,7 +528,7 @@ function ContentCard({
             <Image source={{ uri: content.thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
           ) : (
             <View style={[styles.thumbnail, { backgroundColor: colors.primary + "30" }]}>
-              <Text style={{ fontSize: 40 }}>{isVideo ? "\u{1F3AC}" : "\u{1F4D6}"}</Text>
+              <Text style={{ fontSize: 40 }}>{isVideo ? "🎬" : "📖"}</Text>
             </View>
           )}
           {isVideo && duration && (
@@ -418,10 +538,9 @@ function ContentCard({
           )}
           {isVideo && (
             <View style={styles.playOverlay}>
-              <Text style={{ fontSize: 36 }}>{"\u25B6"}</Text>
+              <Text style={{ fontSize: 36 }}>▶</Text>
             </View>
           )}
-          {/* Tap to learn badge */}
           <View style={[styles.tapBadge, { backgroundColor: colors.primary }]}>
             <Text style={styles.tapBadgeText}>Tap to learn</Text>
           </View>
@@ -449,34 +568,22 @@ function ContentCard({
 
       {/* Reaction bar */}
       <View style={[styles.reactionBar, { borderTopColor: colors.border }]}>
-        <Pressable
-          onPress={() => onReaction("mind_blown")}
-          style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Text style={styles.reactionEmoji}>{"\u{1F92F}"}</Text>
+        <Pressable onPress={() => onReaction("mind_blown")} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={styles.reactionEmoji}>🤯</Text>
           <Text style={[styles.reactionLabel, { color: colors.muted }]}>Mind blown</Text>
         </Pressable>
-        <Pressable
-          onPress={() => onReaction("knew_this")}
-          style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Text style={styles.reactionEmoji}>{"\u2705"}</Text>
+        <Pressable onPress={() => onReaction("knew_this")} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={styles.reactionEmoji}>✅</Text>
           <Text style={[styles.reactionLabel, { color: colors.muted }]}>Knew this</Text>
         </Pressable>
-        <Pressable
-          onPress={onSave}
-          style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Text style={styles.reactionEmoji}>{isSaved ? "\u{1F4BE}" : "\u{1F516}"}</Text>
+        <Pressable onPress={onSave} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={styles.reactionEmoji}>{isSaved ? "💾" : "🔖"}</Text>
           <Text style={[styles.reactionLabel, { color: isSaved ? colors.primary : colors.muted }]}>
             {isSaved ? "Saved" : "Save"}
           </Text>
         </Pressable>
-        <Pressable
-          onPress={() => onReaction("skip")}
-          style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Text style={styles.reactionEmoji}>{"\u23ED\uFE0F"}</Text>
+        <Pressable onPress={() => onReaction("skip")} style={({ pressed }) => [styles.reactionBtn, { opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={styles.reactionEmoji}>⏭️</Text>
           <Text style={[styles.reactionLabel, { color: colors.muted }]}>Skip</Text>
         </Pressable>
       </View>
@@ -514,7 +621,7 @@ function QuizCard({
   return (
     <Animated.View entering={FadeIn.duration(300)} style={[styles.card, styles.quizCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "30" }]}>
       <View style={styles.quizHeader}>
-        <Text style={{ fontSize: 20 }}>{"\u{1F9E0}"}</Text>
+        <Text style={{ fontSize: 20 }}>🧠</Text>
         <Text style={[styles.quizLabel, { color: colors.primary }]}>Quick Check</Text>
         {quiz.difficulty && (
           <View style={[styles.difficultyBadge, {
@@ -540,11 +647,10 @@ function QuizCard({
         <>
           <Text style={[styles.quizQuestion, { color: colors.foreground }]}>{quiz.question}</Text>
 
-          {/* Think About prompt — encourages metacognition */}
           {showThinkAbout && !revealed && (
             <View style={[styles.thinkAbout, { backgroundColor: colors.surface }]}>
               <Text style={[styles.thinkAboutText, { color: colors.muted }]}>
-                {"💡"} Think about: {quiz.relatedContentTitle ? `What did you learn from "${quiz.relatedContentTitle}"?` : "What do you already know about this?"}
+                💡 Think about: {quiz.relatedContentTitle ? `What did you learn from "${quiz.relatedContentTitle}"?` : "What do you already know about this?"}
               </Text>
             </View>
           )}
@@ -584,16 +690,15 @@ function QuizCard({
                     </Text>
                   </View>
                   <Text style={[styles.quizOptionText, { color: textColor }]}>{opt}</Text>
-                  {revealed && idx === quiz.correctIndex && <Text style={{ marginLeft: 8 }}>{"\u2713"}</Text>}
+                  {revealed && idx === quiz.correctIndex && <Text style={{ marginLeft: 8 }}>✓</Text>}
                 </Pressable>
               );
             })}
           </View>
 
-          {/* Explanation — teaches WHY */}
           {revealed && (
             <Animated.View entering={FadeInDown.duration(250)} style={[styles.quizExplanation, { backgroundColor: isCorrect ? colors.success + "10" : colors.error + "10" }]}>
-              <Text style={[styles.resultEmoji]}>{isCorrect ? "\u{1F389}" : "\u{1F4AA}"}</Text>
+              <Text style={styles.resultEmoji}>{isCorrect ? "🎉" : "💪"}</Text>
               <Text style={[styles.resultText, { color: isCorrect ? colors.success : colors.foreground }]}>
                 {isCorrect ? "Correct!" : "Not quite — but that's how we learn!"}
               </Text>
@@ -630,6 +735,31 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 14, textAlign: "center", marginBottom: 20 },
   refreshBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   refreshBtnText: { color: "#FFF", fontSize: 15, fontWeight: "600" },
+
+  // Continue Learning section
+  continueSection: { paddingTop: 16, paddingBottom: 8 },
+  sectionTitle: { fontSize: 20, fontWeight: "800" },
+  sectionSubtitle: { fontSize: 13, marginTop: 2, marginBottom: 12 },
+  pathsScroll: { gap: 12, paddingRight: 16 },
+  pathCard: {
+    width: 220,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1.5,
+  },
+  pathHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  pathName: { fontSize: 15, fontWeight: "700", flex: 1, marginRight: 8 },
+  pathProgress: { fontSize: 13, fontWeight: "700" },
+  pathProgressBar: { height: 4, borderRadius: 2, overflow: "hidden", marginBottom: 8 },
+  pathProgressFill: { height: "100%", borderRadius: 2 },
+  pathStep: { fontSize: 12, marginBottom: 10, lineHeight: 16 },
+  pathContinueBtn: { paddingVertical: 8, borderRadius: 10, alignItems: "center" },
+  pathContinueBtnText: { color: "#FFF", fontSize: 13, fontWeight: "700" },
+  discoverCard: { justifyContent: "center", alignItems: "center" },
+  discoverText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
+  feedSectionHeader: { paddingTop: 8, paddingBottom: 4 },
+
+  // Content cards
   card: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
   thumbnailContainer: { position: "relative", width: "100%", height: 200 },
   thumbnail: { width: "100%", height: "100%", justifyContent: "center", alignItems: "center" },
@@ -677,6 +807,8 @@ const styles = StyleSheet.create({
   reactionBtn: { alignItems: "center", paddingHorizontal: 8 },
   reactionEmoji: { fontSize: 20, marginBottom: 2 },
   reactionLabel: { fontSize: 10, fontWeight: "500" },
+
+  // Quiz cards
   quizCard: { padding: 20 },
   quizHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
   quizLabel: { fontSize: 14, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 },

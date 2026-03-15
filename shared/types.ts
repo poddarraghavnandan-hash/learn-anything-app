@@ -222,3 +222,56 @@ export function getSearchModifier(level: SkillLevel): string {
     case "advanced": return "advanced deep dive";
   }
 }
+
+// ─── Learning Ladder ────────────────────────────────────────────────────────
+
+export interface LadderStep {
+  order: number;
+  title: string;
+  description: string;
+  whyItMatters: string;
+  searchQuery: string;
+  estimatedMinutes: number;
+  prerequisites: string[];
+}
+
+export interface LearningLadder {
+  topicSlug: string;
+  topicName: string;
+  steps: LadderStep[];
+  totalEstimatedHours: number;
+  encouragement: string;
+  generatedAt: string;
+}
+
+export interface TopicProgress {
+  topicSlug: string;
+  currentStepIndex: number;       // which step the user is on (0-based)
+  completedSteps: number[];       // indices of completed steps
+  baselineLevel: SkillLevel;      // determined by Curiosity Check
+  curiosityCheckDone: boolean;
+  videosWatchedPerStep: Record<number, number>;  // stepIndex → count
+  quizPassedPerStep: Record<number, boolean>;    // stepIndex → passed
+  startedAt: string;
+  lastActivityAt: string;
+}
+
+// ─── Curiosity Check ────────────────────────────────────────────────────────
+
+export interface CuriosityQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  difficulty: "easy" | "medium" | "hard";
+  funFact: string;               // shown after answering, regardless of correct/wrong
+  emoji: string;                 // fun emoji for the question
+}
+
+export interface CuriosityCheckResult {
+  topicSlug: string;
+  questions: CuriosityQuestion[];
+  answeredCorrectly: number;
+  totalQuestions: number;
+  determinedLevel: SkillLevel;
+  startingStep: number;           // which ladder step to start from
+}

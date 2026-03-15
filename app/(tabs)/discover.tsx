@@ -52,11 +52,19 @@ export default function DiscoverScreen() {
     : filteredTopics;
 
   const handleTopicPress = useCallback(
-    (slug: string) => {
+    (slug: string, name: string, emoji: string) => {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      router.push(`/topic/${slug}` as any);
+      // Check if user has done the curiosity check for this topic
+      const hasCuriosityResult = !!state.curiosityResults?.[slug];
+      if (hasCuriosityResult) {
+        // Already assessed — go straight to topic ladder
+        router.push({ pathname: "/topic/[slug]", params: { slug, name, emoji } } as any);
+      } else {
+        // First time — do the curiosity check
+        router.push({ pathname: "/curiosity-check", params: { slug, name, emoji } } as any);
+      }
     },
-    [router]
+    [router, state.curiosityResults]
   );
 
   const toggleFollow = useCallback(
@@ -148,7 +156,7 @@ export default function DiscoverScreen() {
             const isFollowing = state.profile.interests.includes(item.slug);
             return (
               <Pressable
-                onPress={() => handleTopicPress(item.slug)}
+                onPress={() => handleTopicPress(item.slug, item.name, item.emoji)}
                 style={({ pressed }) => [
                   styles.topicCard,
                   {

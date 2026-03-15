@@ -9,6 +9,9 @@ import type {
   TopicDifficulty,
   BadgeId,
   SkillLevel,
+  LearningLadder,
+  TopicProgress,
+  CuriosityCheckResult,
 } from "@/shared/types";
 import { XP_VALUES, calibrateDifficulty, BADGE_DEFINITIONS } from "@/shared/types";
 
@@ -21,6 +24,10 @@ interface LearningState {
   savedContentIds: number[];
   topicDifficulties: TopicDifficulty[];
   unlockedBadges: BadgeId[];
+  // Learning Ladders & Curiosity Check
+  ladders: Record<string, LearningLadder>;       // topicSlug → ladder
+  topicProgress: Record<string, TopicProgress>;   // topicSlug → progress
+  curiosityResults: Record<string, CuriosityCheckResult>; // topicSlug → result
   sessionStartTime: number;
   sessionMinutes: number;
   loaded: boolean;
@@ -52,6 +59,9 @@ const initialState: LearningState = {
   savedContentIds: [],
   topicDifficulties: [],
   unlockedBadges: [],
+  ladders: {},
+  topicProgress: {},
+  curiosityResults: {},
   sessionStartTime: Date.now(),
   sessionMinutes: 0,
   loaded: false,
@@ -78,7 +88,14 @@ type Action =
   | { type: "UPDATE_SESSION_TIME"; payload: number }
   | { type: "INCREMENT_MIND_BLOWN" }
   | { type: "INCREMENT_DAILY_GOALS" }
-  | { type: "UNLOCK_BADGE"; payload: BadgeId };
+  | { type: "UNLOCK_BADGE"; payload: BadgeId }
+  // Learning Ladder actions
+  | { type: "SAVE_LADDER"; payload: { topicSlug: string; ladder: LearningLadder } }
+  | { type: "SAVE_TOPIC_PROGRESS"; payload: { topicSlug: string; progress: TopicProgress } }
+  | { type: "SAVE_CURIOSITY_RESULT"; payload: { topicSlug: string; result: CuriosityCheckResult } }
+  | { type: "COMPLETE_STEP"; payload: { topicSlug: string; stepIndex: number } }
+  | { type: "RECORD_STEP_VIDEO"; payload: { topicSlug: string; stepIndex: number } }
+  | { type: "RECORD_STEP_QUIZ"; payload: { topicSlug: string; stepIndex: number; passed: boolean } };
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -142,7 +159,6 @@ function reducer(state: LearningState, action: Action): LearningState {
         totalQuizCorrect: p.totalQuizCorrect + (action.payload.correct ? 1 : 0),
       };
 
-      // Update per-topic difficulty tracking
       let newDifficulties = [...state.topicDifficulties];
       if (action.payload.topicSlug) {
         const slug = action.payload.topicSlug;
@@ -229,6 +245,79 @@ function reducer(state: LearningState, action: Action): LearningState {
       return { ...state, unlockedBadges: [...state.unlockedBadges, action.payload] };
     }
 
+    // ─── Learning Ladder Actions ──────────────────────────────────────────────
+
+    case "SAVE_LADDER": {
+      return {
+        ...state,
+        ladders: { ...state.ladders, [action.payload.topicSlug]: action.payload.ladder },
+      };
+    }
+
+    case "SAVE_TOPIC_PROGRESS": {
+      return {
+        ...state,
+        topicProgress: { ...state.topicProgress, [action.payload.topicSlug]: action.payload.progress },
+      };
+    }
+
+    case "SAVE_CURIOSITY_RESULT": {
+      return {
+        ...state,
+        curiosityResults: { ...state.curiosityResults, [action.payload.topicSlug]: action.payload.result },
+      };
+    }
+
+    case "RECORD_STEP_VIDEO": {
+      const { topicSlug, stepIndex } = action.payload;
+      const existing = state.topicProgress[topicSlug];
+      if (!existing) return state;
+      const newWatched = { ...existing.videosWatchedPerStep };
+      newWatched[stepIndex] = (newWatched[stepIndex] || 0) + 1;
+      return {
+        ...state,
+        topicProgress: {
+          ...state.topicProgress,
+          [topicSlug]: { ...existing, videosWatchedPerStep: newWatched, lastActivityAt: new Date().toISOString() },
+        },
+      };
+    }
+
+    case "RECORD_STEP_QUIZ": {
+      const { topicSlug, stepIndex, passed } = action.payload;
+      const existing = state.topicProgress[topicSlug];
+      if (!existing) return state;
+      const newQuizPassed = { ...existing.quizPassedPerStep };
+      if (passed) newQuizPassed[stepIndex] = true;
+      return {
+        ...state,
+        topicProgress: {
+          ...state.topicProgress,
+          [topicSlug]: { ...existing, quizPassedPerStep: newQuizPassed, lastActivityAt: new Date().toISOString() },
+        },
+      };
+    }
+
+    case "COMPLETE_STEP": {
+      const { topicSlug, stepIndex } = action.payload;
+      const existing = state.topicProgress[topicSlug];
+      if (!existing) return state;
+      const newCompleted = [...existing.completedSteps];
+      if (!newCompleted.includes(stepIndex)) newCompleted.push(stepIndex);
+      return {
+        ...state,
+        topicProgress: {
+          ...state.topicProgress,
+          [topicSlug]: {
+            ...existing,
+            completedSteps: newCompleted,
+            currentStepIndex: Math.max(existing.currentStepIndex, stepIndex + 1),
+            lastActivityAt: new Date().toISOString(),
+          },
+        },
+      };
+    }
+
     default:
       return state;
   }
@@ -293,6 +382,10 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
             if (parsed.profile.dailyGoalsCompleted === undefined) parsed.profile.dailyGoalsCompleted = 0;
             if (parsed.profile.mindBlownCount === undefined) parsed.profile.mindBlownCount = 0;
           }
+          // Migrate missing ladder/progress fields
+          if (!parsed.ladders) parsed.ladders = {};
+          if (!parsed.topicProgress) parsed.topicProgress = {};
+          if (!parsed.curiosityResults) parsed.curiosityResults = {};
           dispatch({ type: "LOAD_STATE", payload: { ...parsed, loaded: true, sessionStartTime: Date.now(), sessionMinutes: 0 } });
         } else {
           dispatch({ type: "LOAD_STATE", payload: { loaded: true, sessionStartTime: Date.now() } });
@@ -315,10 +408,13 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         savedContentIds: state.savedContentIds,
         topicDifficulties: state.topicDifficulties,
         unlockedBadges: state.unlockedBadges,
+        ladders: state.ladders,
+        topicProgress: state.topicProgress,
+        curiosityResults: state.curiosityResults,
       };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
     }, 500);
-  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.loaded]);
+  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.ladders, state.topicProgress, state.curiosityResults, state.loaded]);
 
   // Badge checker
   useEffect(() => {

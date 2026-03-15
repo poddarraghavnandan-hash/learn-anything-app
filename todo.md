@@ -15,6 +15,9 @@
 - [x] Build adaptive feed algorithm (interleaving, time-of-day, scoring)
 - [x] Build insight generation API (LLM cross-topic connections)
 - [x] Build search API for content discovery
+- [x] Build Curiosity Check generation API (fun baseline assessment questions)
+- [x] Build Learning Ladder generation API (LLM-powered structured curriculum)
+- [x] Build step-aware content refresh API (fetch content for specific ladder step)
 
 ## Onboarding
 - [x] Onboarding Step 1: Interest selection (topic chips grid with haptic feedback)
@@ -36,6 +39,8 @@
 - [x] Micro-reactions on every card: "Mind blown" / "Knew this" / "Save" / "Skip"
 - [x] "I don't understand" button on content cards → triggers LLM simplification
 - [x] Think-about prompts before quiz answers (metacognition)
+- [x] "Continue Learning" section showing active learning paths at top of feed
+- [x] Step-aware feed context when inside a learning path
 
 ## Discover Tab
 - [x] Search bar with filtering
@@ -43,6 +48,7 @@
 - [x] 2-column topic grid with emoji + follow buttons
 - [x] Topic detail screen with curated content list
 - [x] Follow/unfollow topics from discover and topic detail
+- [x] Route through Curiosity Check on first topic tap
 
 ## Progress Tab ("Your Brain")
 - [x] Level card with XP progress bar
@@ -125,6 +131,26 @@
 - [x] Badge unlock tracking in learning store
 - [x] Locked badge silhouettes for motivation
 - [x] Badge display on progress and profile screens
+
+## Curiosity Check — Fun Baseline Assessment
+- [x] LLM generates 5 fun "curiosity questions" per topic that feel like a game show
+- [x] Questions range from easy to hard to discover actual knowledge level
+- [x] Game-like UI: emoji reactions, fun facts, encouraging tone, no "wrong answer" shame
+- [x] Results determine starting step on the learning ladder (skip what they already know)
+- [x] Triggered on first tap of a topic (before showing learning ladder)
+- [x] Stored per-topic so it's only done once per topic
+- [x] Progress bar and score tracking during the check
+
+## Structured Learning Ladders
+- [x] LLM generates real curriculum per topic (e.g., Physics → Classical Mechanics → Waves → QM → String Theory)
+- [x] Each step has: title, description, why it matters, specific YouTube search query, estimated time
+- [x] Visual ladder/roadmap UI with current position indicator and step icons
+- [x] Steps unlock progressively (watch content + pass quiz = step complete)
+- [x] Step completion tracking with progress percentage
+- [x] "Why this matters" context connecting each step to the bigger picture
+- [x] Completing a step auto-suggests next one
+- [x] Topic progress stored in local state (per-topic ladder + progress)
+- [x] "Continue Learning" section in feed showing active paths
 
 ## Learning Path Generation
 - [x] LLM-powered learning path API (progressive steps from basics to mastery)
