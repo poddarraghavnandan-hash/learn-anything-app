@@ -1,11 +1,10 @@
-import { eq } from "drizzle-orm";
+import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, topics, contentItems, InsertContentItem } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -19,25 +18,14 @@ export async function getDb() {
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
-
+  if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
-
+  if (!db) return;
   try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
+    const values: InsertUser = { openId: user.openId };
     const updateSet: Record<string, unknown> = {};
-
     const textFields = ["name", "email", "loginMethod"] as const;
     type TextField = (typeof textFields)[number];
-
     const assignNullable = (field: TextField) => {
       const value = user[field];
       if (value === undefined) return;
@@ -45,9 +33,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values[field] = normalized;
       updateSet[field] = normalized;
     };
-
     textFields.forEach(assignNullable);
-
     if (user.lastSignedIn !== undefined) {
       values.lastSignedIn = user.lastSignedIn;
       updateSet.lastSignedIn = user.lastSignedIn;
@@ -59,18 +45,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = "admin";
       updateSet.role = "admin";
     }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
+    if (!values.lastSignedIn) values.lastSignedIn = new Date();
+    if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
+    await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -79,14 +56,65 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
+  if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ─── Topics ───────────────────────────────────────────────────────────────────
+
+export async function getAllTopics() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(topics);
+}
+
+export async function getTopicsBySlugs(slugs: string[]) {
+  const db = await getDb();
+  if (!db || slugs.length === 0) return [];
+  return db.select().from(topics).where(inArray(topics.slug, slugs));
+}
+
+// ─── Content Items ────────────────────────────────────────────────────────────
+
+export async function upsertContentItems(items: InsertContentItem[]) {
+  const db = await getDb();
+  if (!db || items.length === 0) return;
+  for (const item of items) {
+    try {
+      await db.insert(contentItems).values(item).onDuplicateKeyUpdate({
+        set: { title: item.title, description: item.description, thumbnailUrl: item.thumbnailUrl },
+      });
+    } catch (e) {
+      // skip duplicates
+    }
+  }
+}
+
+export async function getContentForTopics(topicSlugs: string[], limit = 50) {
+  const db = await getDb();
+  if (!db || topicSlugs.length === 0) return [];
+  return db
+    .select()
+    .from(contentItems)
+    .where(and(inArray(contentItems.topicSlug, topicSlugs), eq(contentItems.isActive, true)))
+    .orderBy(desc(contentItems.fetchedAt))
+    .limit(limit);
+}
+
+export async function getContentById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(contentItems).where(eq(contentItems.id, id)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function searchContent(query: string, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(contentItems)
+    .where(sql`MATCH(${contentItems.title}) AGAINST(${query}) OR ${contentItems.title} LIKE ${`%${query}%`}`)
+    .limit(limit);
+}

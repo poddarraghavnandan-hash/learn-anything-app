@@ -17,6 +17,7 @@ import {
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
+import { LearningProvider } from "@/lib/learning-store";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -80,6 +81,7 @@ export default function RootLayout() {
 
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <LearningProvider>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
@@ -88,10 +90,14 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="oauth/callback" />
+            <Stack.Screen name="onboarding" options={{ presentation: "fullScreenModal", animation: "fade" }} />
+            <Stack.Screen name="content/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="topic/[slug]" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </QueryClientProvider>
       </trpc.Provider>
+      </LearningProvider>
     </GestureHandlerRootView>
   );
 
