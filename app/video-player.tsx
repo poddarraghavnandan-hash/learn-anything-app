@@ -12,7 +12,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import * as Haptics from "expo-haptics";
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useState, useMemo, useRef } from "react";
 import { WebView } from "react-native-webview";
 
 /**
@@ -33,12 +33,57 @@ function extractYouTubeId(url: string): string | null {
   return null;
 }
 
+/**
+ * Build the HTML page that embeds a YouTube iframe.
+ * Using source={{ html, baseUrl }} is the confirmed fix for Error 153.
+ * YouTube requires a valid origin — baseUrl provides that.
+ */
+function buildYouTubeHTML(videoId: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%; /* 16:9 aspect ratio */
+      height: 0;
+    }
+    .video-wrapper iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="video-wrapper">
+    <iframe
+      src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
+      allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+      allowfullscreen
+      frameborder="0"
+    ></iframe>
+  </div>
+</body>
+</html>`;
+}
+
 export default function VideoPlayerScreen() {
   const { url, title } = useLocalSearchParams<{ url: string; title?: string }>();
   const router = useRouter();
   const colors = useColors();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const webViewRef = useRef<WebView>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const videoId = useMemo(() => (url ? extractYouTubeId(url) : null), [url]);
   const screenWidth = Dimensions.get("window").width;
@@ -49,13 +94,18 @@ export default function VideoPlayerScreen() {
     router.back();
   }, [router]);
 
-  // Use youtube-nocookie.com for privacy-enhanced mode which avoids Error 153
-  const embedUrl = useMemo(() => {
+  const handleRetry = useCallback(() => {
+    setError(false);
+    setLoading(true);
+    setRetryKey((k) => k + 1);
+  }, []);
+
+  const youtubeHTML = useMemo(() => {
     if (!videoId) return null;
-    return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+    return buildYouTubeHTML(videoId);
   }, [videoId]);
 
-  if (!url || !videoId || !embedUrl) {
+  if (!url || !videoId || !youtubeHTML) {
     return (
       <ScreenContainer edges={["top", "bottom", "left", "right"]} className="flex-1">
         <View style={styles.center}>
@@ -112,7 +162,7 @@ export default function VideoPlayerScreen() {
               <Text style={{ fontSize: 48, marginBottom: 12 }}>{"\u{26A0}\u{FE0F}"}</Text>
               <Text style={styles.loadingText}>Failed to load video</Text>
               <Pressable
-                onPress={() => { setError(false); setLoading(true); }}
+                onPress={handleRetry}
                 style={({ pressed }) => [
                   styles.retryBtn,
                   { opacity: pressed ? 0.8 : 1 },
@@ -123,7 +173,14 @@ export default function VideoPlayerScreen() {
             </View>
           ) : (
             <WebView
-              source={{ uri: embedUrl }}
+              key={retryKey}
+              ref={webViewRef}
+              // Use HTML source with baseUrl — this is the confirmed fix for Error 153
+              // YouTube requires a valid origin, and baseUrl provides that context
+              source={{
+                html: youtubeHTML,
+                baseUrl: "https://learnapp.local",
+              }}
               style={{ flex: 1, backgroundColor: "#000" }}
               allowsInlineMediaPlayback
               mediaPlaybackRequiresUserAction={false}
@@ -140,11 +197,26 @@ export default function VideoPlayerScreen() {
                 }
               }}
               scrollEnabled={false}
-              // Set proper user agent to avoid YouTube blocking
-              userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
               // Allow third-party cookies for YouTube
               thirdPartyCookiesEnabled
               sharedCookiesEnabled
+              // Prevent navigation away from the embed
+              onShouldStartLoadWithRequest={(request) => {
+                // Allow the initial HTML load and YouTube embed
+                if (
+                  request.url === "about:blank" ||
+                  request.url.startsWith("https://learnapp.local") ||
+                  request.url.includes("youtube.com") ||
+                  request.url.includes("youtube-nocookie.com") ||
+                  request.url.includes("googlevideo.com") ||
+                  request.url.includes("google.com") ||
+                  request.url.includes("gstatic.com") ||
+                  request.url.includes("ytimg.com")
+                ) {
+                  return true;
+                }
+                return false;
+              }}
             />
           )}
         </View>

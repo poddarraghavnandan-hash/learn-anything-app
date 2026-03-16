@@ -1,0 +1,30 @@
+YouTube Error 153 Fix - Key Findings from GitHub Issue #3889
+
+Two working solutions:
+
+SOLUTION 1 (URI-based with Referer header):
+<WebView
+  source={{
+    uri: EMBEDDED_YOUTUBE_LINK,
+    headers: {Referer: `https://${BUNDLE_ID}`},
+  }}
+  mediaPlaybackRequiresUserAction={false}
+  allowsFullscreenVideo
+  allowsInlineMediaPlayback
+  javaScriptEnabled
+  domStorageEnabled
+/>
+
+SOLUTION 2 (HTML-based with baseUrl):
+<WebView
+  source={{ html: plyrHTML, baseUrl: "https://myapp.local" }}
+  javaScriptEnabled={true}
+  allowsFullscreenVideo={true}
+  mediaPlaybackRequiresUserAction={false}
+/>
+
+Key insight: YouTube expects a valid origin/referer. The baseUrl approach works because it sets the origin for the HTML content.
+
+The URI approach needs headers: {Referer: `https://${BUNDLE_ID}`} where BUNDLE_ID is like com.app or a domain starting with https://
+
+Latest comment (Feb 2026): baseUrl: "https://myapp.local" hack works.

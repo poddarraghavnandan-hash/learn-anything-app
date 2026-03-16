@@ -277,5 +277,5 @@
 - [x] Update Ask/chat flow video links to use in-app player
 - [x] Update Home feed video cards to use in-app player
 - [x] Update content detail screen to use in-app player
-- [x] Fix YouTube Error 153 in video player WebView embed — switched to youtube-nocookie.com URI loading with user agent
+- [x] Fix YouTube Error 153 in video player WebView embed — switched to HTML source with baseUrl origin (confirmed fix from react-native-webview#3889)
 - [x] Fix cold start feed still showing empty "Load Content" — skeleton loading on cold start with 3s polling + 30s timeout fallback
