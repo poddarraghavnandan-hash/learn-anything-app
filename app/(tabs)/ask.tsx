@@ -18,6 +18,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useLearning } from "@/lib/learning-store";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
+import { openVideoInApp } from "@/lib/video-utils";
 import type {
   ChatMessage,
   ChatConversation,
@@ -890,9 +891,9 @@ export default function AskScreen() {
 
   // ─── Handle Video Actions ─────────────────────────────────────────────────
 
-  const handleVideoWatch = useCallback((url: string) => {
+  const handleVideoWatch = useCallback((url: string, videoTitle?: string) => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL(url);
+    openVideoInApp(url, videoTitle);
     addXp(5);
   }, [addXp]);
 

@@ -210,7 +210,11 @@ export default function OnboardingScreen() {
     );
   }, []);
 
-  const handleFinish = useCallback(async () => {
+  const [isFinishing, setIsFinishing] = useState(false);
+
+  const handleFinish = useCallback(() => {
+    if (isFinishing) return;
+    setIsFinishing(true);
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (selectedAge) dispatch({ type: "SET_AGE", payload: selectedAge });
     dispatch({ type: "SET_INTERESTS", payload: selectedTopics });
@@ -220,9 +224,14 @@ export default function OnboardingScreen() {
     dispatch({ type: "COMPLETE_ONBOARDING" });
     dispatch({ type: "UPDATE_STREAK" });
 
+    // Fire-and-forget: start fetching content in background
+    // The Home tab's auto-refresh will detect empty feed and show skeleton loading
+    // If this succeeds, the Home tab will pick up the data on its next refetch
     refreshMutation.mutate({ topicSlugs: selectedTopics.slice(0, 5), skillLevel: "beginner" });
+
+    // Navigate immediately — Home tab shows skeleton loading while content loads
     router.replace("/(tabs)");
-  }, [selectedAge, selectedTopics, dispatch, router, refreshMutation]);
+  }, [isFinishing, selectedAge, selectedTopics, dispatch, router, refreshMutation]);
 
   const canProceed = step === 1 ? selectedAge !== null : step === 3 ? selectedTopics.length >= 1 : true;
 
@@ -539,19 +548,21 @@ export default function OnboardingScreen() {
               </Pressable>
               <Pressable
                 onPress={goNext}
-                disabled={!canProceed}
+                disabled={!canProceed || isFinishing}
                 style={({ pressed }) => [
                   styles.primaryBtn,
                   {
                     flex: 1,
-                    backgroundColor: canProceed ? colors.primary : colors.border,
+                    backgroundColor: canProceed && !isFinishing ? colors.primary : colors.border,
                     opacity: pressed ? 0.9 : 1,
                     transform: [{ scale: pressed ? 0.97 : 1 }],
                   },
                 ]}
               >
                 <Text style={styles.primaryBtnText}>
-                  {selectedTopics.length === 0
+                  {isFinishing
+                    ? "Preparing your content..."
+                    : selectedTopics.length === 0
                     ? "Pick at least one"
                     : `Start learning ${selectedTopics.length > 1 ? `(${selectedTopics.length} topics)` : ""}`}
                 </Text>

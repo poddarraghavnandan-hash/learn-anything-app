@@ -14,6 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useLearning } from "@/lib/learning-store";
+import { openVideoInApp } from "@/lib/video-utils";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
@@ -147,13 +148,12 @@ export default function TopicDetailScreen() {
       dispatch({ type: "INCREMENT_VIDEOS" });
       dispatch({ type: "ADD_XP", payload: 15 });
       dispatch({ type: "UPDATE_STREAK" });
-      // Navigate to content detail
+      // Navigate to content detail if we have a DB id
       if (item.id) {
         router.push(`/content/${item.id}` as any);
       } else {
-        // For items just fetched that don't have a DB id yet, open the URL
-        const { openBrowserAsync } = require("expo-web-browser");
-        openBrowserAsync(item.url);
+        // Play video in-app instead of opening externally
+        openVideoInApp(item.url, item.title);
       }
     },
     [topicSlug, dispatch, router]

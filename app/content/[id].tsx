@@ -7,7 +7,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
-  Linking,
   Image,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
@@ -15,6 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useLearning } from "@/lib/learning-store";
 import { XP_VALUES } from "@/shared/types";
+import { openVideoInApp } from "@/lib/video-utils";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useState } from "react";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -92,7 +92,7 @@ export default function ContentDetailScreen() {
         hourOfDay: new Date().getHours(),
       },
     });
-    Linking.openURL(content.url);
+    openVideoInApp(content.url, content.title);
   }, [content, addXp, dispatch]);
 
   const handleSave = useCallback(() => {
@@ -185,7 +185,7 @@ export default function ContentDetailScreen() {
               <View style={styles.playButton}>
                 <Text style={{ fontSize: 28, color: "#FFF" }}>{"\u25B6"}</Text>
               </View>
-              <Text style={styles.watchText}>Watch on YouTube</Text>
+              <Text style={styles.watchText}>Watch Now</Text>
             </View>
             {duration && (
               <View style={styles.durationBadge}>

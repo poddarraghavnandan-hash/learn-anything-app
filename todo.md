@@ -271,3 +271,9 @@
 
 ## Bug Fixes
 - [x] Fix Explore/Home tab empty on cold start — topics and feed should appear immediately for new users
+- [x] Fix cold start empty feed — auto-populate content immediately after onboarding (auto-refresh + 3s polling)
+- [x] Fix all video playback to use in-app player instead of opening YouTube externally
+- [x] Create in-app video player screen using WebView YouTube embed
+- [x] Update Ask/chat flow video links to use in-app player
+- [x] Update Home feed video cards to use in-app player
+- [x] Update content detail screen to use in-app player

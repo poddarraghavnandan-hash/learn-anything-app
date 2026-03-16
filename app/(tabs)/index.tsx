@@ -190,13 +190,25 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
 
-  // Feed data
+  // Feed data — poll every 3s while feed is empty (waiting for background refresh to populate DB)
+  const [feedPollEnabled, setFeedPollEnabled] = useState(true);
   const feedQuery = trpc.feed.get.useQuery(
     { topicSlugs: profile.interests, skillLevel: profile.skillLevel },
-    { enabled: profile.onboardingDone && profile.interests.length > 0 }
+    {
+      enabled: profile.onboardingDone && profile.interests.length > 0,
+      refetchInterval: feedPollEnabled ? 3000 : false,
+    }
   );
   const refreshMutation = trpc.feed.refresh.useMutation();
-  const autoRefreshed = useRef(false);
+  const autoRefreshState = useRef<"idle" | "loading" | "done">("idle");
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+
+  // Stop polling once we have feed items
+  useEffect(() => {
+    if (feedQuery.data?.items?.length) {
+      setFeedPollEnabled(false);
+    }
+  }, [feedQuery.data?.items?.length]);
 
   // Topics for the pills
   const topicsQuery = trpc.topics.list.useQuery(undefined, { enabled: profile.onboardingDone });
@@ -234,27 +246,35 @@ export default function HomeScreen() {
   }, [feedQuery.data, selectedCategory, allTopics]);
 
   // Auto-refresh on cold start: if onboarding done + interests exist but feed is empty
+  // This runs when the feed query resolves with empty data (no content in DB yet)
   useEffect(() => {
-    if (
-      profile.onboardingDone &&
-      profile.interests.length > 0 &&
-      !autoRefreshed.current &&
-      !feedQuery.isLoading &&
-      !feedQuery.data?.items?.length &&
-      !refreshMutation.isPending
-    ) {
-      autoRefreshed.current = true;
+    const hasInterests = profile.onboardingDone && profile.interests.length > 0;
+    const feedResolved = !feedQuery.isLoading && feedQuery.isFetched;
+    const feedEmpty = !feedQuery.data?.items?.length;
+    const canAutoRefresh = autoRefreshState.current === "idle" && !refreshMutation.isPending;
+
+    if (hasInterests && feedResolved && feedEmpty && canAutoRefresh) {
+      autoRefreshState.current = "loading";
+      setIsAutoRefreshing(true);
       refreshMutation
         .mutateAsync({
           topicSlugs: profile.interests.slice(0, 5),
           skillLevel: profile.skillLevel,
         })
         .then(() => {
-          feedQuery.refetch();
+          autoRefreshState.current = "done";
+          // Wait a moment for the DB to be ready, then refetch
+          setTimeout(() => {
+            feedQuery.refetch().finally(() => setIsAutoRefreshing(false));
+          }, 500);
         })
-        .catch(() => {});
+        .catch(() => {
+          // Allow retry on failure
+          autoRefreshState.current = "idle";
+          setIsAutoRefreshing(false);
+        });
     }
-  }, [profile.onboardingDone, profile.interests, feedQuery.isLoading, feedQuery.data]);
+  }, [profile.onboardingDone, profile.interests.length, feedQuery.isLoading, feedQuery.isFetched, feedQuery.data?.items?.length]);
 
   // Greeting based on time of day
   const greeting = useMemo(() => {
@@ -514,12 +534,12 @@ export default function HomeScreen() {
 
   // ─── Empty State ─────────────────────────────────────────────────────────────
 
-  const isAutoLoading = feedQuery.isLoading || refreshMutation.isPending;
+  const isLoadingFeed = feedQuery.isLoading || isAutoRefreshing || refreshMutation.isPending;
 
   const EmptyFeed = useMemo(
     () => (
       <View style={styles.emptyWrap}>
-        {isAutoLoading ? (
+        {isLoadingFeed ? (
           <View style={styles.emptyContent}>
             <Text style={[styles.emptyTitle, { color: colors.foreground, marginBottom: 4 }]}>
               Loading your feed...
@@ -551,7 +571,7 @@ export default function HomeScreen() {
         )}
       </View>
     ),
-    [isAutoLoading, colors, handleRefresh]
+    [isLoadingFeed, colors, handleRefresh]
   );
 
   // ─── Render ──────────────────────────────────────────────────────────────────

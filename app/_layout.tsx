@@ -96,6 +96,7 @@ export default function RootLayout() {
             <Stack.Screen name="topic/[slug]" options={{ headerShown: false }} />
             <Stack.Screen name="curiosity-check" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
             <Stack.Screen name="quick-burst" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
+            <Stack.Screen name="video-player" options={{ headerShown: false, animation: "slide_from_bottom" }} />
           </Stack>
           <StatusBar style="auto" />
         </QueryClientProvider>
