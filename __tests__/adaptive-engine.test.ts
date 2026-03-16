@@ -351,6 +351,7 @@ describe("scoreContent", () => {
     totalQuizAttempted: 10,
     dailyGoalsCompleted: 3,
     mindBlownCount: 5,
+    streakFreezes: 1,
   };
 
   const content: ContentItemData = {
@@ -474,6 +475,7 @@ describe("UserProfile shape", () => {
       totalQuizAttempted: 0,
       dailyGoalsCompleted: 0,
       mindBlownCount: 0,
+        streakFreezes: 1,
     };
 
     expect(profile.skillLevel).toBe("beginner");

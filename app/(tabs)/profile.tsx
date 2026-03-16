@@ -11,6 +11,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Constants from "expo-constants";
 import { trpc } from "@/lib/trpc";
+import { useThemeContext, type ThemePreference } from "@/lib/theme-provider";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
@@ -27,6 +29,12 @@ export default function ProfileScreen() {
   const { state, dispatch } = useLearning();
   const { profile } = state;
   const levelInfo = getLevel(profile.totalXp);
+  const { themePreference, setThemePreference } = useThemeContext();
+
+  const handleThemeChange = useCallback((pref: ThemePreference) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setThemePreference(pref);
+  }, [setThemePreference]);
 
   // Update check state
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "available" | "latest" | "error">("idle");
@@ -148,6 +156,7 @@ export default function ProfileScreen() {
               totalQuizAttempted: 0,
               dailyGoalsCompleted: 0,
               mindBlownCount: 0,
+              streakFreezes: 1,
             },
             engagements: [],
             spacedRep: [],
@@ -315,6 +324,94 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
+        {/* Appearance / Theme Toggle */}
+        <Animated.View entering={FadeInDown.duration(300).delay(325)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            Appearance
+          </Text>
+          <View style={styles.themeRow}>
+            {(["light", "dark", "system"] as ThemePreference[]).map((pref) => {
+              const isActive = themePreference === pref;
+              const icon = pref === "light" ? "sun.max.fill" : pref === "dark" ? "moon.fill" : "gearshape.fill";
+              const label = pref === "light" ? "Light" : pref === "dark" ? "Dark" : "System";
+              return (
+                <Pressable
+                  key={pref}
+                  onPress={() => handleThemeChange(pref)}
+                  style={({ pressed }) => [
+                    styles.themePill,
+                    {
+                      backgroundColor: isActive ? colors.primary : "transparent",
+                      borderColor: isActive ? colors.primary : colors.border,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <IconSymbol name={icon as any} size={16} color={isActive ? "#FFF" : colors.foreground} />
+                  <Text style={[styles.themePillText, { color: isActive ? "#FFF" : colors.foreground }]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Animated.View>
+
+        {/* Streak Freeze */}
+        <Animated.View entering={FadeInDown.duration(300).delay(340)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            Streak Protection
+          </Text>
+          <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+            Freezes protect your streak when you miss a day. Earn more by completing 7-day streaks.
+          </Text>
+          <View style={styles.freezeRow}>
+            {[0, 1, 2].map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.freezeIcon,
+                  {
+                    backgroundColor: i < (profile.streakFreezes || 0) ? "#60A5FA" + "25" : colors.border + "30",
+                    borderColor: i < (profile.streakFreezes || 0) ? "#60A5FA" : colors.border,
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 20, opacity: i < (profile.streakFreezes || 0) ? 1 : 0.3 }}>
+                  {"\u2744\uFE0F"}
+                </Text>
+              </View>
+            ))}
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={[styles.freezeCount, { color: colors.foreground }]}>
+                {profile.streakFreezes || 0} / 3 freezes
+              </Text>
+              <Text style={[styles.freezeHint, { color: colors.muted }]}>
+                {profile.currentStreak === 0 && profile.longestStreak > 0
+                  ? `Repair streak for ${Math.min(profile.longestStreak * 50, 500)} XP`
+                  : profile.streakFreezes >= 3 ? "Fully stocked!" : "Complete 7-day streaks to earn more"}
+              </Text>
+            </View>
+          </View>
+          {profile.currentStreak === 0 && profile.longestStreak > 0 && profile.totalXp >= Math.min(profile.longestStreak * 50, 500) && (
+            <Pressable
+              onPress={() => {
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                const cost = Math.min(profile.longestStreak * 50, 500);
+                dispatch({ type: "REPAIR_STREAK", payload: cost });
+              }}
+              style={({ pressed }) => [
+                styles.repairBtn,
+                { backgroundColor: colors.warning + "15", borderColor: colors.warning + "40", opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={[styles.repairBtnText, { color: colors.warning }]}>
+                Repair Streak ({Math.min(profile.longestStreak * 50, 500)} XP)
+              </Text>
+            </Pressable>
+          )}
+        </Animated.View>
+
         {/* Saved Content */}
         <Animated.View entering={FadeInDown.duration(300).delay(350)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
@@ -452,6 +549,65 @@ export default function ProfileScreen() {
           </Pressable>
         </Animated.View>
 
+        {/* Learning Reminders */}
+        <Animated.View entering={FadeInDown.duration(300).delay(440)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              {"\u{1F514}"} Learning Reminders
+            </Text>
+          </View>
+          <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+            Get a gentle nudge to keep your learning habit going.
+          </Text>
+          <View style={styles.reminderToggleRow}>
+            <Text style={[styles.reminderLabel, { color: colors.foreground }]}>Daily Reminder</Text>
+            <Pressable
+              onPress={async () => {
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const { getReminderSettings, saveReminderSettings, requestNotificationPermission } = await import("@/lib/notifications");
+                const current = await getReminderSettings();
+                if (!current.enabled) {
+                  const granted = await requestNotificationPermission();
+                  if (!granted) {
+                    if (Platform.OS === "web") alert("Please enable notifications in your device settings.");
+                    else Alert.alert("Notifications Disabled", "Please enable notifications in your device settings to receive reminders.");
+                    return;
+                  }
+                }
+                await saveReminderSettings({ ...current, enabled: !current.enabled });
+                if (Platform.OS === "web") alert(!current.enabled ? "Reminders enabled!" : "Reminders disabled.");
+                else Alert.alert(!current.enabled ? "Reminders On" : "Reminders Off", !current.enabled ? "You'll get a daily learning nudge." : "No more reminders.");
+              }}
+              style={({ pressed }) => [
+                styles.reminderToggle,
+                { backgroundColor: colors.primary + "15", borderColor: colors.primary + "30", opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={[styles.reminderToggleText, { color: colors.primary }]}>Toggle</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={async () => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              const { getReminderSettings, saveReminderSettings } = await import("@/lib/notifications");
+              const current = await getReminderSettings();
+              await saveReminderSettings({ ...current, useSmartTiming: !current.useSmartTiming });
+              if (Platform.OS === "web") alert(!current.useSmartTiming ? "Smart timing enabled! Reminders will match your peak learning hours." : "Smart timing disabled. Using default schedule.");
+              else Alert.alert(!current.useSmartTiming ? "Smart Timing On" : "Smart Timing Off", !current.useSmartTiming ? "Reminders will be sent based on when you usually learn." : "Using default reminder time.");
+            }}
+            style={({ pressed }) => [
+              styles.smartTimingBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
+            ]}
+          >
+            <Text style={{ fontSize: 16 }}>{"\u{1F9E0}"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.smartTimingLabel, { color: colors.foreground }]}>Smart Timing</Text>
+              <Text style={[styles.smartTimingDesc, { color: colors.muted }]}>Send reminders when you're most likely to learn</Text>
+            </View>
+          </Pressable>
+        </Animated.View>
+
         {/* About */}
         <Animated.View entering={FadeInDown.duration(300).delay(450)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About</Text>
@@ -529,4 +685,20 @@ const styles = StyleSheet.create({
   signInText: { fontSize: 15, fontWeight: "700" },
   resetBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5 },
   resetText: { fontSize: 14, fontWeight: "600" },
+  themeRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  themePill: { flex: 1, flexDirection: "row", paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 6 },
+  themePillText: { fontSize: 13, fontWeight: "600" },
+  freezeRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  freezeIcon: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, justifyContent: "center", alignItems: "center" },
+  freezeCount: { fontSize: 15, fontWeight: "700" },
+  freezeHint: { fontSize: 12, marginTop: 2 },
+  repairBtn: { paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", marginTop: 12 },
+  repairBtnText: { fontSize: 14, fontWeight: "700" },
+  reminderToggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  reminderLabel: { fontSize: 15, fontWeight: "600" },
+  reminderToggle: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  reminderToggleText: { fontSize: 13, fontWeight: "700" },
+  smartTimingBtn: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 12, borderWidth: 1 },
+  smartTimingLabel: { fontSize: 14, fontWeight: "600" },
+  smartTimingDesc: { fontSize: 11, marginTop: 2 },
 });

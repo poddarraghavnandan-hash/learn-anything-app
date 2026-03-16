@@ -59,6 +59,9 @@ const DEFAULT_PROFILE: UserProfile = {
   totalQuizAttempted: 0,
   dailyGoalsCompleted: 0,
   mindBlownCount: 0,
+  streakFreezes: 1,
+  lastCelebratedLevel: 0,
+  lastCelebratedStreak: 0,
 };
 
 const initialState: LearningState = {
@@ -123,7 +126,12 @@ type Action =
   | { type: "ADD_CONFUSION_POINT"; payload: string }
   | { type: "ADD_STRENGTH_AREA"; payload: string }
   | { type: "RECORD_EXPLAIN_SIMPLER" }
-  | { type: "RECORD_TOPIC_SWITCH" };
+  | { type: "RECORD_TOPIC_SWITCH" }
+  | { type: "USE_STREAK_FREEZE" }
+  | { type: "EARN_STREAK_FREEZE" }
+  | { type: "REPAIR_STREAK"; payload: number }  // cost in XP
+  | { type: "MARK_CELEBRATED_LEVEL"; payload: number }
+  | { type: "MARK_CELEBRATED_STREAK"; payload: number };
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -164,11 +172,31 @@ function reducer(state: LearningState, action: Action): LearningState {
     case "UPDATE_STREAK": {
       const today = getToday();
       const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-      let { currentStreak, longestStreak, lastActiveDate } = state.profile;
+      let { currentStreak, longestStreak, lastActiveDate, streakFreezes, streakFreezeUsedDate } = state.profile;
 
       if (lastActiveDate === today) return state;
       if (lastActiveDate === yesterday) {
         currentStreak += 1;
+      } else if (lastActiveDate && lastActiveDate !== today) {
+        // Missed a day — check if we can auto-use a freeze
+        const daysBetween = Math.floor((new Date(today).getTime() - new Date(lastActiveDate).getTime()) / 86400000);
+        if (daysBetween === 2 && streakFreezes > 0 && streakFreezeUsedDate !== yesterday) {
+          // Auto-use freeze for yesterday
+          streakFreezes -= 1;
+          currentStreak += 1; // Continue the streak
+          return {
+            ...state,
+            profile: {
+              ...state.profile,
+              currentStreak,
+              longestStreak: Math.max(longestStreak, currentStreak),
+              lastActiveDate: today,
+              streakFreezes,
+              streakFreezeUsedDate: yesterday,
+            },
+          };
+        }
+        currentStreak = 1;
       } else {
         currentStreak = 1;
       }
@@ -178,6 +206,46 @@ function reducer(state: LearningState, action: Action): LearningState {
         profile: { ...state.profile, currentStreak, longestStreak, lastActiveDate: today },
       };
     }
+
+    case "USE_STREAK_FREEZE": {
+      if (state.profile.streakFreezes <= 0) return state;
+      return {
+        ...state,
+        profile: {
+          ...state.profile,
+          streakFreezes: state.profile.streakFreezes - 1,
+          streakFreezeUsedDate: getToday(),
+        },
+      };
+    }
+
+    case "EARN_STREAK_FREEZE": {
+      if (state.profile.streakFreezes >= 3) return state;
+      return {
+        ...state,
+        profile: { ...state.profile, streakFreezes: state.profile.streakFreezes + 1 },
+      };
+    }
+
+    case "REPAIR_STREAK": {
+      const xpCost = action.payload;
+      if (state.profile.totalXp < xpCost) return state;
+      return {
+        ...state,
+        profile: {
+          ...state.profile,
+          totalXp: state.profile.totalXp - xpCost,
+          currentStreak: state.profile.longestStreak, // restore to longest
+          lastActiveDate: getToday(),
+        },
+      };
+    }
+
+    case "MARK_CELEBRATED_LEVEL":
+      return { ...state, profile: { ...state.profile, lastCelebratedLevel: action.payload } };
+
+    case "MARK_CELEBRATED_STREAK":
+      return { ...state, profile: { ...state.profile, lastCelebratedStreak: action.payload } };
 
     case "INCREMENT_VIDEOS":
       return { ...state, profile: { ...state.profile, totalVideos: state.profile.totalVideos + 1 } };

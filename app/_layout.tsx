@@ -18,6 +18,7 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { LearningProvider } from "@/lib/learning-store";
+import { CelebrationManager } from "@/components/celebration-manager";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -94,10 +95,12 @@ export default function RootLayout() {
             <Stack.Screen name="content/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="topic/[slug]" options={{ headerShown: false }} />
             <Stack.Screen name="curiosity-check" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
+            <Stack.Screen name="quick-burst" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </QueryClientProvider>
       </trpc.Provider>
+      <CelebrationManager />
       </LearningProvider>
     </GestureHandlerRootView>
   );

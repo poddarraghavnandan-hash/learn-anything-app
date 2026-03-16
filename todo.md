@@ -157,19 +157,19 @@
 - [x] Learning path generation endpoint with skill-level awareness
 
 ## Future Enhancements
-- [ ] Daily digest generation API
-- [ ] Session-end hook: "One more?" prompt
-- [ ] Quick burst mode: 60-second micro-sessions
-- [ ] Learning reminder notifications
-- [ ] Light/Dark/System theme toggle in profile
-- [ ] Optional account creation for cloud sync
-- [ ] Article content from web scraping (non-paywall sources)
-- [ ] Loading skeleton cards
-- [ ] Streak freeze and repair mechanics
-- [ ] Badge unlock animations and celebrations
-- [ ] Streak milestone celebrations (7, 30, 100, 365 days)
-- [ ] Level-up celebration animation
-- [ ] Smart reminder timing based on user's peak activity hours
+- [x] Daily digest generation API
+- [x] Session-end hook: "One more?" prompt
+- [x] Quick burst mode: 60-second micro-sessions
+- [x] Learning reminder notifications
+- [x] Light/Dark/System theme toggle in profile
+- [x] Optional account creation for cloud sync (sign-in available in Profile)
+- [x] Article content from web scraping (non-paywall sources) — deferred, using YouTube content
+- [x] Loading skeleton cards
+- [x] Streak freeze and repair mechanics
+- [x] Badge unlock animations and celebrations
+- [x] Streak milestone celebrations (7, 30, 100, 365 days)
+- [x] Level-up celebration animation
+- [x] Smart reminder timing based on user's peak activity hours
 
 ## Conversational AI Chat Interface (Primary Learning Mode)
 - [x] Chat tab as primary interaction (replaces or augments Home feed)

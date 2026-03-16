@@ -715,6 +715,8 @@ export default function AskScreen() {
 
         addXp(15);
         dispatch({ type: "UPDATE_STREAK" });
+        // Record activity hour for smart reminder timing
+        import("@/lib/notifications").then(({ recordActivityHour }) => recordActivityHour()).catch(() => {});
       } catch {
         const errorMsg: ChatMessage = {
           id: genId(),

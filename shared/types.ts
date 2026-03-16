@@ -155,6 +155,12 @@ export interface UserProfile {
   totalQuizAttempted: number;
   dailyGoalsCompleted: number;
   mindBlownCount: number;
+  // Streak freeze
+  streakFreezes: number;           // available freezes (max 3)
+  streakFreezeUsedDate?: string;   // last date a freeze was used
+  // Level tracking for celebrations
+  lastCelebratedLevel?: number;
+  lastCelebratedStreak?: number;
 }
 
 export type Reaction = "mind_blown" | "knew_this" | "save" | "skip";

@@ -281,6 +281,43 @@ export default function ProgressScreen() {
           )}
         </Animated.View>
 
+        {/* Daily Digest */}
+        <Animated.View entering={FadeInDown.duration(300).delay(500)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Text style={{ fontSize: 20 }}>{"\u{1F4CB}"}</Text>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Today's Summary</Text>
+          </View>
+          <View style={styles.digestGrid}>
+            <View style={styles.digestItem}>
+              <Text style={[styles.digestValue, { color: colors.primary }]}>{state.sessionMinutes || 0}</Text>
+              <Text style={[styles.digestLabel, { color: colors.muted }]}>min learned</Text>
+            </View>
+            <View style={styles.digestItem}>
+              <Text style={[styles.digestValue, { color: colors.success }]}>{profile.interests.length}</Text>
+              <Text style={[styles.digestLabel, { color: colors.muted }]}>topics</Text>
+            </View>
+            <View style={styles.digestItem}>
+              <Text style={[styles.digestValue, { color: colors.warning }]}>{quizAccuracy}%</Text>
+              <Text style={[styles.digestLabel, { color: colors.muted }]}>accuracy</Text>
+            </View>
+            <View style={styles.digestItem}>
+              <Text style={[styles.digestValue, { color: colors.foreground }]}>{profile.totalXp}</Text>
+              <Text style={[styles.digestLabel, { color: colors.muted }]}>total XP</Text>
+            </View>
+          </View>
+          <Text style={[styles.digestEncouragement, { color: colors.muted }]}>
+            {profile.currentStreak >= 30
+              ? "Incredible consistency! Your deep knowledge is building."
+              : profile.currentStreak >= 7
+              ? "A week-long streak! Powerful learning habit forming."
+              : profile.currentStreak >= 3
+              ? "Momentum is building. Keep it up!"
+              : profile.currentStreak >= 1
+              ? "Great job showing up today. Every session counts."
+              : "Welcome back! Today is a fresh start."}
+          </Text>
+        </Animated.View>
+
         {/* Motivational footer */}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.muted }]}>
@@ -354,4 +391,9 @@ const styles = StyleSheet.create({
   lockedLabel: { fontSize: 13, marginTop: 12, marginBottom: 8 },
   footer: { paddingVertical: 20, alignItems: "center" },
   footerText: { fontSize: 14, textAlign: "center", lineHeight: 22, fontStyle: "italic" },
+  digestGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
+  digestItem: { width: "45%", alignItems: "center", paddingVertical: 8 },
+  digestValue: { fontSize: 24, fontWeight: "800" },
+  digestLabel: { fontSize: 12, marginTop: 2 },
+  digestEncouragement: { fontSize: 13, fontStyle: "italic", textAlign: "center", marginTop: 12, lineHeight: 20 },
 });

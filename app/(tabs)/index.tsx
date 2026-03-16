@@ -20,6 +20,7 @@ import { trpc } from "@/lib/trpc";
 import type { FeedCard, ContentItemData, QuizData, InsightData, ReviewData } from "@/shared/types";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
+import { SkeletonFeed } from "@/components/skeleton-card";
 
 // ─── Topic pill data (matches onboarding + discover) ──────────────────────────
 
@@ -395,6 +396,27 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
+        {/* Quick Burst */}
+        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+          <Pressable
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push("/quick-burst" as any);
+            }}
+            style={({ pressed }) => [
+              styles.burstBtn,
+              { backgroundColor: colors.warning + "12", borderColor: colors.warning + "30", opacity: pressed ? 0.85 : 1 },
+            ]}
+          >
+            <Text style={styles.burstEmoji}>{"\u26A1"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.burstTitle, { color: colors.foreground }]}>Quick Burst</Text>
+              <Text style={[styles.burstDesc, { color: colors.muted }]}>60 seconds. Learn one concept.</Text>
+            </View>
+            <Text style={[styles.burstArrow, { color: colors.muted }]}>{"\u203A"}</Text>
+          </Pressable>
+        </Animated.View>
+
         {/* Your Topics (horizontal scroll) */}
         {profile.interests.length > 0 && (
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
@@ -499,13 +521,13 @@ export default function HomeScreen() {
       <View style={styles.emptyWrap}>
         {isAutoLoading ? (
           <View style={styles.emptyContent}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 16 }]}>
+            <Text style={[styles.emptyTitle, { color: colors.foreground, marginBottom: 4 }]}>
               Loading your feed...
             </Text>
-            <Text style={[styles.emptyDesc, { color: colors.muted }]}>
+            <Text style={[styles.emptyDesc, { color: colors.muted, marginBottom: 16 }]}>
               Finding the best content for your interests
             </Text>
+            <SkeletonFeed />
           </View>
         ) : (
           <Animated.View entering={FadeIn.duration(300)} style={styles.emptyContent}>
@@ -696,4 +718,9 @@ const styles = StyleSheet.create({
   emptyDesc: { fontSize: 14, textAlign: "center", lineHeight: 21, maxWidth: 280, marginBottom: 20 },
   refreshBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   refreshBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
+  burstBtn: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 12, gap: 12 },
+  burstEmoji: { fontSize: 28 },
+  burstTitle: { fontSize: 15, fontWeight: "700" },
+  burstDesc: { fontSize: 12, marginTop: 2 },
+  burstArrow: { fontSize: 24, fontWeight: "300" },
 });
