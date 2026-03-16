@@ -191,24 +191,36 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Feed data — poll every 3s while feed is empty (waiting for background refresh to populate DB)
-  const [feedPollEnabled, setFeedPollEnabled] = useState(true);
+  const [feedHasData, setFeedHasData] = useState(false);
   const feedQuery = trpc.feed.get.useQuery(
     { topicSlugs: profile.interests, skillLevel: profile.skillLevel },
     {
       enabled: profile.onboardingDone && profile.interests.length > 0,
-      refetchInterval: feedPollEnabled ? 3000 : false,
+      // Keep polling every 3s until we have content, then stop
+      refetchInterval: feedHasData ? false : 3000,
     }
   );
   const refreshMutation = trpc.feed.refresh.useMutation();
-  const autoRefreshState = useRef<"idle" | "loading" | "done">("idle");
+  const autoRefreshAttempted = useRef(false);
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
 
-  // Stop polling once we have feed items
+  // Track when we have feed data to stop polling
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   useEffect(() => {
     if (feedQuery.data?.items?.length) {
-      setFeedPollEnabled(false);
+      setFeedHasData(true);
+      setIsAutoRefreshing(false);
     }
   }, [feedQuery.data?.items?.length]);
+
+  // Timeout: after 30s of empty feed, stop showing skeleton and show Load Content button
+  useEffect(() => {
+    if (feedHasData || !profile.onboardingDone) return;
+    const timer = setTimeout(() => {
+      if (!feedHasData) setLoadingTimedOut(true);
+    }, 30000);
+    return () => clearTimeout(timer);
+  }, [feedHasData, profile.onboardingDone]);
 
   // Topics for the pills
   const topicsQuery = trpc.topics.list.useQuery(undefined, { enabled: profile.onboardingDone });
@@ -246,31 +258,30 @@ export default function HomeScreen() {
   }, [feedQuery.data, selectedCategory, allTopics]);
 
   // Auto-refresh on cold start: if onboarding done + interests exist but feed is empty
-  // This runs when the feed query resolves with empty data (no content in DB yet)
+  // Only attempt once per mount. The 3s polling will pick up data once the server finishes.
   useEffect(() => {
+    if (autoRefreshAttempted.current) return;
     const hasInterests = profile.onboardingDone && profile.interests.length > 0;
     const feedResolved = !feedQuery.isLoading && feedQuery.isFetched;
     const feedEmpty = !feedQuery.data?.items?.length;
-    const canAutoRefresh = autoRefreshState.current === "idle" && !refreshMutation.isPending;
 
-    if (hasInterests && feedResolved && feedEmpty && canAutoRefresh) {
-      autoRefreshState.current = "loading";
+    if (hasInterests && feedResolved && feedEmpty) {
+      autoRefreshAttempted.current = true;
       setIsAutoRefreshing(true);
+      // Fire refresh — the onboarding may have already started one, but this is a safety net
       refreshMutation
         .mutateAsync({
           topicSlugs: profile.interests.slice(0, 5),
           skillLevel: profile.skillLevel,
         })
         .then(() => {
-          autoRefreshState.current = "done";
-          // Wait a moment for the DB to be ready, then refetch
-          setTimeout(() => {
-            feedQuery.refetch().finally(() => setIsAutoRefreshing(false));
-          }, 500);
+          // Refetch immediately, then polling will continue every 3s
+          feedQuery.refetch();
         })
         .catch(() => {
-          // Allow retry on failure
-          autoRefreshState.current = "idle";
+          // Even on failure, polling will keep trying to fetch from DB
+          // Reset so user can try manual refresh
+          autoRefreshAttempted.current = false;
           setIsAutoRefreshing(false);
         });
     }
@@ -534,7 +545,8 @@ export default function HomeScreen() {
 
   // ─── Empty State ─────────────────────────────────────────────────────────────
 
-  const isLoadingFeed = feedQuery.isLoading || isAutoRefreshing || refreshMutation.isPending;
+  // Show loading state on cold start: if we don't have data yet AND haven't timed out
+  const isLoadingFeed = !loadingTimedOut && (feedQuery.isLoading || isAutoRefreshing || refreshMutation.isPending || (!feedHasData && !feedQuery.isError));
 
   const EmptyFeed = useMemo(
     () => (

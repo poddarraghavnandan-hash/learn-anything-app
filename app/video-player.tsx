@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   Dimensions,
+  ScrollView,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -23,13 +24,10 @@ import { WebView } from "react-native-webview";
  */
 function extractYouTubeId(url: string): string | null {
   if (!url) return null;
-  // youtu.be short links
   const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
   if (shortMatch) return shortMatch[1];
-  // Standard youtube.com URLs
   const standardMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
   if (standardMatch) return standardMatch[1];
-  // Embed URLs
   const embedMatch = url.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
   if (embedMatch) return embedMatch[1];
   return null;
@@ -51,45 +49,13 @@ export default function VideoPlayerScreen() {
     router.back();
   }, [router]);
 
-  // YouTube embed HTML — responsive, autoplay, no related videos at end
-  const embedHtml = useMemo(() => {
-    if (!videoId) return "";
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-          .container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <iframe
-            src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1"
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowfullscreen
-          ></iframe>
-        </div>
-      </body>
-      </html>
-    `;
+  // Use youtube-nocookie.com for privacy-enhanced mode which avoids Error 153
+  const embedUrl = useMemo(() => {
+    if (!videoId) return null;
+    return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
   }, [videoId]);
 
-  if (!url || !videoId) {
+  if (!url || !videoId || !embedUrl) {
     return (
       <ScreenContainer edges={["top", "bottom", "left", "right"]} className="flex-1">
         <View style={styles.center}>
@@ -132,55 +98,69 @@ export default function VideoPlayerScreen() {
         </View>
       </View>
 
-      {/* Video Player */}
-      <View style={[styles.videoContainer, { height: videoHeight, backgroundColor: "#000" }]}>
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#FFF" />
-            <Text style={styles.loadingText}>Loading video...</Text>
-          </View>
-        )}
-        {error ? (
-          <View style={styles.loadingOverlay}>
-            <Text style={{ fontSize: 48, marginBottom: 12 }}>{"\u{26A0}\u{FE0F}"}</Text>
-            <Text style={styles.loadingText}>Failed to load video</Text>
-            <Pressable
-              onPress={() => { setError(false); setLoading(true); }}
-              style={({ pressed }) => [
-                styles.retryBtn,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
-            >
-              <Text style={styles.retryText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <WebView
-            source={{ html: embedHtml }}
-            style={{ flex: 1, backgroundColor: "#000" }}
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            javaScriptEnabled
-            domStorageEnabled
-            allowsFullscreenVideo
-            onLoadEnd={() => setLoading(false)}
-            onError={() => { setLoading(false); setError(true); }}
-            scrollEnabled={false}
-          />
-        )}
-      </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
+        {/* Video Player */}
+        <View style={[styles.videoContainer, { height: videoHeight, backgroundColor: "#000" }]}>
+          {loading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#FFF" />
+              <Text style={styles.loadingText}>Loading video...</Text>
+            </View>
+          )}
+          {error ? (
+            <View style={styles.loadingOverlay}>
+              <Text style={{ fontSize: 48, marginBottom: 12 }}>{"\u{26A0}\u{FE0F}"}</Text>
+              <Text style={styles.loadingText}>Failed to load video</Text>
+              <Pressable
+                onPress={() => { setError(false); setLoading(true); }}
+                style={({ pressed }) => [
+                  styles.retryBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Text style={styles.retryText}>Retry</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <WebView
+              source={{ uri: embedUrl }}
+              style={{ flex: 1, backgroundColor: "#000" }}
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              javaScriptEnabled
+              domStorageEnabled
+              allowsFullscreenVideo
+              onLoadEnd={() => setLoading(false)}
+              onError={() => { setLoading(false); setError(true); }}
+              onHttpError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                if (nativeEvent.statusCode >= 400) {
+                  setLoading(false);
+                  setError(true);
+                }
+              }}
+              scrollEnabled={false}
+              // Set proper user agent to avoid YouTube blocking
+              userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+              // Allow third-party cookies for YouTube
+              thirdPartyCookiesEnabled
+              sharedCookiesEnabled
+            />
+          )}
+        </View>
 
-      {/* Video Info */}
-      <View style={styles.infoSection}>
-        {title && (
-          <Text style={[styles.videoTitle, { color: colors.foreground }]}>
-            {title}
+        {/* Video Info */}
+        <View style={styles.infoSection}>
+          {title && (
+            <Text style={[styles.videoTitle, { color: colors.foreground }]}>
+              {title}
+            </Text>
+          )}
+          <Text style={[styles.videoMeta, { color: colors.muted }]}>
+            Playing in-app
           </Text>
-        )}
-        <Text style={[styles.videoMeta, { color: colors.muted }]}>
-          Playing in-app
-        </Text>
-      </View>
+        </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }
