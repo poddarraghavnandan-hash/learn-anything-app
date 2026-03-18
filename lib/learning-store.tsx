@@ -16,6 +16,7 @@ import type {
   ChatMessage,
   LearnerModel,
   NudgeType,
+  LearningJourney,
 } from "@/shared/types";
 import { XP_VALUES, calibrateDifficulty, BADGE_DEFINITIONS, DEFAULT_LEARNER_MODEL } from "@/shared/types";
 
@@ -35,6 +36,9 @@ interface LearningState {
   // Chat conversations
   conversations: ChatConversation[];
   activeConversationId: string | null;
+  // Learning Journeys
+  journeys: LearningJourney[];
+  activeJourneyId: string | null;
   // Learner Model — evolves silently
   learnerModel: LearnerModel;
   sessionStartTime: number;
@@ -76,6 +80,8 @@ const initialState: LearningState = {
   curiosityResults: {},
   conversations: [],
   activeConversationId: null,
+  journeys: [],
+  activeJourneyId: null,
   learnerModel: { ...DEFAULT_LEARNER_MODEL },
   sessionStartTime: Date.now(),
   sessionMinutes: 0,
@@ -127,6 +133,10 @@ type Action =
   | { type: "ADD_STRENGTH_AREA"; payload: string }
   | { type: "RECORD_EXPLAIN_SIMPLER" }
   | { type: "RECORD_TOPIC_SWITCH" }
+  // Learning Journey actions
+  | { type: "SAVE_JOURNEY"; payload: LearningJourney }
+  | { type: "UPDATE_JOURNEY"; payload: { id: string; updates: Partial<LearningJourney> } }
+  | { type: "SET_ACTIVE_JOURNEY"; payload: string | null }
   | { type: "USE_STREAK_FREEZE" }
   | { type: "EARN_STREAK_FREEZE" }
   | { type: "REPAIR_STREAK"; payload: number }  // cost in XP
@@ -399,6 +409,31 @@ function reducer(state: LearningState, action: Action): LearningState {
         },
       };
     }
+
+    // ─── Learning Journey Actions ─────────────────────────────────────────────
+
+    case "SAVE_JOURNEY": {
+      const existing = state.journeys.findIndex(j => j.id === action.payload.id);
+      if (existing >= 0) {
+        const updated = [...state.journeys];
+        updated[existing] = action.payload;
+        return { ...state, journeys: updated, activeJourneyId: action.payload.id };
+      }
+      return { ...state, journeys: [action.payload, ...state.journeys].slice(0, 30), activeJourneyId: action.payload.id };
+    }
+
+    case "UPDATE_JOURNEY": {
+      const { id, updates } = action.payload;
+      return {
+        ...state,
+        journeys: state.journeys.map(j =>
+          j.id === id ? { ...j, ...updates } : j
+        ),
+      };
+    }
+
+    case "SET_ACTIVE_JOURNEY":
+      return { ...state, activeJourneyId: action.payload };
 
     // ─── Chat Actions ─────────────────────────────────────────────────────────
 
@@ -689,6 +724,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
           if (!parsed.topicProgress) parsed.topicProgress = {};
           if (!parsed.curiosityResults) parsed.curiosityResults = {};
           if (!parsed.conversations) parsed.conversations = [];
+          if (!parsed.journeys) parsed.journeys = [];
+          if (!parsed.activeJourneyId) parsed.activeJourneyId = null;
           if (!parsed.activeConversationId) parsed.activeConversationId = null;
           if (!parsed.learnerModel) parsed.learnerModel = { ...DEFAULT_LEARNER_MODEL };
           dispatch({ type: "LOAD_STATE", payload: { ...parsed, loaded: true, sessionStartTime: Date.now(), sessionMinutes: 0 } });
@@ -717,12 +754,14 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         topicProgress: state.topicProgress,
         curiosityResults: state.curiosityResults,
         conversations: state.conversations.slice(0, 20), // Keep last 20 conversations
+        journeys: state.journeys.slice(0, 20),
+        activeJourneyId: state.activeJourneyId,
         activeConversationId: state.activeConversationId,
         learnerModel: state.learnerModel,
       };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave)).catch(() => {});
     }, 500);
-  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.ladders, state.topicProgress, state.curiosityResults, state.conversations, state.activeConversationId, state.learnerModel, state.loaded]);
+  }, [state.profile, state.engagements, state.spacedRep, state.savedContentIds, state.topicDifficulties, state.unlockedBadges, state.ladders, state.topicProgress, state.curiosityResults, state.conversations, state.activeConversationId, state.journeys, state.activeJourneyId, state.learnerModel, state.loaded]);
 
   // Badge checker
   useEffect(() => {

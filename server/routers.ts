@@ -673,8 +673,203 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
 
   // ─── Conversational AI Chat ──────────────────────────────────────────────
   chat: router({
-    // Main endpoint: user asks a real-world question, AI maps to concepts, generates baseline, builds mini-ladder
-    // Now accepts the full learner model to personalize every response
+    // ─── Learning Journey: Structured progressive learning stages ─────────
+    // Replaces the old chat.ask with a guided learning strategy
+    learn: publicProcedure
+      .input(z.object({
+        question: z.string().min(1),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        learnerModel: z.object({
+          preferredPace: z.enum(["quick", "moderate", "deep"]).optional(),
+          preferredTone: z.enum(["casual", "balanced", "formal"]).optional(),
+          preferredDepth: z.enum(["overview", "detailed", "expert"]).optional(),
+          strengthAreas: z.array(z.string()).optional(),
+          confusionPoints: z.array(z.string()).optional(),
+          conceptConfidence: z.record(z.string(), z.number()).optional(),
+          realWorldConnections: z.array(z.string()).optional(),
+          learningStyle: z.enum(["visual", "verbal", "kinesthetic", "mixed"]).optional(),
+          explainSimplerCount: z.number().optional(),
+          questionsAsked: z.number().optional(),
+        }).optional().default({}),
+        pastConversations: z.array(z.object({
+          question: z.string(),
+          concepts: z.array(z.string()),
+          timestamp: z.string(),
+        })).optional().default([]),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const lm = input.learnerModel;
+
+          const pastConvContext = input.pastConversations.length > 0
+            ? `\nPAST LEARNING JOURNEYS:\n${input.pastConversations.slice(-5).map(pc => `- Explored "${pc.question}" → concepts: ${pc.concepts.join(", ")}`).join("\n")}\nReference past explorations naturally when there's a genuine connection.`
+            : "";
+
+          const learnerContext = [
+            lm.strengthAreas?.length ? `Strengths: ${lm.strengthAreas.join(", ")}` : "",
+            lm.confusionPoints?.length ? `Has struggled with: ${lm.confusionPoints.join(", ")} — approach these gently` : "",
+            lm.realWorldConnections?.length ? `Analogies that resonated: ${lm.realWorldConnections.slice(-3).join("; ")}` : "",
+            lm.preferredPace ? `Preferred pace: ${lm.preferredPace}` : "",
+            lm.preferredDepth ? `Preferred depth: ${lm.preferredDepth}` : "",
+            lm.learningStyle ? `Learning style: ${lm.learningStyle}` : "",
+            (lm.explainSimplerCount || 0) > 2 ? "This learner often needs simpler explanations — default to very clear, simple language" : "",
+            pastConvContext,
+          ].filter(Boolean).join("\n");
+
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+${getLevelPrompt(input.skillLevel)}
+
+You are designing a LEARNING JOURNEY — a structured, progressive experience that takes a learner from curiosity to understanding. This is NOT a chat response. It's a guided learning strategy.
+
+${learnerContext ? `ABOUT THIS LEARNER:\n${learnerContext}` : "This is a new learner — be warm and welcoming."}
+
+You must create a sequence of STAGES that build understanding progressively. Each stage has a specific purpose:
+
+1. HOOK (required) — Start with something that sparks curiosity. A surprising fact, a counterintuitive question, or a "did you know" that makes them WANT to learn. This should be short (1-2 sentences) and punchy. Make them go "wait, really?"
+
+2. FOUNDATION (required) — "Before we dive in, here's what you need to know." Give the prerequisite context in simple terms. If the learner already knows this (based on their model), keep it very brief. 2-3 sentences max.
+
+3. EXPLANATION (required) — The core answer to their question. Break it into digestible pieces. Use **bold** for key terms. Keep each paragraph short (2-3 sentences). This is the meat — make it clear, vivid, and memorable. Include a keyTakeaway: one sentence that captures the essential insight.
+
+4. REAL_WORLD (required) — "See it in action." Give a concrete, tangible example from everyday life. Something they can observe or experience themselves. Make it vivid and specific, not abstract.
+
+5. CHECK (required) — A quick understanding check. NOT a quiz — more like "here's a thought experiment." Ask a question that tests whether the core concept clicked. Provide 3 options. Include a brief explanation for the correct answer. The question should make them THINK, not just recall.
+
+6. VIDEO (required) — The culmination. By now they have context to appreciate a deeper explanation. Provide a specific YouTube search query that would find the best video for this topic at their level. Include videoContext: 1-2 sentences explaining what they'll see and why it matters NOW that they understand the basics.
+
+7. NEXT_STEPS (required) — Where to go from here. Provide exactly 3 follow-up paths, each with a question and a brief reason why it's interesting. These should feel like natural next curiosities, not a syllabus.
+
+CRITICAL RULES:
+- Every stage must have an emoji that matches its mood
+- Keep language warm, conversational, and encouraging
+- The hook should be genuinely surprising or intriguing
+- The explanation should build on the foundation — don't repeat
+- The check question should be thought-provoking, not trivial
+- The video search query should be specific enough to find great content
+- Next steps should branch in different directions (deeper, related, tangential)
+- Total reading time for all stages: 2-3 minutes (not a textbook)
+- Use markdown for emphasis but keep it readable
+
+Return JSON:
+{
+  "stages": [
+    {
+      "type": "hook",
+      "emoji": "emoji",
+      "title": "Short punchy title",
+      "content": "The surprising hook text"
+    },
+    {
+      "type": "foundation",
+      "emoji": "emoji",
+      "title": "What you need to know first",
+      "content": "Prerequisite context"
+    },
+    {
+      "type": "explanation",
+      "emoji": "emoji",
+      "title": "Here's the answer",
+      "content": "The core explanation with **bold** key terms",
+      "keyTakeaway": "One sentence summary of the key insight"
+    },
+    {
+      "type": "real_world",
+      "emoji": "emoji",
+      "title": "See it in real life",
+      "content": "Vivid real-world example"
+    },
+    {
+      "type": "check",
+      "emoji": "emoji",
+      "title": "Quick check",
+      "content": "Brief context for the question",
+      "question": "A thought-provoking question",
+      "options": ["Option A", "Option B", "Option C"],
+      "correctIndex": 0,
+      "explanation": "Why that's the answer — reinforces the concept"
+    },
+    {
+      "type": "video",
+      "emoji": "emoji",
+      "title": "Now watch this",
+      "content": "",
+      "searchQuery": "specific youtube search query",
+      "videoContext": "What you'll see and why it matters"
+    },
+    {
+      "type": "next_steps",
+      "emoji": "emoji",
+      "title": "Keep exploring",
+      "content": "",
+      "paths": [
+        { "question": "Follow-up question 1", "reason": "Why it's interesting" },
+        { "question": "Follow-up question 2", "reason": "Why it's interesting" },
+        { "question": "Follow-up question 3", "reason": "Why it's interesting" }
+      ]
+    }
+  ],
+  "mappedConcepts": ["concept1", "concept2", "concept3"],
+  "difficulty": "beginner|intermediate|advanced",
+  "emoji": "overall topic emoji"
+}`,
+              },
+              {
+                role: "user",
+                content: input.question,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          const stages = (parsed.stages || []).map((s: any) => ({
+            type: s.type || "explanation",
+            emoji: s.emoji || "💡",
+            title: s.title || "",
+            content: s.content || "",
+            keyTakeaway: s.keyTakeaway || undefined,
+            question: s.question || undefined,
+            options: s.options || undefined,
+            correctIndex: s.correctIndex ?? undefined,
+            explanation: s.explanation || undefined,
+            searchQuery: s.searchQuery || undefined,
+            videoContext: s.videoContext || undefined,
+            paths: s.paths || undefined,
+          }));
+
+          return {
+            stages,
+            mappedConcepts: parsed.mappedConcepts || [],
+            difficulty: parsed.difficulty || input.skillLevel,
+            emoji: parsed.emoji || "🧠",
+          };
+        } catch (e) {
+          console.error("[Chat.learn] LLM failed:", e);
+          // Fallback: generate a minimal journey
+          return {
+            stages: [
+              { type: "hook", emoji: "🤔", title: "Great question!", content: `"${input.question}" — let's explore this together.` },
+              { type: "explanation", emoji: "💡", title: "Here's what we know", content: `This is a fascinating topic. Let me find the best resources to help you understand it.`, keyTakeaway: "Every great question is the start of a learning journey." },
+              { type: "video", emoji: "🎬", title: "Watch and learn", content: "", searchQuery: `${input.question} explained simply`, videoContext: "This video will give you a solid foundation." },
+              { type: "next_steps", emoji: "🚀", title: "Keep exploring", content: "", paths: [
+                { question: `What are the basics of ${input.question.split(" ").slice(-2).join(" ")}?`, reason: "Start from the fundamentals" },
+                { question: "How does this apply in real life?", reason: "See the practical side" },
+                { question: "What's the most surprising thing about this?", reason: "Discover something unexpected" },
+              ]},
+            ],
+            mappedConcepts: [],
+            difficulty: input.skillLevel,
+            emoji: "🧠",
+          };
+        }
+      }),
+
+    // Legacy: keep ask endpoint for backward compatibility
     ask: publicProcedure
       .input(z.object({
         question: z.string().min(1),

@@ -37,8 +37,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="ask"
         options={{
-          title: "Ask",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="bubble.left.and.text.bubble.right.fill" color={color} />,
+          title: "Learn",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="lightbulb.fill" color={color} />,
         }}
       />
       <Tabs.Screen

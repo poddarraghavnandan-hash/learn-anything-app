@@ -1,17 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
+  View,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Linking,
+  ScrollView,
   ActivityIndicator,
   StyleSheet,
+  Platform,
+  Dimensions,
+  KeyboardAvoidingView,
 } from "react-native";
-import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  FadeOut,
+  SlideInRight,
+  SlideOutLeft,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  withSpring,
+  withDelay,
+  Easing,
+  runOnJS,
+} from "react-native-reanimated";
 import { Image } from "expo-image";
 import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -20,28 +34,64 @@ import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { openVideoInApp } from "@/lib/video-utils";
 import type {
-  ChatMessage,
-  ChatConversation,
+  JourneyStage,
+  LearningJourney,
   ContentItemData,
-  NudgeData,
-  NudgeType,
 } from "@/shared/types";
 import * as Haptics from "expo-haptics";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function genId() {
-  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return `journey-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function genConvId() {
-  return `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+/** Render text with **bold** markdown support */
+function RichText({ text, style, boldStyle }: { text: string; style: any; boldStyle?: any }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/);
+  return (
+    <Text style={style}>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return (
+            <Text key={i} style={[style, { fontWeight: "700" }, boldStyle]}>
+              {part.slice(2, -2)}
+            </Text>
+          );
+        }
+        return part;
+      })}
+    </Text>
+  );
 }
+
+// Stage accent colors mapped to stage types
+const STAGE_ACCENTS: Record<string, { bg: string; text: string; label: string }> = {
+  hook: { bg: "#FEF3C7", text: "#92400E", label: "The Hook" },
+  foundation: { bg: "#DBEAFE", text: "#1E40AF", label: "Foundation" },
+  explanation: { bg: "#EDE9FE", text: "#5B21B6", label: "The Answer" },
+  real_world: { bg: "#D1FAE5", text: "#065F46", label: "See It" },
+  check: { bg: "#FCE7F3", text: "#9D174D", label: "Quick Check" },
+  video: { bg: "#FEE2E2", text: "#991B1B", label: "Go Deeper" },
+  next_steps: { bg: "#E0E7FF", text: "#3730A3", label: "Keep Exploring" },
+};
+
+const STAGE_ACCENTS_DARK: Record<string, { bg: string; text: string; label: string }> = {
+  hook: { bg: "#78350F30", text: "#FCD34D", label: "The Hook" },
+  foundation: { bg: "#1E3A5F30", text: "#93C5FD", label: "Foundation" },
+  explanation: { bg: "#4C1D9530", text: "#C4B5FD", label: "The Answer" },
+  real_world: { bg: "#064E3B30", text: "#6EE7B7", label: "See It" },
+  check: { bg: "#83185830", text: "#F9A8D4", label: "Quick Check" },
+  video: { bg: "#7F1D1D30", text: "#FCA5A5", label: "Go Deeper" },
+  next_steps: { bg: "#312E8130", text: "#A5B4FC", label: "Keep Exploring" },
+};
 
 // ─── Suggestion Chips ─────────────────────────────────────────────────────────
 
 const FALLBACK_SUGGESTIONS = [
-  "Why does the Earth orbit the Sun?",
+  "Why is the sky blue?",
   "How do airplanes stay in the air?",
   "What is quantum physics, really?",
   "How does the internet actually work?",
@@ -62,11 +112,11 @@ function SuggestionChips({
   const items = suggestions.length > 0 ? suggestions : FALLBACK_SUGGESTIONS;
 
   return (
-    <View style={s.suggestionsWrap}>
+    <View style={styles.suggestionsWrap}>
       {loading ? (
-        <Animated.View entering={FadeIn.duration(200)} style={s.suggestionsLoading}>
+        <Animated.View entering={FadeIn.duration(200)} style={styles.suggestionsLoading}>
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={[s.suggestionsLoadingText, { color: colors.muted }]}>
+          <Text style={[styles.suggestionsLoadingText, { color: colors.muted }]}>
             Personalizing for you...
           </Text>
         </Animated.View>
@@ -75,12 +125,12 @@ function SuggestionChips({
           <Animated.View key={q} entering={FadeInUp.delay(i * 80).duration(300)}>
             <TouchableOpacity
               onPress={() => onSelect(q)}
-              style={[s.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
               activeOpacity={0.7}
             >
-              <Text style={[s.chipText, { color: colors.foreground }]}>{q}</Text>
+              <Text style={[styles.chipText, { color: colors.foreground }]}>{q}</Text>
               {reasons[i] && suggestions.length > 0 ? (
-                <Text style={[s.chipReason, { color: colors.muted }]}>{reasons[i]}</Text>
+                <Text style={[styles.chipReason, { color: colors.muted }]}>{reasons[i]}</Text>
               ) : null}
             </TouchableOpacity>
           </Animated.View>
@@ -90,88 +140,155 @@ function SuggestionChips({
   );
 }
 
-// ─── Bubble Components ────────────────────────────────────────────────────────
+// ─── Progress Dots ────────────────────────────────────────────────────────────
 
-function TextBubble({ msg }: { msg: ChatMessage }) {
+function ProgressDots({
+  total,
+  current,
+  onDotPress,
+}: {
+  total: number;
+  current: number;
+  onDotPress: (idx: number) => void;
+}) {
   const colors = useColors();
-  const isUser = msg.role === "user";
-
   return (
-    <Animated.View
-      entering={FadeIn.duration(250)}
-      style={[
-        s.bubble,
-        isUser
-          ? [s.userBubble, { backgroundColor: colors.primary }]
-          : [s.aiBubble, { backgroundColor: colors.surface }],
-      ]}
-    >
-      <Text
-        style={[
-          s.bubbleText,
-          { color: isUser ? "#FFFFFF" : colors.foreground },
-        ]}
-      >
-        {msg.text || ""}
-      </Text>
-    </Animated.View>
+    <View style={styles.dotsRow}>
+      {Array.from({ length: total }).map((_, i) => {
+        const isActive = i === current;
+        const isPast = i < current;
+        return (
+          <TouchableOpacity
+            key={i}
+            onPress={() => {
+              if (isPast) onDotPress(i);
+            }}
+            activeOpacity={isPast ? 0.6 : 1}
+            style={[
+              styles.dot,
+              {
+                backgroundColor: isActive
+                  ? colors.primary
+                  : isPast
+                  ? colors.primary + "60"
+                  : colors.border,
+                width: isActive ? 24 : 8,
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
   );
 }
 
-function ThinkingBubble() {
+// ─── Stage Cards ──────────────────────────────────────────────────────────────
+
+function HookCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
   const colors = useColors();
+  const accent = isDark ? STAGE_ACCENTS_DARK.hook : STAGE_ACCENTS.hook;
   return (
-    <Animated.View
-      entering={FadeIn.duration(200)}
-      style={[s.bubble, s.aiBubble, { backgroundColor: colors.surface }]}
-    >
-      <View style={s.thinkingDots}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[s.thinkingText, { color: colors.muted }]}>Thinking...</Text>
-      </View>
-    </Animated.View>
+    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
+      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
+      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+    </View>
   );
 }
 
-function QuizBubble({
-  msg,
+function FoundationCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
+  const colors = useColors();
+  const accent = isDark ? STAGE_ACCENTS_DARK.foundation : STAGE_ACCENTS.foundation;
+  return (
+    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
+      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
+      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+    </View>
+  );
+}
+
+function ExplanationCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
+  const colors = useColors();
+  const accent = isDark ? STAGE_ACCENTS_DARK.explanation : STAGE_ACCENTS.explanation;
+  return (
+    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
+      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
+      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+      {stage.keyTakeaway ? (
+        <View style={[styles.takeawayBox, { backgroundColor: isDark ? colors.primary + "20" : "#F5F3FF", borderColor: isDark ? colors.primary + "40" : "#C4B5FD" }]}>
+          <Text style={[styles.takeawayLabel, { color: accent.text }]}>Key Takeaway</Text>
+          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function RealWorldCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
+  const colors = useColors();
+  const accent = isDark ? STAGE_ACCENTS_DARK.real_world : STAGE_ACCENTS.real_world;
+  return (
+    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
+      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
+      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+    </View>
+  );
+}
+
+function CheckCard({
+  stage,
+  isDark,
   onAnswer,
 }: {
-  msg: ChatMessage;
+  stage: JourneyStage;
+  isDark: boolean;
   onAnswer: (correct: boolean) => void;
 }) {
   const colors = useColors();
-  const quiz = msg.quiz;
-  const [selected, setSelected] = useState<number | null>(quiz?.selectedIndex ?? null);
+  const accent = isDark ? STAGE_ACCENTS_DARK.check : STAGE_ACCENTS.check;
+  const [selected, setSelected] = useState<number | null>(null);
   const answered = selected !== null;
-
-  if (!quiz) return null;
 
   const handleSelect = (idx: number) => {
     if (answered) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelected(idx);
-    onAnswer(idx === quiz.correctIndex);
+    onAnswer(idx === stage.correctIndex);
   };
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(300)}
-      style={[s.quizCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-    >
-      <Text style={s.quizEmoji}>{quiz.emoji}</Text>
-      <Text style={[s.quizQuestion, { color: colors.foreground }]}>{quiz.question}</Text>
+    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
+      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
+      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.question || stage.title}</Text>
+      {stage.content ? (
+        <Text style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 16 }]}>{stage.content}</Text>
+      ) : null}
 
-      {quiz.options.map((opt, idx) => {
-        const isCorrect = idx === quiz.correctIndex;
+      {(stage.options || []).map((opt, idx) => {
+        const isCorrect = idx === stage.correctIndex;
         const isSelected = idx === selected;
-        let optBg = "transparent";
-        let optBorder = colors.border;
-        let optTextColor = colors.foreground;
+        let optBg = isDark ? colors.surface : "#FFFFFF";
+        let optBorder = isDark ? colors.border : "#E5E7EB";
+        let optText = isDark ? colors.foreground : "#374151";
 
         if (answered) {
-          if (isCorrect) { optBg = colors.success + "20"; optBorder = colors.success; optTextColor = colors.success; }
-          else if (isSelected && !isCorrect) { optBg = colors.error + "20"; optBorder = colors.error; optTextColor = colors.error; }
+          if (isCorrect) {
+            optBg = colors.success + "20";
+            optBorder = colors.success;
+            optText = colors.success;
+          } else if (isSelected && !isCorrect) {
+            optBg = colors.error + "20";
+            optBorder = colors.error;
+            optText = colors.error;
+          }
         }
 
         return (
@@ -179,220 +296,176 @@ function QuizBubble({
             key={idx}
             onPress={() => handleSelect(idx)}
             activeOpacity={0.7}
-            style={[s.quizOption, { backgroundColor: optBg, borderColor: optBorder }]}
+            style={[styles.checkOption, { backgroundColor: optBg, borderColor: optBorder }]}
           >
-            <Text style={[s.quizOptionText, { color: optTextColor }]}>{opt}</Text>
+            <Text style={[styles.checkOptionText, { color: optText }]}>{opt}</Text>
           </TouchableOpacity>
         );
       })}
 
-      {answered && (
-        <Animated.View entering={FadeIn.duration(250)} style={s.funFactWrap}>
-          <Text style={[s.funFactLabel, { color: colors.primary }]}>Did you know?</Text>
-          <Text style={[s.funFactText, { color: colors.muted }]}>{quiz.funFact}</Text>
+      {answered && stage.explanation ? (
+        <Animated.View entering={FadeIn.duration(250)} style={[styles.checkExplanation, { backgroundColor: isDark ? colors.surface : "#FFFFFF80" }]}>
+          <Text style={[styles.checkExplanationText, { color: isDark ? colors.foreground + "DD" : "#374151" }]}>
+            {stage.explanation}
+          </Text>
         </Animated.View>
-      )}
-    </Animated.View>
+      ) : null}
+    </View>
   );
 }
 
-// ─── Video Suggestion (one at a time, skippable) ─────────────────────────────
-
-function VideoSuggestion({
-  msg,
+function VideoCard({
+  stage,
+  isDark,
+  videos,
+  videosLoading,
   onWatch,
-  onSkip,
 }: {
-  msg: ChatMessage;
-  onWatch: (url: string) => void;
-  onSkip: () => void;
+  stage: JourneyStage;
+  isDark: boolean;
+  videos: ContentItemData[];
+  videosLoading: boolean;
+  onWatch: (url: string, title: string) => void;
 }) {
   const colors = useColors();
-  const cards = msg.contentCards || [];
-  const [dismissed, setDismissed] = useState(false);
-
-  if (cards.length === 0 || dismissed) return null;
-
-  // Show only the most relevant video (first one)
-  const card = cards[0];
-  const duration = card.durationSeconds
-    ? `${Math.floor(card.durationSeconds / 60)}:${String(card.durationSeconds % 60).padStart(2, "0")}`
+  const accent = isDark ? STAGE_ACCENTS_DARK.video : STAGE_ACCENTS.video;
+  const video = videos.length > 0 ? videos[0] : null;
+  const duration = video?.durationSeconds
+    ? `${Math.floor(video.durationSeconds / 60)}:${String(video.durationSeconds % 60).padStart(2, "0")}`
     : null;
 
   return (
-    <Animated.View entering={FadeInDown.duration(300)}>
-      <View style={[s.videoSuggestion, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[s.videoLabel, { color: colors.primary }]}>Recommended Video</Text>
+    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
+      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
+      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+      {stage.videoContext ? (
+        <Text style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 16 }]}>
+          {stage.videoContext}
+        </Text>
+      ) : null}
 
+      {videosLoading ? (
+        <View style={styles.videoLoading}>
+          <ActivityIndicator size="small" color={accent.text} />
+          <Text style={[styles.videoLoadingText, { color: isDark ? colors.muted : "#6B7280" }]}>Finding the best video...</Text>
+        </View>
+      ) : video ? (
         <TouchableOpacity
-          onPress={() => {
-            if (card.url) onWatch(card.url);
-          }}
-          activeOpacity={0.7}
-          style={s.videoCard}
+          onPress={() => onWatch(video.url, video.title)}
+          activeOpacity={0.8}
+          style={[styles.videoPreview, { borderColor: isDark ? colors.border : "#E5E7EB" }]}
         >
-          {card.thumbnailUrl ? (
-            <View style={s.videoThumbWrap}>
-              <Image source={{ uri: card.thumbnailUrl }} style={s.videoThumb} contentFit="cover" />
-              {duration && (
-                <View style={s.videoDuration}>
-                  <Text style={s.videoDurationText}>{duration}</Text>
+          {video.thumbnailUrl ? (
+            <View style={styles.videoThumbWrap}>
+              <Image source={{ uri: video.thumbnailUrl }} style={styles.videoThumb} contentFit="cover" />
+              <View style={styles.playOverlay}>
+                <View style={styles.playButton}>
+                  <Text style={styles.playIcon}>{"▶"}</Text>
                 </View>
-              )}
+              </View>
+              {duration ? (
+                <View style={styles.durationBadge}>
+                  <Text style={styles.durationText}>{duration}</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
-          <View style={s.videoInfo}>
-            <Text numberOfLines={2} style={[s.videoTitle, { color: colors.foreground }]}>
-              {card.title}
+          <View style={styles.videoMeta}>
+            <Text numberOfLines={2} style={[styles.videoMetaTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>
+              {video.title}
             </Text>
-            <Text numberOfLines={1} style={[s.videoChannel, { color: colors.muted }]}>
-              {card.channelOrAuthor || card.source}
+            <Text numberOfLines={1} style={[styles.videoMetaChannel, { color: isDark ? colors.muted : "#6B7280" }]}>
+              {video.channelOrAuthor || video.source}
             </Text>
           </View>
         </TouchableOpacity>
+      ) : (
+        <Text style={[styles.stageContent, { color: isDark ? colors.muted : "#6B7280" }]}>
+          No video found for this topic. Try the next steps below!
+        </Text>
+      )}
+    </View>
+  );
+}
 
-        <View style={s.videoActions}>
-          <TouchableOpacity
-            onPress={() => {
-              if (card.url) onWatch(card.url);
-            }}
-            activeOpacity={0.7}
-            style={[s.watchBtn, { backgroundColor: colors.primary }]}
-          >
-            <Text style={s.watchBtnText}>Watch</Text>
-          </TouchableOpacity>
+function NextStepsCard({
+  stage,
+  isDark,
+  onSelect,
+}: {
+  stage: JourneyStage;
+  isDark: boolean;
+  onSelect: (question: string) => void;
+}) {
+  const colors = useColors();
+  const accent = isDark ? STAGE_ACCENTS_DARK.next_steps : STAGE_ACCENTS.next_steps;
+  const paths = stage.paths || [];
+
+  return (
+    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
+      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
+      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+
+      {paths.map((path, idx) => (
+        <Animated.View key={idx} entering={FadeInUp.delay(idx * 100).duration(300)}>
           <TouchableOpacity
             onPress={() => {
               if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setDismissed(true);
-              onSkip();
+              onSelect(path.question);
             }}
             activeOpacity={0.7}
-            style={[s.skipBtn, { borderColor: colors.border }]}
+            style={[styles.nextPath, { backgroundColor: isDark ? colors.surface : "#FFFFFF", borderColor: isDark ? colors.border : "#E5E7EB" }]}
           >
-            <Text style={[s.skipBtnText, { color: colors.muted }]}>Skip</Text>
+            <Text style={[styles.nextPathQuestion, { color: isDark ? colors.foreground : "#1A1A2E" }]}>
+              {path.question}
+            </Text>
+            <Text style={[styles.nextPathReason, { color: isDark ? colors.muted : "#6B7280" }]}>
+              {path.reason}
+            </Text>
           </TouchableOpacity>
-        </View>
-      </View>
-    </Animated.View>
-  );
-}
-
-// ─── Nudge Bubble ─────────────────────────────────────────────────────────────
-
-function NudgeBubble({
-  msg,
-  onRespond,
-}: {
-  msg: ChatMessage;
-  onRespond: (nudge: NudgeData, response: string) => void;
-}) {
-  const colors = useColors();
-  const nudge = msg.nudge;
-  const [responded, setResponded] = useState(false);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-
-  if (!nudge) return null;
-
-  const handleTap = (option: string) => {
-    if (responded) return;
-    setResponded(true);
-    setSelectedOption(option);
-    onRespond(nudge, option);
-  };
-
-  return (
-    <Animated.View
-      entering={FadeInDown.delay(200).duration(350)}
-      style={[s.nudgeCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "25" }]}
-    >
-      <Text style={s.nudgeEmoji}>{nudge.emoji}</Text>
-      <Text style={[s.nudgeQuestion, { color: colors.foreground }]}>{nudge.question}</Text>
-
-      {nudge.options && nudge.options.length > 0 && (
-        <View style={s.nudgeOptions}>
-          {nudge.options.map((opt, idx) => {
-            const isSelected = opt === selectedOption;
-            return (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => handleTap(opt)}
-                activeOpacity={0.7}
-                style={[
-                  s.nudgeOption,
-                  {
-                    backgroundColor: isSelected ? colors.primary : colors.surface,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    s.nudgeOptionText,
-                    { color: isSelected ? "#FFFFFF" : colors.foreground },
-                  ]}
-                >
-                  {opt}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
-      {responded && (
-        <Animated.View entering={FadeIn.duration(200)}>
-          <Text style={[s.nudgeAck, { color: colors.muted }]}>
-            Got it — this helps me personalize your learning
-          </Text>
         </Animated.View>
-      )}
-    </Animated.View>
+      ))}
+    </View>
   );
 }
 
-// ─── Encouragement Bubble ─────────────────────────────────────────────────────
+// ─── Recent Journeys ──────────────────────────────────────────────────────────
 
-function EncouragementBubble({ msg }: { msg: ChatMessage }) {
-  const colors = useColors();
-  return (
-    <Animated.View
-      entering={FadeIn.duration(250)}
-      style={[s.encourageCard, { backgroundColor: colors.primary + "15" }]}
-    >
-      <Text style={[s.encourageText, { color: colors.primary }]}>{msg.text}</Text>
-    </Animated.View>
-  );
-}
-
-// ─── Recent Conversations ─────────────────────────────────────────────────────
-
-function RecentConversations({
-  conversations,
+function RecentJourneys({
+  journeys,
   onSelect,
 }: {
-  conversations: ChatConversation[];
-  onSelect: (conv: ChatConversation) => void;
+  journeys: LearningJourney[];
+  onSelect: (j: LearningJourney) => void;
 }) {
   const colors = useColors();
-  if (conversations.length === 0) return null;
+  if (journeys.length === 0) return null;
 
   return (
-    <View style={s.recentWrap}>
-      <Text style={[s.recentTitle, { color: colors.muted }]}>Continue learning</Text>
-      {conversations.slice(0, 5).map((conv) => (
+    <View style={styles.recentWrap}>
+      <Text style={[styles.recentTitle, { color: colors.muted }]}>Recent Journeys</Text>
+      {journeys.slice(0, 5).map((j) => (
         <TouchableOpacity
-          key={conv.id}
-          onPress={() => onSelect(conv)}
+          key={j.id}
+          onPress={() => onSelect(j)}
           activeOpacity={0.7}
-          style={[s.recentItem, { borderColor: colors.border }]}
+          style={[styles.recentItem, { borderColor: colors.border }]}
         >
-          <Text numberOfLines={1} style={[s.recentQuestion, { color: colors.foreground }]}>
-            {conv.originalQuestion}
-          </Text>
-          <Text style={[s.recentMeta, { color: colors.muted }]}>
-            {conv.mappedConcepts.slice(0, 2).join(" · ")}
-          </Text>
+          <View style={styles.recentItemRow}>
+            <Text style={styles.recentEmoji}>{j.emoji}</Text>
+            <View style={styles.recentItemContent}>
+              <Text numberOfLines={1} style={[styles.recentQuestion, { color: colors.foreground }]}>
+                {j.question}
+              </Text>
+              <Text style={[styles.recentMeta, { color: colors.muted }]}>
+                {j.completed ? "Completed" : `${j.currentStageIndex + 1}/${j.stages.length} stages`}
+                {" \u00B7 "}
+                {j.mappedConcepts.slice(0, 2).join(", ")}
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
       ))}
     </View>
@@ -403,27 +476,30 @@ function RecentConversations({
 
 export default function AskScreen() {
   const colors = useColors();
+  const isDark = colors.background === "#0A0A14" || colors.background.startsWith("#0");
   const { state, dispatch, addXp } = useLearning();
   const params = useLocalSearchParams<{ q?: string }>();
   const [inputText, setInputText] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
-  const [messageCount, setMessageCount] = useState(0);
   const [smartSuggestions, setSmartSuggestions] = useState<string[]>([]);
   const [suggestionReasons, setSuggestionReasons] = useState<string[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
   const hasAutoAsked = useRef(false);
 
-  const askMutation = trpc.chat.ask.useMutation();
-  const baselineMutation = trpc.chat.baseline.useMutation();
+  // Journey state
+  const [activeJourney, setActiveJourney] = useState<LearningJourney | null>(null);
+  const [currentStageIdx, setCurrentStageIdx] = useState(0);
+  const [stageVideos, setStageVideos] = useState<ContentItemData[]>([]);
+  const [videosLoading, setVideosLoading] = useState(false);
+  const [checkAnswered, setCheckAnswered] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const learnMutation = trpc.chat.learn.useMutation();
   const fetchContentMutation = trpc.chat.fetchStepContent.useMutation();
-  const followUpMutation = trpc.chat.followUp.useMutation();
   const suggestionsMutation = trpc.chat.suggestions.useMutation();
 
-  // ─── Load Smart Suggestions on Mount ──────────────────────────────────────
+  // ─── Load Smart Suggestions ─────────────────────────────────────────────────
 
   useEffect(() => {
     loadSmartSuggestions();
@@ -449,48 +525,35 @@ export default function AskScreen() {
     } finally {
       setSuggestionsLoading(false);
     }
-  }, [state.learnerModel, state.profile.interests, suggestionsMutation]);
+  }, [state.learnerModel, state.profile.interests]);
 
-  // Load existing conversation
-  useEffect(() => {
-    if (state.activeConversationId) {
-      const conv = state.conversations.find((c) => c.id === state.activeConversationId);
-      if (conv) {
-        setMessages(conv.messages);
-        setActiveConvId(conv.id);
-        setShowWelcome(false);
-        setMessageCount(conv.messages.length);
-      }
-    }
-  }, []);
-
-  // ─── Auto-ask from Home search bar (q param) ─────────────────────────────
+  // ─── Auto-ask from Home search bar ──────────────────────────────────────────
 
   useEffect(() => {
     if (params.q && !hasAutoAsked.current) {
       hasAutoAsked.current = true;
-      handleAsk(params.q);
+      startJourney(params.q);
     }
   }, [params.q]);
 
-  const scrollToEnd = useCallback(() => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+  // ─── Load existing journey ──────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (state.activeJourneyId) {
+      const j = state.journeys.find((j) => j.id === state.activeJourneyId);
+      if (j) {
+        setActiveJourney(j);
+        setCurrentStageIdx(j.currentStageIndex);
+        setShowWelcome(false);
+        // Pre-fetch video if current stage is video
+        if (j.stages[j.currentStageIndex]?.type === "video") {
+          fetchVideoForStage(j.stages[j.currentStageIndex]);
+        }
+      }
+    }
   }, []);
 
-  const addMsg = useCallback(
-    (msg: ChatMessage) => {
-      setMessages((prev) => [...prev, msg]);
-      if (activeConvId) {
-        dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: activeConvId, message: msg } });
-      }
-      scrollToEnd();
-    },
-    [activeConvId, dispatch, scrollToEnd]
-  );
-
-  // ─── Build Learner Model Snapshot ────────────────────────────────────────────
+  // ─── Learner Model Snapshot ─────────────────────────────────────────────────
 
   const getLearnerSnapshot = useCallback(() => {
     const lm = state.learnerModel;
@@ -508,552 +571,438 @@ export default function AskScreen() {
     };
   }, [state.learnerModel]);
 
-  // ─── Build Past Conversation Summaries ───────────────────────────────────
-
   const getPastConversationSummaries = useCallback(() => {
-    return state.conversations
-      .filter((c) => c.id !== activeConvId)
-      .slice(-5)
-      .map((c) => ({
-        question: c.originalQuestion,
-        concepts: c.mappedConcepts,
-        timestamp: c.createdAt,
+    return state.journeys
+      .slice(0, 5)
+      .map((j) => ({
+        question: j.question,
+        concepts: j.mappedConcepts,
+        timestamp: j.createdAt,
       }));
-  }, [state.conversations, activeConvId]);
+  }, [state.journeys]);
 
-  // ─── Handle Nudge Response ───────────────────────────────────────────────────
+  // ─── Fetch Video for Stage ──────────────────────────────────────────────────
 
-  const handleNudgeResponse = useCallback(
-    (nudge: NudgeData, response: string) => {
-      const updates: Record<string, unknown> = {};
-
-      switch (nudge.nudgeType as NudgeType) {
-        case "pace_check":
-          if (response.toLowerCase().includes("deeper") || response.toLowerCase().includes("more")) {
-            updates.preferredPace = "deep";
-            updates.preferredDepth = "detailed";
-          } else if (response.toLowerCase().includes("move") || response.toLowerCase().includes("next")) {
-            updates.preferredPace = "quick";
-            updates.preferredDepth = "overview";
-          }
-          break;
-        case "confidence_gauge": {
-          const conv = state.conversations.find((c) => c.id === activeConvId);
-          if (response.toLowerCase().includes("yes") || response.toLowerCase().includes("click") || response.toLowerCase().includes("makes sense")) {
-            if (conv?.mappedConcepts.length) {
-              updates.strengthAreas = [...state.learnerModel.strengthAreas, conv.mappedConcepts[0]];
-            }
-          } else {
-            if (conv?.mappedConcepts.length) {
-              updates.confusionPoints = [...state.learnerModel.confusionPoints, conv.mappedConcepts[0]];
-            }
-          }
-          break;
-        }
-        case "connection_check":
-        case "application_prompt":
-          if (response && response.length > 5) {
-            updates.realWorldConnections = [...state.learnerModel.realWorldConnections, response];
-          }
-          break;
-        case "analogy_test": {
-          if (response && response.length > 20) {
-            const conv3 = state.conversations.find((c) => c.id === activeConvId);
-            if (conv3?.mappedConcepts.length) {
-              updates.strengthAreas = [...state.learnerModel.strengthAreas, conv3.mappedConcepts[0]];
-            }
-          }
-          break;
-        }
-        default:
-          break;
-      }
-
-      dispatch({
-        type: "UPDATE_LEARNER_MODEL",
-        payload: {
-          ...updates,
-          totalNudgesAnswered: state.learnerModel.totalNudgesAnswered + 1,
-          nudgeResponsePatterns: {
-            ...state.learnerModel.nudgeResponsePatterns,
-            [nudge.nudgeType]: (state.learnerModel.nudgeResponsePatterns[nudge.nudgeType as NudgeType] || 0) + 1,
-          },
-        },
+  const fetchVideoForStage = useCallback(async (stage: JourneyStage) => {
+    if (!stage.searchQuery) return;
+    setVideosLoading(true);
+    try {
+      const result = await fetchContentMutation.mutateAsync({
+        searchQuery: stage.searchQuery,
       });
+      setStageVideos(result.items as ContentItemData[]);
+    } catch {
+      setStageVideos([]);
+    } finally {
+      setVideosLoading(false);
+    }
+  }, [fetchContentMutation]);
 
-      if (activeConvId && response) {
-        handleFollowUp(response);
-      }
-    },
-    [state.conversations, state.learnerModel, activeConvId, dispatch]
-  );
+  // ─── Start a New Journey ────────────────────────────────────────────────────
 
-  // ─── Handle New Question (focused: one concept at a time) ──────────────────
-
-  const handleAsk = useCallback(
+  const startJourney = useCallback(
     async (question: string) => {
-      if (!question.trim() || isThinking) return;
+      if (!question.trim() || isLoading) return;
 
       setShowWelcome(false);
       setInputText("");
-      setMessageCount(0);
-
-      const convId = genConvId();
-      setActiveConvId(convId);
-
-      const userMsg: ChatMessage = {
-        id: genId(),
-        role: "user",
-        bubbleType: "text",
-        text: question.trim(),
-        timestamp: Date.now(),
-      };
-
-      const newConv: ChatConversation = {
-        id: convId,
-        title: question.trim(),
-        messages: [userMsg],
-        originalQuestion: question.trim(),
-        mappedConcepts: [],
-        baselineLevel: state.profile.skillLevel,
-        baselineDone: false,
-        miniLadder: [],
-        currentStep: 0,
-        signalsGathered: {},
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      dispatch({ type: "SAVE_CONVERSATION", payload: newConv });
-      dispatch({
-        type: "UPDATE_LEARNER_MODEL",
-        payload: {
-          questionsAsked: state.learnerModel.questionsAsked + 1,
-          pastTopics: [...state.learnerModel.pastTopics, question.trim().slice(0, 50)],
-        },
-      });
-      setMessages([userMsg]);
-      setIsThinking(true);
-      scrollToEnd();
+      setIsLoading(true);
+      setCheckAnswered(false);
+      setStageVideos([]);
 
       try {
-        // Step 1: AI explains ONE concept clearly (no data dump)
-        const aiResponse = await askMutation.mutateAsync({
+        const result = await learnMutation.mutateAsync({
           question: question.trim(),
           skillLevel: state.profile.skillLevel,
-          messageCount: 0,
           learnerModel: getLearnerSnapshot(),
-          conversationHistory: [],
           pastConversations: getPastConversationSummaries(),
         });
 
-        setMessageCount(1);
-
-        // AI response — one focused explanation
-        const aiMsg: ChatMessage = {
+        const journey: LearningJourney = {
           id: genId(),
-          role: "assistant",
-          bubbleType: "text",
-          text: aiResponse.response,
-          timestamp: Date.now(),
+          question: question.trim(),
+          stages: result.stages as JourneyStage[],
+          mappedConcepts: result.mappedConcepts,
+          difficulty: result.difficulty as any,
+          emoji: result.emoji,
+          createdAt: new Date().toISOString(),
+          currentStageIndex: 0,
+          completed: false,
         };
 
-        setMessages((prev) => [...prev, aiMsg]);
-        dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: aiMsg } });
+        setActiveJourney(journey);
+        setCurrentStageIdx(0);
+        dispatch({ type: "SAVE_JOURNEY", payload: journey });
         dispatch({
-          type: "UPDATE_CONVERSATION",
-          payload: { id: convId, updates: { mappedConcepts: aiResponse.mappedConcepts } },
+          type: "UPDATE_LEARNER_MODEL",
+          payload: {
+            questionsAsked: state.learnerModel.questionsAsked + 1,
+            pastTopics: [...state.learnerModel.pastTopics, question.trim().slice(0, 50)],
+          },
         });
-        scrollToEnd();
 
-        // Show nudge if returned (one check-in question)
-        if (aiResponse.nudge) {
-          const nudgeMsg: ChatMessage = {
-            id: genId(),
-            role: "assistant",
-            bubbleType: "nudge",
-            nudge: aiResponse.nudge as NudgeData,
-            timestamp: Date.now(),
-          };
-          setMessages((prev) => [...prev, nudgeMsg]);
-          dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: nudgeMsg } });
-          scrollToEnd();
-        }
-
-        // Step 2: Show ONE relevant video (skippable) — not a list dump
-        if (aiResponse.suggestedSearchQueries.length > 0) {
-          const contentResult = await fetchContentMutation.mutateAsync({
-            searchQuery: aiResponse.suggestedSearchQueries[0],
-          });
-
-          if (contentResult.items.length > 0) {
-            // Only show the single most relevant video
-            const contentMsg: ChatMessage = {
-              id: genId(),
-              role: "assistant",
-              bubbleType: "content_card",
-              contentCards: [contentResult.items[0] as ContentItemData],
-              timestamp: Date.now(),
-            };
-            setMessages((prev) => [...prev, contentMsg]);
-            dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: contentMsg } });
-            scrollToEnd();
-          }
-        }
-
-        // Step 3: Follow-up prompt to keep the conversation going
-        if (aiResponse.followUpQuestion) {
-          const followUpMsg: ChatMessage = {
-            id: genId(),
-            role: "assistant",
-            bubbleType: "encouragement",
-            text: aiResponse.followUpQuestion,
-            timestamp: Date.now(),
-          };
-          setMessages((prev) => [...prev, followUpMsg]);
-          dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: convId, message: followUpMsg } });
+        // Update concepts
+        for (const concept of result.mappedConcepts) {
+          dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.3 } });
         }
 
         addXp(15);
         dispatch({ type: "UPDATE_STREAK" });
-        // Record activity hour for smart reminder timing
-        import("@/lib/notifications").then(({ recordActivityHour }) => recordActivityHour()).catch(() => {});
       } catch {
-        const errorMsg: ChatMessage = {
-          id: genId(),
-          role: "assistant",
-          bubbleType: "text",
-          text: "Hmm, I had trouble thinking about that. Could you try rephrasing your question?",
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, errorMsg]);
+        // Fallback
+        setShowWelcome(true);
       } finally {
-        setIsThinking(false);
-        scrollToEnd();
+        setIsLoading(false);
       }
     },
-    [isThinking, state.profile.skillLevel, state.learnerModel, dispatch, askMutation, baselineMutation, fetchContentMutation, addXp, scrollToEnd, getLearnerSnapshot, getPastConversationSummaries]
+    [isLoading, state.profile.skillLevel, state.learnerModel, dispatch, learnMutation, addXp, getLearnerSnapshot, getPastConversationSummaries]
   );
 
-  // ─── Handle Follow-up (focused conversation) ─────────────────────────────
+  // ─── Navigate Stages ────────────────────────────────────────────────────────
 
-  const handleFollowUp = useCallback(
-    async (text: string) => {
-      if (!text.trim() || isThinking || !activeConvId) return;
-      setInputText("");
+  const goToStage = useCallback(
+    (idx: number) => {
+      if (!activeJourney || idx < 0 || idx >= activeJourney.stages.length) return;
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      const newCount = messageCount + 1;
-      setMessageCount(newCount);
+      setCurrentStageIdx(idx);
+      setCheckAnswered(false);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
 
-      // Detect confusion signals
-      const lowerText = text.toLowerCase();
-      const isConfusion = lowerText.includes("don't understand") || lowerText.includes("confused") ||
-        lowerText.includes("don't get") || lowerText.includes("explain simpler") ||
-        lowerText.includes("what do you mean") || lowerText.includes("huh");
-
-      if (isConfusion) {
-        dispatch({
-          type: "UPDATE_LEARNER_MODEL",
-          payload: { explainSimplerCount: state.learnerModel.explainSimplerCount + 1 },
-        });
-      }
-
-      const userMsg: ChatMessage = {
-        id: genId(),
-        role: "user",
-        bubbleType: "text",
-        text: text.trim(),
-        timestamp: Date.now(),
-      };
-
-      setMessages((prev) => [...prev, userMsg]);
-      dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: activeConvId, message: userMsg } });
-      setIsThinking(true);
-      scrollToEnd();
-
-      const conv = state.conversations.find((c) => c.id === activeConvId);
-      const lastAiMsg = [...messages].reverse().find((m) => m.role === "assistant" && m.bubbleType === "text");
-
-      try {
-        const result = await followUpMutation.mutateAsync({
-          originalQuestion: conv?.originalQuestion || "",
-          followUpMessage: text.trim(),
-          previousResponse: lastAiMsg?.text || "",
-          skillLevel: state.profile.skillLevel,
-          messageCount: newCount,
-          learnerModel: {
-            preferredPace: state.learnerModel.preferredPace,
-            preferredTone: state.learnerModel.preferredTone,
-            preferredDepth: state.learnerModel.preferredDepth,
-            strengthAreas: state.learnerModel.strengthAreas.slice(-10),
-            confusionPoints: state.learnerModel.confusionPoints.slice(-10),
-            realWorldConnections: state.learnerModel.realWorldConnections.slice(-5),
-            explainSimplerCount: state.learnerModel.explainSimplerCount,
+      // Update journey progress
+      dispatch({
+        type: "UPDATE_JOURNEY",
+        payload: {
+          id: activeJourney.id,
+          updates: {
+            currentStageIndex: idx,
+            completed: idx === activeJourney.stages.length - 1,
           },
-        });
+        },
+      });
 
-        // One focused response
-        const aiMsg: ChatMessage = {
-          id: genId(),
-          role: "assistant",
-          bubbleType: "text",
-          text: result.response,
-          timestamp: Date.now(),
-        };
-
-        setMessages((prev) => [...prev, aiMsg]);
-        dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: activeConvId, message: aiMsg } });
-
-        // Show nudge if returned
-        if (result.nudge) {
-          const nudgeMsg: ChatMessage = {
-            id: genId(),
-            role: "assistant",
-            bubbleType: "nudge",
-            nudge: result.nudge as NudgeData,
-            timestamp: Date.now(),
-          };
-          setMessages((prev) => [...prev, nudgeMsg]);
-          dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: activeConvId, message: nudgeMsg } });
-          scrollToEnd();
-        }
-
-        // Show ONE relevant video if suggested (skippable)
-        if (result.suggestedSearchQueries.length > 0) {
-          const contentResult = await fetchContentMutation.mutateAsync({
-            searchQuery: result.suggestedSearchQueries[0],
-          });
-
-          if (contentResult.items.length > 0) {
-            const contentMsg: ChatMessage = {
-              id: genId(),
-              role: "assistant",
-              bubbleType: "content_card",
-              contentCards: [contentResult.items[0] as ContentItemData],
-              timestamp: Date.now(),
-            };
-            setMessages((prev) => [...prev, contentMsg]);
-            dispatch({ type: "ADD_CHAT_MESSAGE", payload: { conversationId: activeConvId, message: contentMsg } });
-          }
-        }
-
-        addXp(10);
-      } catch {
-        const errorMsg: ChatMessage = {
-          id: genId(),
-          role: "assistant",
-          bubbleType: "text",
-          text: "Let me try again — could you rephrase that?",
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, errorMsg]);
-      } finally {
-        setIsThinking(false);
-        scrollToEnd();
+      // Pre-fetch video if needed
+      const stage = activeJourney.stages[idx];
+      if (stage.type === "video") {
+        fetchVideoForStage(stage);
       }
     },
-    [isThinking, activeConvId, messages, messageCount, state.conversations, state.profile.skillLevel, state.learnerModel, dispatch, followUpMutation, fetchContentMutation, addXp, scrollToEnd]
+    [activeJourney, dispatch, fetchVideoForStage]
   );
 
-  // ─── Handle Submit ────────────────────────────────────────────────────────
-
-  const handleSubmit = useCallback(() => {
-    if (!inputText.trim()) return;
-    if (showWelcome || !activeConvId) {
-      handleAsk(inputText);
-    } else {
-      handleFollowUp(inputText);
+  const goNext = useCallback(() => {
+    if (!activeJourney) return;
+    const nextIdx = currentStageIdx + 1;
+    if (nextIdx < activeJourney.stages.length) {
+      goToStage(nextIdx);
     }
-  }, [inputText, showWelcome, activeConvId, handleAsk, handleFollowUp]);
+  }, [activeJourney, currentStageIdx, goToStage]);
 
-  // ─── Handle Quiz Answer ───────────────────────────────────────────────────
+  const goPrev = useCallback(() => {
+    if (currentStageIdx > 0) {
+      goToStage(currentStageIdx - 1);
+    }
+  }, [currentStageIdx, goToStage]);
 
-  const handleQuizAnswer = useCallback(
+  // ─── Handle Check Answer ────────────────────────────────────────────────────
+
+  const handleCheckAnswer = useCallback(
     (correct: boolean) => {
+      setCheckAnswered(true);
       addXp(correct ? 15 : 5);
       dispatch({ type: "RECORD_QUIZ", payload: { correct } });
 
-      if (!correct) {
-        const conv = state.conversations.find((c) => c.id === activeConvId);
-        if (conv?.mappedConcepts.length) {
-          const concept = conv.mappedConcepts[0];
-          if (!state.learnerModel.confusionPoints.includes(concept)) {
-            dispatch({
-              type: "UPDATE_LEARNER_MODEL",
-              payload: { confusionPoints: [...state.learnerModel.confusionPoints, concept] },
-            });
-          }
+      if (correct && activeJourney) {
+        for (const concept of activeJourney.mappedConcepts) {
+          dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.8 } });
         }
       }
     },
-    [addXp, dispatch, state.conversations, state.learnerModel, activeConvId]
+    [addXp, dispatch, activeJourney]
   );
 
-  // ─── Handle Video Actions ─────────────────────────────────────────────────
+  // ─── Handle Video Watch ─────────────────────────────────────────────────────
 
-  const handleVideoWatch = useCallback((url: string, videoTitle?: string) => {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    openVideoInApp(url, videoTitle);
-    addXp(5);
-  }, [addXp]);
-
-  const handleVideoSkip = useCallback(() => {
-    // User skipped — that's fine, they can continue the conversation
-  }, []);
-
-  // ─── Load / New Conversation ──────────────────────────────────────────────
-
-  const handleSelectConversation = useCallback(
-    (conv: ChatConversation) => {
-      setActiveConvId(conv.id);
-      setMessages(conv.messages);
-      setShowWelcome(false);
-      setMessageCount(conv.messages.length);
-      dispatch({ type: "SET_ACTIVE_CONVERSATION", payload: conv.id });
+  const handleVideoWatch = useCallback(
+    (url: string, title: string) => {
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      openVideoInApp(url, title);
+      addXp(10);
+      dispatch({ type: "INCREMENT_VIDEOS" });
     },
-    [dispatch]
+    [addXp, dispatch]
   );
 
-  const handleNewConversation = useCallback(() => {
-    setActiveConvId(null);
-    setMessages([]);
+  // ─── Handle Next Steps Selection ────────────────────────────────────────────
+
+  const handleNextStepSelect = useCallback(
+    (question: string) => {
+      // Start a brand new journey
+      setActiveJourney(null);
+      setCurrentStageIdx(0);
+      dispatch({ type: "SET_ACTIVE_JOURNEY", payload: null });
+      startJourney(question);
+    },
+    [dispatch, startJourney]
+  );
+
+  // ─── New Journey ────────────────────────────────────────────────────────────
+
+  const handleNewJourney = useCallback(() => {
+    setActiveJourney(null);
+    setCurrentStageIdx(0);
     setShowWelcome(true);
-    setMessageCount(0);
-    dispatch({ type: "SET_ACTIVE_CONVERSATION", payload: null });
+    setStageVideos([]);
+    setCheckAnswered(false);
+    dispatch({ type: "SET_ACTIVE_JOURNEY", payload: null });
     loadSmartSuggestions();
   }, [dispatch, loadSmartSuggestions]);
 
-  // ─── Render Message ───────────────────────────────────────────────────────
+  // ─── Resume Journey ─────────────────────────────────────────────────────────
 
-  const renderMessage = useCallback(
-    ({ item }: { item: ChatMessage }) => {
-      switch (item.bubbleType) {
-        case "text":
-          return <TextBubble msg={item} />;
-        case "baseline_quiz":
-          return <QuizBubble msg={item} onAnswer={handleQuizAnswer} />;
-        case "content_card":
-          return <VideoSuggestion msg={item} onWatch={handleVideoWatch} onSkip={handleVideoSkip} />;
-        case "thinking":
-          return <ThinkingBubble />;
-        case "encouragement":
-          return <EncouragementBubble msg={item} />;
-        case "nudge":
-          return <NudgeBubble msg={item} onRespond={handleNudgeResponse} />;
-        default:
-          return <TextBubble msg={item} />;
+  const handleResumeJourney = useCallback(
+    (journey: LearningJourney) => {
+      setActiveJourney(journey);
+      setCurrentStageIdx(journey.currentStageIndex);
+      setShowWelcome(false);
+      dispatch({ type: "SET_ACTIVE_JOURNEY", payload: journey.id });
+      if (journey.stages[journey.currentStageIndex]?.type === "video") {
+        fetchVideoForStage(journey.stages[journey.currentStageIndex]);
       }
     },
-    [handleQuizAnswer, handleNudgeResponse, handleVideoWatch, handleVideoSkip]
+    [dispatch, fetchVideoForStage]
   );
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ─── Handle Submit ──────────────────────────────────────────────────────────
+
+  const handleSubmit = useCallback(() => {
+    if (!inputText.trim()) return;
+    startJourney(inputText);
+  }, [inputText, startJourney]);
+
+  // ─── Current Stage ──────────────────────────────────────────────────────────
+
+  const currentStage = activeJourney?.stages[currentStageIdx];
+  const isLastStage = activeJourney ? currentStageIdx === activeJourney.stages.length - 1 : false;
+  const isCheckStage = currentStage?.type === "check";
+  const canAdvance = isCheckStage ? checkAnswered : true;
+
+  // ─── Render Stage ───────────────────────────────────────────────────────────
+
+  const renderStage = () => {
+    if (!currentStage) return null;
+
+    switch (currentStage.type) {
+      case "hook":
+        return <HookCard stage={currentStage} isDark={isDark} />;
+      case "foundation":
+        return <FoundationCard stage={currentStage} isDark={isDark} />;
+      case "explanation":
+        return <ExplanationCard stage={currentStage} isDark={isDark} />;
+      case "real_world":
+        return <RealWorldCard stage={currentStage} isDark={isDark} />;
+      case "check":
+        return <CheckCard stage={currentStage} isDark={isDark} onAnswer={handleCheckAnswer} />;
+      case "video":
+        return (
+          <VideoCard
+            stage={currentStage}
+            isDark={isDark}
+            videos={stageVideos}
+            videosLoading={videosLoading}
+            onWatch={handleVideoWatch}
+          />
+        );
+      case "next_steps":
+        return <NextStepsCard stage={currentStage} isDark={isDark} onSelect={handleNextStepSelect} />;
+      default:
+        return <ExplanationCard stage={currentStage} isDark={isDark} />;
+    }
+  };
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
-        style={s.flex1}
+        style={styles.flex1}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         {/* Header */}
-        <View style={[s.header, { borderBottomColor: colors.border }]}>
-          <View style={s.headerLeft}>
-            <Text style={[s.headerTitle, { color: colors.foreground }]}>Ask Anything</Text>
-            <Text style={[s.headerSub, { color: colors.muted }]}>
-              {state.learnerModel.questionsAsked > 0
-                ? `${state.learnerModel.questionsAsked} questions explored`
-                : "Your AI learning companion"}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+              {activeJourney ? activeJourney.emoji + " Learning Journey" : "Learn Anything"}
             </Text>
+            {activeJourney ? (
+              <Text numberOfLines={1} style={[styles.headerSub, { color: colors.muted }]}>
+                {activeJourney.question}
+              </Text>
+            ) : (
+              <Text style={[styles.headerSub, { color: colors.muted }]}>
+                {state.learnerModel.questionsAsked > 0
+                  ? `${state.learnerModel.questionsAsked} topics explored`
+                  : "Ask a question, start a journey"}
+              </Text>
+            )}
           </View>
-          {!showWelcome && (
+          {activeJourney && (
             <TouchableOpacity
-              onPress={handleNewConversation}
+              onPress={handleNewJourney}
               activeOpacity={0.7}
-              style={[s.newBtn, { backgroundColor: colors.primary + "15" }]}
+              style={[styles.newBtn, { backgroundColor: colors.primary + "15" }]}
             >
-              <Text style={[s.newBtnText, { color: colors.primary }]}>New</Text>
+              <Text style={[styles.newBtnText, { color: colors.primary }]}>New</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Messages or Welcome */}
-        {showWelcome ? (
-          <View style={s.welcomeWrap}>
-            <Animated.View entering={FadeIn.duration(400)} style={s.welcomeInner}>
-              <Text style={s.welcomeEmoji}>🧠</Text>
-              <Text style={[s.welcomeTitle, { color: colors.foreground }]}>
+        {/* Loading State */}
+        {isLoading ? (
+          <View style={styles.loadingWrap}>
+            <Animated.View entering={FadeIn.duration(300)} style={styles.loadingInner}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingTitle, { color: colors.foreground }]}>
+                Building your learning journey...
+              </Text>
+              <Text style={[styles.loadingDesc, { color: colors.muted }]}>
+                Crafting the perfect path from curiosity to understanding
+              </Text>
+            </Animated.View>
+          </View>
+        ) : showWelcome ? (
+          /* Welcome State */
+          <ScrollView style={styles.flex1} contentContainerStyle={styles.welcomeContent} showsVerticalScrollIndicator={false}>
+            <Animated.View entering={FadeIn.duration(400)} style={styles.welcomeInner}>
+              <Text style={styles.welcomeEmoji}>{"💡"}</Text>
+              <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>
                 What do you want to learn?
               </Text>
-              <Text style={[s.welcomeDesc, { color: colors.muted }]}>
-                Ask any question — I'll explain one concept at a time, check that it clicks, and find the best video to help you understand.
+              <Text style={[styles.welcomeDesc, { color: colors.muted }]}>
+                Ask any question and I'll build a guided learning journey — from a curiosity-sparking hook to a deep-dive video.
               </Text>
             </Animated.View>
 
             <SuggestionChips
-              onSelect={handleAsk}
+              onSelect={startJourney}
               suggestions={smartSuggestions}
               reasons={suggestionReasons}
               loading={suggestionsLoading}
             />
-            <RecentConversations conversations={state.conversations} onSelect={handleSelectConversation} />
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={s.messageList}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={scrollToEnd}
-            ListFooterComponent={isThinking ? <ThinkingBubble /> : null}
-          />
-        )}
+            <RecentJourneys journeys={state.journeys} onSelect={handleResumeJourney} />
+          </ScrollView>
+        ) : activeJourney ? (
+          /* Journey View */
+          <View style={styles.flex1}>
+            {/* Progress Dots */}
+            <ProgressDots
+              total={activeJourney.stages.length}
+              current={currentStageIdx}
+              onDotPress={goToStage}
+            />
 
-        {/* Input Bar */}
-        <View style={[s.inputBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <TextInput
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder={
-              showWelcome
-                ? "Ask anything you want to learn..."
-                : "Follow up, ask more, or change topic..."
-            }
-            placeholderTextColor={colors.muted}
-            style={[
-              s.input,
-              { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
-            ]}
-            multiline
-            maxLength={500}
-            returnKeyType="send"
-            onSubmitEditing={handleSubmit}
-            blurOnSubmit
-            editable={!isThinking}
-          />
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={!inputText.trim() || isThinking}
-            activeOpacity={0.7}
-            style={[
-              s.sendBtn,
-              {
-                backgroundColor: inputText.trim() && !isThinking ? colors.primary : colors.surface,
-              },
-            ]}
-          >
-            <Text
+            {/* Stage Content */}
+            <ScrollView
+              ref={scrollRef}
+              style={styles.flex1}
+              contentContainerStyle={styles.stageScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              <Animated.View
+                key={`stage-${currentStageIdx}`}
+                entering={FadeInDown.duration(300)}
+              >
+                {renderStage()}
+              </Animated.View>
+            </ScrollView>
+
+            {/* Navigation */}
+            {currentStage?.type !== "next_steps" && (
+              <View style={[styles.navBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+                <TouchableOpacity
+                  onPress={goPrev}
+                  disabled={currentStageIdx === 0}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.navBtnBack,
+                    {
+                      backgroundColor: currentStageIdx === 0 ? "transparent" : colors.surface,
+                      borderColor: colors.border,
+                      opacity: currentStageIdx === 0 ? 0.3 : 1,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.navBtnBackText, { color: colors.foreground }]}>Back</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={goNext}
+                  disabled={!canAdvance || isLastStage}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.navBtnNext,
+                    {
+                      backgroundColor: canAdvance && !isLastStage ? colors.primary : colors.surface,
+                      opacity: canAdvance && !isLastStage ? 1 : 0.4,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.navBtnNextText,
+                      { color: canAdvance && !isLastStage ? "#FFFFFF" : colors.muted },
+                    ]}
+                  >
+                    {isCheckStage && !checkAnswered ? "Answer to continue" : "Continue"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        {/* Input Bar (only on welcome) */}
+        {showWelcome && !isLoading && (
+          <View style={[styles.inputBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+            <TextInput
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Ask anything you want to learn..."
+              placeholderTextColor={colors.muted}
               style={[
-                s.sendIcon,
-                { color: inputText.trim() && !isThinking ? "#FFFFFF" : colors.muted },
+                styles.input,
+                { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
+              ]}
+              multiline
+              maxLength={500}
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+              blurOnSubmit
+              editable={!isLoading}
+            />
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={!inputText.trim() || isLoading}
+              activeOpacity={0.7}
+              style={[
+                styles.sendBtn,
+                {
+                  backgroundColor: inputText.trim() && !isLoading ? colors.primary : colors.surface,
+                },
               ]}
             >
-              ↑
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  styles.sendIcon,
+                  { color: inputText.trim() && !isLoading ? "#FFFFFF" : colors.muted },
+                ]}
+              >
+                {"↑"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </ScreenContainer>
   );
@@ -1061,30 +1010,36 @@ export default function AskScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   flex1: { flex: 1 },
 
   // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  headerLeft: {},
-  headerTitle: { fontSize: 22, fontWeight: "700" },
+  headerLeft: { flex: 1, marginRight: 12 },
+  headerTitle: { fontSize: 20, fontWeight: "700" },
   headerSub: { fontSize: 13, marginTop: 2 },
   newBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
   newBtnText: { fontSize: 14, fontWeight: "600" },
 
+  // Loading
+  loadingWrap: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
+  loadingInner: { alignItems: "center", gap: 16 },
+  loadingTitle: { fontSize: 18, fontWeight: "600", textAlign: "center" },
+  loadingDesc: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+
   // Welcome
-  welcomeWrap: { flex: 1, paddingHorizontal: 20, paddingTop: 40 },
+  welcomeContent: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 20 },
   welcomeInner: { alignItems: "center", marginBottom: 32 },
   welcomeEmoji: { fontSize: 48, marginBottom: 16 },
   welcomeTitle: { fontSize: 24, fontWeight: "700", textAlign: "center", marginBottom: 8 },
-  welcomeDesc: { fontSize: 15, textAlign: "center", lineHeight: 22, maxWidth: 300 },
+  welcomeDesc: { fontSize: 15, textAlign: "center", lineHeight: 22, maxWidth: 320 },
 
   // Suggestions
   suggestionsWrap: { gap: 8, marginBottom: 24 },
@@ -1094,97 +1049,180 @@ const s = StyleSheet.create({
   chipText: { fontSize: 14, fontWeight: "500", lineHeight: 20 },
   chipReason: { fontSize: 11, marginTop: 4, lineHeight: 15 },
 
-  // Recent
+  // Recent Journeys
   recentWrap: { marginTop: 8 },
   recentTitle: { fontSize: 13, fontWeight: "600", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
   recentItem: { paddingVertical: 12, borderBottomWidth: 0.5 },
+  recentItemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  recentEmoji: { fontSize: 24 },
+  recentItemContent: { flex: 1 },
   recentQuestion: { fontSize: 15, fontWeight: "600" },
   recentMeta: { fontSize: 12, marginTop: 2 },
 
-  // Messages
-  messageList: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
-
-  // Bubbles
-  bubble: { maxWidth: "85%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 18, marginBottom: 8 },
-  userBubble: { alignSelf: "flex-end", borderBottomRightRadius: 4 },
-  aiBubble: { alignSelf: "flex-start", borderBottomLeftRadius: 4 },
-  bubbleText: { fontSize: 15, lineHeight: 22 },
-
-  // Thinking
-  thinkingDots: { flexDirection: "row", alignItems: "center", gap: 8 },
-  thinkingText: { fontSize: 13 },
-
-  // Quiz
-  quizCard: { alignSelf: "flex-start", maxWidth: "90%", padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 8 },
-  quizEmoji: { fontSize: 28, marginBottom: 8 },
-  quizQuestion: { fontSize: 15, fontWeight: "600", lineHeight: 22, marginBottom: 12 },
-  quizOption: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, marginBottom: 6 },
-  quizOptionText: { fontSize: 14, fontWeight: "500" },
-  funFactWrap: { marginTop: 12, paddingTop: 12, borderTopWidth: 0.5, borderTopColor: "#E5E7EB" },
-  funFactLabel: { fontSize: 12, fontWeight: "700", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 },
-  funFactText: { fontSize: 13, lineHeight: 19 },
-
-  // Video Suggestion (one at a time, skippable)
-  videoSuggestion: {
-    alignSelf: "flex-start",
-    maxWidth: "92%",
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 8,
+  // Progress Dots
+  dotsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
   },
-  videoLabel: { fontSize: 12, fontWeight: "700", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 },
-  videoCard: { borderRadius: 12, overflow: "hidden" },
-  videoThumbWrap: { position: "relative" },
-  videoThumb: { width: "100%", height: 140, borderRadius: 10 },
-  videoDuration: {
-    position: "absolute",
-    bottom: 6,
-    right: 6,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  dot: {
+    height: 8,
     borderRadius: 4,
   },
-  videoDurationText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
-  videoInfo: { paddingTop: 10 },
-  videoTitle: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
-  videoChannel: { fontSize: 12, marginTop: 4 },
-  videoActions: { flexDirection: "row", gap: 10, marginTop: 12 },
-  watchBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center" },
-  watchBtnText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
-  skipBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", borderWidth: 1 },
-  skipBtnText: { fontSize: 14, fontWeight: "600" },
 
-  // Encouragement
-  encourageCard: { alignSelf: "flex-start", maxWidth: "85%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, marginBottom: 8 },
-  encourageText: { fontSize: 14, fontWeight: "500", fontStyle: "italic", lineHeight: 20 },
+  // Stage Cards
+  stageScroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
+  stageCard: {
+    borderRadius: 20,
+    padding: 24,
+  },
+  stageEmoji: { fontSize: 36, marginBottom: 12 },
+  stageLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  stageTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: 12 },
+  stageContent: { fontSize: 16, lineHeight: 26 },
 
-  // Nudge
-  nudgeCard: {
-    alignSelf: "flex-start",
-    maxWidth: "90%",
+  // Key Takeaway
+  takeawayBox: {
+    marginTop: 20,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  takeawayLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  takeawayText: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
+
+  // Check Options
+  checkOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
     borderWidth: 1,
     marginBottom: 8,
   },
-  nudgeEmoji: { fontSize: 24, marginBottom: 8 },
-  nudgeQuestion: { fontSize: 15, fontWeight: "500", lineHeight: 22, marginBottom: 12 },
-  nudgeOptions: { gap: 6 },
-  nudgeOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
+  checkOptionText: { fontSize: 15, fontWeight: "500", lineHeight: 22 },
+  checkExplanation: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+  },
+  checkExplanationText: { fontSize: 14, lineHeight: 22 },
+
+  // Video
+  videoLoading: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 20 },
+  videoLoadingText: { fontSize: 14 },
+  videoPreview: {
+    borderRadius: 14,
     borderWidth: 1,
+    overflow: "hidden",
+  },
+  videoThumbWrap: { position: "relative" },
+  videoThumb: { width: "100%", height: 180, borderTopLeftRadius: 13, borderTopRightRadius: 13 },
+  playOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.2)",
+  },
+  playButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
     alignItems: "center",
   },
-  nudgeOptionText: { fontSize: 14, fontWeight: "500" },
-  nudgeAck: { fontSize: 12, marginTop: 10, fontStyle: "italic", textAlign: "center" },
+  playIcon: { color: "#FFFFFF", fontSize: 22, marginLeft: 3 },
+  durationBadge: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  durationText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
+  videoMeta: { padding: 14 },
+  videoMetaTitle: { fontSize: 15, fontWeight: "600", lineHeight: 22 },
+  videoMetaChannel: { fontSize: 13, marginTop: 4 },
+
+  // Next Steps
+  nextPath: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  nextPathQuestion: { fontSize: 15, fontWeight: "600", lineHeight: 22 },
+  nextPathReason: { fontSize: 13, marginTop: 4, lineHeight: 18 },
+
+  // Navigation Bar
+  navBar: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+    borderTopWidth: 0.5,
+  },
+  navBtnBack: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  navBtnBackText: { fontSize: 15, fontWeight: "600" },
+  navBtnNext: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  navBtnNextText: { fontSize: 15, fontWeight: "700" },
 
   // Input Bar
-  inputBar: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 0.5, gap: 8 },
-  input: { flex: 1, minHeight: 40, maxHeight: 100, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, borderWidth: 1 },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 0.5,
+    gap: 8,
+  },
+  input: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    borderWidth: 1,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sendIcon: { fontSize: 20, fontWeight: "700" },
 });

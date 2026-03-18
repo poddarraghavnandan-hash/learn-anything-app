@@ -279,3 +279,19 @@
 - [x] Update content detail screen to use in-app player
 - [x] Fix YouTube Error 153 in video player WebView embed — switched to HTML source with baseUrl origin (confirmed fix from react-native-webview#3889)
 - [x] Fix cold start feed still showing empty "Load Content" — skeleton loading on cold start with 3s polling + 30s timeout fallback
+
+## Ask Flow Redesign — Guided Learning Strategy
+- [x] Redesign Ask flow from chat bubbles to a guided learning journey
+- [x] New backend endpoint: chat.learn — returns structured learning stages (not a single text block)
+- [x] Stage 1: Hook — curiosity-sparking question or surprising fact to draw them in
+- [x] Stage 2: Foundation — "Here's what you need to know first" context card
+- [x] Stage 3: Core Explanation — the main concept, broken into digestible pieces
+- [x] Stage 4: Real-World Connection — "See it in action" with a concrete example
+- [x] Stage 5: Check Understanding — quick interactive check (not a quiz, more like "does this click?")
+- [x] Stage 6: Go Deeper — video as the culmination, now they have context to appreciate it
+- [x] Stage 7: What's Next — natural follow-up paths to continue learning
+- [x] Card-based UI with smooth transitions between stages (not chat bubbles)
+- [x] Visual progress dots showing current position in the learning journey
+- [x] Each stage animates in one at a time as user progresses (tap to continue)
+- [x] Follow-up questions create a new learning journey (not append to chat)
+- [x] Maintain learner model integration for personalization

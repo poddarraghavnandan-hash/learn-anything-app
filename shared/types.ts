@@ -412,3 +412,44 @@ export interface CuriosityCheckResult {
   determinedLevel: SkillLevel;
   startingStep: number;           // which ladder step to start from
 }
+
+// ─── Learning Journey — Guided Learning Strategy ────────────────────────────
+
+export type JourneyStageType =
+  | "hook"           // Curiosity-sparking opening
+  | "foundation"     // Prerequisite context
+  | "explanation"    // Core concept explanation (can have multiple parts)
+  | "real_world"     // Concrete real-world example
+  | "check"          // Understanding check (interactive)
+  | "video"          // Video as culmination
+  | "next_steps";    // Follow-up learning paths
+
+export interface JourneyStage {
+  type: JourneyStageType;
+  emoji: string;
+  title: string;
+  content: string;             // Main text content (markdown)
+  keyTakeaway?: string;        // For explanation stages — the one-liner to remember
+  // For check stages
+  question?: string;
+  options?: string[];
+  correctIndex?: number;
+  explanation?: string;        // Shown after answering the check
+  // For video stages
+  searchQuery?: string;
+  videoContext?: string;       // Why this video matters now
+  // For next_steps stages
+  paths?: { question: string; reason: string }[];
+}
+
+export interface LearningJourney {
+  id: string;
+  question: string;
+  stages: JourneyStage[];
+  mappedConcepts: string[];
+  difficulty: SkillLevel;
+  emoji: string;
+  createdAt: string;
+  currentStageIndex: number;   // Tracks where the user is
+  completed: boolean;
+}
