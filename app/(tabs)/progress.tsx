@@ -48,6 +48,11 @@ export default function ProgressScreen() {
       case "level_10": return levelInfo.level >= 10;
       case "mind_blown_10": return profile.mindBlownCount >= 10;
       case "daily_goal_7": return profile.dailyGoalsCompleted >= 7;
+      case "perfect_journey": return (profile.perfectJourneys ?? 0) >= 1;
+      case "journey_5": return (profile.totalJourneysCompleted ?? 0) >= 5;
+      case "journey_25": return (profile.totalJourneysCompleted ?? 0) >= 25;
+      case "check_streak_5": return (profile.bestCheckStreak ?? 0) >= 5;
+      case "check_streak_10": return (profile.bestCheckStreak ?? 0) >= 10;
       default: return false;
     }
   };
@@ -163,6 +168,36 @@ export default function ProgressScreen() {
             <Text style={styles.statEmoji}>{"\u{1F92F}"}</Text>
             <Text style={[styles.statNumber, { color: colors.foreground }]}>{profile.mindBlownCount}</Text>
             <Text style={[styles.statLabel, { color: colors.muted }]}>Mind Blown</Text>
+          </View>
+        </Animated.View>
+
+        {/* Journey Stats */}
+        <Animated.View entering={FadeInDown.duration(300).delay(350)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.cardHeader}>
+            <Text style={{ fontSize: 20 }}>{"\u{1F680}"}</Text>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Learning Journeys</Text>
+          </View>
+          <View style={[styles.statsGrid, { marginTop: 8 }]}>
+            <View style={[styles.statCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Text style={styles.statEmoji}>{"\u2705"}</Text>
+              <Text style={[styles.statNumber, { color: colors.foreground }]}>{profile.totalJourneysCompleted ?? 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Completed</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Text style={styles.statEmoji}>{"\u{1F31F}"}</Text>
+              <Text style={[styles.statNumber, { color: colors.foreground }]}>{profile.perfectJourneys ?? 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Perfect</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Text style={styles.statEmoji}>{"\u26A1"}</Text>
+              <Text style={[styles.statNumber, { color: colors.foreground }]}>{profile.bestCheckStreak ?? 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Best Streak</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Text style={styles.statEmoji}>{"\u{1F3C6}"}</Text>
+              <Text style={[styles.statNumber, { color: colors.foreground }]}>{profile.checkStreak ?? 0}</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>Current Streak</Text>
+            </View>
           </View>
         </Animated.View>
 

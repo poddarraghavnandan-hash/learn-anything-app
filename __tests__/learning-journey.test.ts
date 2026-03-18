@@ -160,6 +160,10 @@ describe("LearningJourney", () => {
     createdAt: new Date().toISOString(),
     currentStageIndex: 0,
     completed: false,
+    xpEarned: 0,
+    masteryScore: 0,
+    perfectJourney: false,
+    streakMultiplier: 1,
   });
 
   it("creates a valid learning journey with all 7 stage types", () => {
@@ -260,5 +264,176 @@ describe("LearningJourney", () => {
         expect(path.reason).toBeTruthy();
       });
     });
+  });
+});
+
+describe("Gamification Constants", () => {
+  it("exports JOURNEY_STAGE_XP with correct values for all stage types", async () => {
+    const { JOURNEY_STAGE_XP } = await import("../shared/types");
+    expect(JOURNEY_STAGE_XP.hook).toBe(5);
+    expect(JOURNEY_STAGE_XP.foundation).toBe(10);
+    expect(JOURNEY_STAGE_XP.explanation).toBe(15);
+    expect(JOURNEY_STAGE_XP.real_world).toBe(10);
+    expect(JOURNEY_STAGE_XP.check).toBe(25);
+    expect(JOURNEY_STAGE_XP.video).toBe(15);
+    expect(JOURNEY_STAGE_XP.next_steps).toBe(5);
+  });
+
+  it("exports CHECK_INCORRECT_XP", async () => {
+    const { CHECK_INCORRECT_XP } = await import("../shared/types");
+    expect(CHECK_INCORRECT_XP).toBe(10);
+    expect(CHECK_INCORRECT_XP).toBeLessThan(20); // less than correct
+  });
+
+  it("exports CHALLENGE_TIMER_SECONDS and CHALLENGE_BONUS_XP", async () => {
+    const { CHALLENGE_TIMER_SECONDS, CHALLENGE_BONUS_XP } = await import("../shared/types");
+    expect(CHALLENGE_TIMER_SECONDS).toBe(30);
+    expect(CHALLENGE_BONUS_XP).toBe(15);
+  });
+});
+
+describe("getStreakMultiplier", () => {
+  it("returns 1 for streaks below 3", async () => {
+    const { getStreakMultiplier } = await import("../shared/types");
+    expect(getStreakMultiplier(0)).toBe(1);
+    expect(getStreakMultiplier(1)).toBe(1);
+    expect(getStreakMultiplier(2)).toBe(1);
+  });
+
+  it("returns 1.5 for streaks 3-4", async () => {
+    const { getStreakMultiplier } = await import("../shared/types");
+    expect(getStreakMultiplier(3)).toBe(1.5);
+    expect(getStreakMultiplier(4)).toBe(1.5);
+  });
+
+  it("returns 2 for streaks 5-9", async () => {
+    const { getStreakMultiplier } = await import("../shared/types");
+    expect(getStreakMultiplier(5)).toBe(2);
+    expect(getStreakMultiplier(7)).toBe(2);
+    expect(getStreakMultiplier(9)).toBe(2);
+  });
+
+  it("returns 3 for streaks 10+", async () => {
+    const { getStreakMultiplier } = await import("../shared/types");
+    expect(getStreakMultiplier(10)).toBe(3);
+    expect(getStreakMultiplier(50)).toBe(3);
+  });
+});
+
+describe("calculateMasteryScore", () => {
+  it("returns 100 for perfect journey (all stages, correct check, video watched)", async () => {
+    const { calculateMasteryScore } = await import("../shared/types");
+    const score = calculateMasteryScore({
+      stagesCompleted: 7,
+      totalStages: 7,
+      checkCorrect: true,
+      videoWatched: true,
+    });
+    expect(score).toBe(100);
+  });
+
+  it("returns lower score when check is incorrect", async () => {
+    const { calculateMasteryScore } = await import("../shared/types");
+    const score = calculateMasteryScore({
+      stagesCompleted: 7,
+      totalStages: 7,
+      checkCorrect: false,
+      videoWatched: true,
+    });
+    expect(score).toBeLessThan(100);
+    expect(score).toBeGreaterThan(0);
+  });
+
+  it("returns lower score when video is not watched", async () => {
+    const { calculateMasteryScore } = await import("../shared/types");
+    const score = calculateMasteryScore({
+      stagesCompleted: 7,
+      totalStages: 7,
+      checkCorrect: true,
+      videoWatched: false,
+    });
+    expect(score).toBeLessThan(100);
+    expect(score).toBeGreaterThan(0);
+  });
+
+  it("returns lowest score when both check wrong and video skipped", async () => {
+    const { calculateMasteryScore } = await import("../shared/types");
+    const score = calculateMasteryScore({
+      stagesCompleted: 7,
+      totalStages: 7,
+      checkCorrect: false,
+      videoWatched: false,
+    });
+    expect(score).toBeLessThan(80);
+    expect(score).toBeGreaterThan(0);
+  });
+
+  it("accounts for partial stage completion", async () => {
+    const { calculateMasteryScore } = await import("../shared/types");
+    const full = calculateMasteryScore({
+      stagesCompleted: 7,
+      totalStages: 7,
+      checkCorrect: true,
+      videoWatched: true,
+    });
+    const partial = calculateMasteryScore({
+      stagesCompleted: 3,
+      totalStages: 7,
+      checkCorrect: true,
+      videoWatched: true,
+    });
+    expect(partial).toBeLessThan(full);
+  });
+});
+
+describe("LearningJourney Gamification Fields", () => {
+  it("tracks XP earned during journey", () => {
+    const journey: LearningJourney = {
+      id: "gam-1",
+      question: "Test question",
+      stages: [{ type: "hook", emoji: "🔮", title: "Hook", content: "Content" }],
+      mappedConcepts: ["test"],
+      difficulty: "beginner",
+      emoji: "🧪",
+      createdAt: new Date().toISOString(),
+      currentStageIndex: 0,
+      completed: false,
+      xpEarned: 0,
+      masteryScore: 0,
+      perfectJourney: false,
+      streakMultiplier: 1,
+    };
+
+    // Simulate earning XP
+    journey.xpEarned = 75;
+    journey.masteryScore = 85;
+    journey.perfectJourney = false;
+    journey.streakMultiplier = 1.5;
+
+    expect(journey.xpEarned).toBe(75);
+    expect(journey.masteryScore).toBe(85);
+    expect(journey.perfectJourney).toBe(false);
+    expect(journey.streakMultiplier).toBe(1.5);
+  });
+
+  it("marks perfect journey when check correct and video watched", () => {
+    const journey: LearningJourney = {
+      id: "gam-2",
+      question: "Perfect journey test",
+      stages: [],
+      mappedConcepts: [],
+      difficulty: "beginner",
+      emoji: "🌟",
+      createdAt: new Date().toISOString(),
+      currentStageIndex: 0,
+      completed: true,
+      xpEarned: 100,
+      masteryScore: 100,
+      perfectJourney: true,
+      streakMultiplier: 2,
+    };
+
+    expect(journey.perfectJourney).toBe(true);
+    expect(journey.masteryScore).toBe(100);
   });
 });

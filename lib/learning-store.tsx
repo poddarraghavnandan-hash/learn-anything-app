@@ -66,6 +66,10 @@ const DEFAULT_PROFILE: UserProfile = {
   streakFreezes: 1,
   lastCelebratedLevel: 0,
   lastCelebratedStreak: 0,
+  checkStreak: 0,
+  bestCheckStreak: 0,
+  perfectJourneys: 0,
+  totalJourneysCompleted: 0,
 };
 
 const initialState: LearningState = {
@@ -141,7 +145,10 @@ type Action =
   | { type: "EARN_STREAK_FREEZE" }
   | { type: "REPAIR_STREAK"; payload: number }  // cost in XP
   | { type: "MARK_CELEBRATED_LEVEL"; payload: number }
-  | { type: "MARK_CELEBRATED_STREAK"; payload: number };
+  | { type: "MARK_CELEBRATED_STREAK"; payload: number }
+  // Gamification — teaching strategy
+  | { type: "RECORD_CHECK_RESULT"; payload: { correct: boolean } }
+  | { type: "COMPLETE_JOURNEY"; payload: { journeyId: string; xpEarned: number; masteryScore: number; perfect: boolean } };
 
 function getToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -655,6 +662,47 @@ function reducer(state: LearningState, action: Action): LearningState {
       };
     }
 
+    case "RECORD_CHECK_RESULT": {
+      const p = state.profile;
+      const newStreak = action.payload.correct ? (p.checkStreak ?? 0) + 1 : 0;
+      const bestStreak = Math.max(newStreak, p.bestCheckStreak ?? 0);
+      return {
+        ...state,
+        profile: {
+          ...p,
+          checkStreak: newStreak,
+          bestCheckStreak: bestStreak,
+        },
+      };
+    }
+
+    case "COMPLETE_JOURNEY": {
+      const p = state.profile;
+      const updatedJourneys = state.journeys.map((j) =>
+        j.id === action.payload.journeyId
+          ? {
+              ...j,
+              completed: true,
+              xpEarned: action.payload.xpEarned,
+              masteryScore: action.payload.masteryScore,
+              perfectJourney: action.payload.perfect,
+            }
+          : j
+      );
+      return {
+        ...state,
+        journeys: updatedJourneys,
+        profile: {
+          ...p,
+          totalXp: p.totalXp + action.payload.xpEarned,
+          totalJourneysCompleted: (p.totalJourneysCompleted ?? 0) + 1,
+          perfectJourneys: action.payload.perfect
+            ? (p.perfectJourneys ?? 0) + 1
+            : (p.perfectJourneys ?? 0),
+        },
+      };
+    }
+
     default:
       return state;
   }
@@ -681,6 +729,12 @@ function checkBadges(state: LearningState): BadgeId[] {
   if (getLevel(p.totalXp).level >= 10 && !u.includes("level_10")) newBadges.push("level_10");
   if (p.mindBlownCount >= 10 && !u.includes("mind_blown_10")) newBadges.push("mind_blown_10");
   if (p.dailyGoalsCompleted >= 7 && !u.includes("daily_goal_7")) newBadges.push("daily_goal_7");
+  // Gamification badges
+  if ((p.perfectJourneys ?? 0) >= 1 && !u.includes("perfect_journey")) newBadges.push("perfect_journey");
+  if ((p.totalJourneysCompleted ?? 0) >= 5 && !u.includes("journey_5")) newBadges.push("journey_5");
+  if ((p.totalJourneysCompleted ?? 0) >= 25 && !u.includes("journey_25")) newBadges.push("journey_25");
+  if ((p.bestCheckStreak ?? 0) >= 5 && !u.includes("check_streak_5")) newBadges.push("check_streak_5");
+  if ((p.bestCheckStreak ?? 0) >= 10 && !u.includes("check_streak_10")) newBadges.push("check_streak_10");
 
   return newBadges;
 }

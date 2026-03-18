@@ -107,7 +107,12 @@ export type BadgeId =
   | "level_5"
   | "level_10"
   | "mind_blown_10"
-  | "daily_goal_7";
+  | "daily_goal_7"
+  | "perfect_journey"
+  | "journey_5"
+  | "journey_25"
+  | "check_streak_5"
+  | "check_streak_10";
 
 export interface BadgeDef {
   id: BadgeId;
@@ -132,6 +137,11 @@ export const BADGE_DEFINITIONS: BadgeDef[] = [
   { id: "level_10", name: "Knowledge Titan", description: "Reach level 10", emoji: "🌟", requirement: "Level 10" },
   { id: "mind_blown_10", name: "Mind Expander", description: "React 'Mind blown' 10 times", emoji: "🤯", requirement: "10 mind blown reactions" },
   { id: "daily_goal_7", name: "Goal Crusher", description: "Hit daily goal 7 times", emoji: "🎯", requirement: "7 daily goals met" },
+  { id: "perfect_journey", name: "Perfect Journey", description: "Complete a journey with 100% mastery", emoji: "💫", requirement: "1 perfect journey" },
+  { id: "journey_5", name: "Pathfinder", description: "Complete 5 learning journeys", emoji: "🗺️", requirement: "5 journeys completed" },
+  { id: "journey_25", name: "Knowledge Architect", description: "Complete 25 learning journeys", emoji: "🏛️", requirement: "25 journeys completed" },
+  { id: "check_streak_5", name: "Sharp Mind", description: "5 correct checks in a row", emoji: "⚡", requirement: "5 check streak" },
+  { id: "check_streak_10", name: "Unstoppable", description: "10 correct checks in a row", emoji: "🔥", requirement: "10 check streak" },
 ];
 
 // ─── User Profile ────────────────────────────────────────────────────────────
@@ -161,6 +171,11 @@ export interface UserProfile {
   // Level tracking for celebrations
   lastCelebratedLevel?: number;
   lastCelebratedStreak?: number;
+  // Gamification — teaching strategy
+  checkStreak: number;              // Consecutive correct check answers
+  bestCheckStreak: number;          // All-time best check streak
+  perfectJourneys: number;          // Count of perfect journeys
+  totalJourneysCompleted: number;   // Total journeys finished
 }
 
 export type Reaction = "mind_blown" | "knew_this" | "save" | "skip";
@@ -452,4 +467,46 @@ export interface LearningJourney {
   createdAt: string;
   currentStageIndex: number;   // Tracks where the user is
   completed: boolean;
+  // Gamification
+  xpEarned: number;            // Total XP earned in this journey
+  masteryScore: number;        // 0-100 mastery percentage
+  perfectJourney: boolean;     // All stages + correct check on first try
+  checkCorrect?: boolean;      // Whether the check was answered correctly
+  checkTimeMs?: number;        // Time taken to answer check (for challenge mode)
+  streakMultiplier: number;    // XP multiplier active during this journey
+}
+
+// ─── Journey XP Table ────────────────────────────────────────────────────────
+
+export const JOURNEY_STAGE_XP: Record<JourneyStageType, number> = {
+  hook: 5,
+  foundation: 10,
+  explanation: 15,
+  real_world: 10,
+  check: 25,       // correct answer; incorrect = 10
+  video: 15,
+  next_steps: 5,
+};
+
+export const CHECK_INCORRECT_XP = 10;
+export const CHALLENGE_TIMER_SECONDS = 30;
+export const CHALLENGE_BONUS_XP = 15;
+
+export function getStreakMultiplier(checkStreak: number): number {
+  if (checkStreak >= 10) return 3;
+  if (checkStreak >= 5) return 2;
+  if (checkStreak >= 3) return 1.5;
+  return 1;
+}
+
+export function calculateMasteryScore(opts: {
+  stagesCompleted: number;
+  totalStages: number;
+  checkCorrect: boolean;
+  videoWatched: boolean;
+}): number {
+  const completionScore = (opts.stagesCompleted / opts.totalStages) * 30;
+  const checkScore = opts.checkCorrect ? 60 : 20;
+  const videoScore = opts.videoWatched ? 10 : 0;
+  return Math.round(completionScore + checkScore + videoScore);
 }

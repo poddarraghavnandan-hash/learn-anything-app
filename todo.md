@@ -295,3 +295,18 @@
 - [x] Each stage animates in one at a time as user progresses (tap to continue)
 - [x] Follow-up questions create a new learning journey (not append to chat)
 - [x] Maintain learner model integration for personalization
+
+## Gamification as Teaching Strategy
+- [x] Design gamification-as-teaching system (game mechanics that drive learning, not just reward it)
+- [x] Journey XP system: visible XP earned per stage with animated counter in journey header
+- [x] Stage completion rewards: XP burst animation + haptic when completing each stage
+- [x] Journey mastery score: calculate and display a mastery percentage at journey end based on check accuracy + engagement
+- [ ] Concept mastery map: visual skill tree / constellation showing learned concepts and connections (future)
+- [x] Streak multiplier: consecutive correct answers boost XP multiplier (1x → 1.5x → 2x → 3x)
+- [x] Challenge mode in check stages: timer-based bonus XP for quick correct answers
+- [x] Journey completion celebration: animated summary card with total XP earned, concepts mastered, streak info
+- [x] "Perfect Journey" badge: complete all stages + answer check correctly = special achievement
+- [ ] Daily challenge: one curated learning journey per day with bonus XP (future)
+- [ ] Concept connections: after multiple journeys, show how concepts link together (future)
+- [ ] Progress ring on journey cards: visual completion indicator on recent journeys (future)
+- [x] Backend: enhanced learn endpoint with gamification metadata (XP per stage, challenge hints, difficulty scaling)

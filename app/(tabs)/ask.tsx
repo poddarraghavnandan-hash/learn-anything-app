@@ -38,6 +38,14 @@ import type {
   LearningJourney,
   ContentItemData,
 } from "@/shared/types";
+import {
+  JOURNEY_STAGE_XP,
+  CHECK_INCORRECT_XP,
+  CHALLENGE_TIMER_SECONDS,
+  CHALLENGE_BONUS_XP,
+  getStreakMultiplier,
+  calculateMasteryScore,
+} from "@/shared/types";
 import * as Haptics from "expo-haptics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -87,6 +95,184 @@ const STAGE_ACCENTS_DARK: Record<string, { bg: string; text: string; label: stri
   video: { bg: "#7F1D1D30", text: "#FCA5A5", label: "Go Deeper" },
   next_steps: { bg: "#312E8130", text: "#A5B4FC", label: "Keep Exploring" },
 };
+
+// ─── XP Popup Animation ──────────────────────────────────────────────────────
+
+function XpPopup({ amount, multiplier }: { amount: number; multiplier: number }) {
+  const colors = useColors();
+  const total = Math.round(amount * multiplier);
+  return (
+    <Animated.View
+      entering={FadeInUp.duration(400).springify()}
+      exiting={FadeOut.delay(1200).duration(300)}
+      style={styles.xpPopup}
+    >
+      <Text style={[styles.xpPopupText, { color: colors.success }]}>
+        +{total} XP{multiplier > 1 ? ` (${multiplier}x)` : ""}
+      </Text>
+    </Animated.View>
+  );
+}
+
+// ─── Streak Multiplier Badge ─────────────────────────────────────────────────
+
+function StreakBadge({ streak, multiplier }: { streak: number; multiplier: number }) {
+  const colors = useColors();
+  if (streak < 3) return null;
+
+  const badgeColor = streak >= 10 ? "#EF4444" : streak >= 5 ? "#F59E0B" : "#22C55E";
+  const label = streak >= 10 ? "ON FIRE" : streak >= 5 ? "HOT STREAK" : "STREAK";
+
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={[styles.streakBadge, { backgroundColor: badgeColor + "20", borderColor: badgeColor + "40" }]}>
+      <Text style={[styles.streakBadgeIcon]}>{"⚡"}</Text>
+      <View>
+        <Text style={[styles.streakBadgeLabel, { color: badgeColor }]}>{label}</Text>
+        <Text style={[styles.streakBadgeValue, { color: badgeColor }]}>{streak} correct \u00B7 {multiplier}x XP</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── Challenge Timer ─────────────────────────────────────────────────────────
+
+function ChallengeTimer({
+  seconds,
+  onExpire,
+  active,
+}: {
+  seconds: number;
+  onExpire: () => void;
+  active: boolean;
+}) {
+  const colors = useColors();
+  const [remaining, setRemaining] = useState(seconds);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    setRemaining(seconds);
+    timerRef.current = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          onExpire();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [active, seconds]);
+
+  if (!active) return null;
+
+  const pct = remaining / seconds;
+  const timerColor = pct > 0.5 ? colors.success : pct > 0.2 ? "#F59E0B" : colors.error;
+
+  return (
+    <Animated.View entering={FadeIn.duration(200)} style={styles.timerWrap}>
+      <View style={[styles.timerBar, { backgroundColor: timerColor + "20" }]}>
+        <Animated.View style={[styles.timerFill, { backgroundColor: timerColor, width: `${pct * 100}%` }]} />
+      </View>
+      <View style={styles.timerRow}>
+        <Text style={[styles.timerLabel, { color: timerColor }]}>
+          {"⏱"} Challenge Mode
+        </Text>
+        <Text style={[styles.timerValue, { color: timerColor }]}>
+          {remaining}s {remaining > 0 ? `(+${CHALLENGE_BONUS_XP} bonus XP)` : "Time's up!"}
+        </Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── Journey Completion Card ─────────────────────────────────────────────────
+
+function JourneyCompleteCard({
+  journey,
+  xpEarned,
+  masteryScore,
+  isPerfect,
+  checkStreak,
+  isDark,
+  onNewJourney,
+}: {
+  journey: LearningJourney;
+  xpEarned: number;
+  masteryScore: number;
+  isPerfect: boolean;
+  checkStreak: number;
+  isDark: boolean;
+  onNewJourney: () => void;
+}) {
+  const colors = useColors();
+
+  const masteryLabel =
+    masteryScore >= 90 ? "Mastery" : masteryScore >= 70 ? "Proficient" : masteryScore >= 50 ? "Developing" : "Exploring";
+  const masteryColor =
+    masteryScore >= 90 ? "#22C55E" : masteryScore >= 70 ? "#0EA5E9" : masteryScore >= 50 ? "#F59E0B" : colors.muted;
+
+  return (
+    <Animated.View entering={FadeIn.duration(500)} style={[styles.completeCard, { backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF" }]}>
+      {/* Celebration header */}
+      <View style={styles.completeHeader}>
+        <Text style={styles.completeEmoji}>{isPerfect ? "🌟" : "🎉"}</Text>
+        <Text style={[styles.completeTitle, { color: colors.foreground }]}>
+          {isPerfect ? "Perfect Journey!" : "Journey Complete!"}
+        </Text>
+        <Text style={[styles.completeQuestion, { color: colors.muted }]}>
+          {journey.question}
+        </Text>
+      </View>
+
+      {/* Stats Grid */}
+      <View style={styles.statsGrid}>
+        <View style={[styles.statBox, { backgroundColor: isDark ? colors.surface : "#F0FDF4" }]}>
+          <Text style={[styles.statValue, { color: "#22C55E" }]}>+{xpEarned}</Text>
+          <Text style={[styles.statLabel, { color: colors.muted }]}>XP Earned</Text>
+        </View>
+        <View style={[styles.statBox, { backgroundColor: isDark ? colors.surface : "#EFF6FF" }]}>
+          <Text style={[styles.statValue, { color: masteryColor }]}>{masteryScore}%</Text>
+          <Text style={[styles.statLabel, { color: colors.muted }]}>{masteryLabel}</Text>
+        </View>
+      </View>
+
+      {/* Streak info */}
+      {checkStreak >= 3 && (
+        <View style={[styles.completeStreak, { backgroundColor: isDark ? "#F59E0B15" : "#FFFBEB" }]}>
+          <Text style={styles.completeStreakIcon}>{"⚡"}</Text>
+          <Text style={[styles.completeStreakText, { color: "#F59E0B" }]}>
+            {checkStreak} correct answers in a row! {getStreakMultiplier(checkStreak)}x XP multiplier active
+          </Text>
+        </View>
+      )}
+
+      {/* Concepts learned */}
+      <View style={styles.completeConcepts}>
+        <Text style={[styles.completeConceptsTitle, { color: colors.foreground }]}>Concepts Explored</Text>
+        <View style={styles.conceptTags}>
+          {journey.mappedConcepts.map((c, i) => (
+            <View key={i} style={[styles.conceptTag, { backgroundColor: isDark ? colors.primary + "20" : "#EDE9FE" }]}>
+              <Text style={[styles.conceptTagText, { color: isDark ? colors.primary : "#5B21B6" }]}>{c}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Action */}
+      <TouchableOpacity
+        onPress={onNewJourney}
+        activeOpacity={0.7}
+        style={[styles.completeBtn, { backgroundColor: colors.primary }]}
+      >
+        <Text style={styles.completeBtnText}>Start New Journey</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 // ─── Suggestion Chips ─────────────────────────────────────────────────────────
 
@@ -310,6 +496,18 @@ function CheckCard({
           </Text>
         </Animated.View>
       ) : null}
+
+      {/* Gamification feedback */}
+      {answered && (
+        <Animated.View entering={FadeInUp.delay(300).duration(300)} style={{ marginTop: 16, alignItems: "center" }}>
+          <Text style={{ fontSize: 32, marginBottom: 4 }}>
+            {selected === stage.correctIndex ? "🌟" : "💪"}
+          </Text>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: selected === stage.correctIndex ? colors.success : colors.warning, textAlign: "center" }}>
+            {selected === stage.correctIndex ? "Nailed it!" : "Good try — now you know!"}
+          </Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -495,9 +693,36 @@ export default function AskScreen() {
   const [checkAnswered, setCheckAnswered] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  // Gamification state
+  const [journeyXp, setJourneyXp] = useState(0);
+  const [showXpPopup, setShowXpPopup] = useState(false);
+  const [lastXpGain, setLastXpGain] = useState(0);
+  const [challengeTimerActive, setChallengeTimerActive] = useState(false);
+  const [challengeTimerExpired, setChallengeTimerExpired] = useState(false);
+  const [checkStartTime, setCheckStartTime] = useState(0);
+  const [journeyCheckCorrect, setJourneyCheckCorrect] = useState(false);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [videoWatched, setVideoWatched] = useState(false);
+  const currentMultiplier = getStreakMultiplier(state.profile.checkStreak ?? 0);
+
   const learnMutation = trpc.chat.learn.useMutation();
   const fetchContentMutation = trpc.chat.fetchStepContent.useMutation();
   const suggestionsMutation = trpc.chat.suggestions.useMutation();
+
+  // ─── XP Award Helper ─────────────────────────────────────────────────────────
+
+  const awardStageXp = useCallback(
+    (stageType: string, bonusXp: number = 0) => {
+      const baseXp = JOURNEY_STAGE_XP[stageType as keyof typeof JOURNEY_STAGE_XP] ?? 5;
+      const total = Math.round((baseXp + bonusXp) * currentMultiplier);
+      setJourneyXp((prev) => prev + total);
+      setLastXpGain(total);
+      setShowXpPopup(true);
+      addXp(total);
+      setTimeout(() => setShowXpPopup(false), 1800);
+    },
+    [currentMultiplier, addXp]
+  );
 
   // ─── Load Smart Suggestions ─────────────────────────────────────────────────
 
@@ -609,6 +834,13 @@ export default function AskScreen() {
       setIsLoading(true);
       setCheckAnswered(false);
       setStageVideos([]);
+      // Reset gamification state
+      setJourneyXp(0);
+      setShowCompletion(false);
+      setJourneyCheckCorrect(false);
+      setVideoWatched(false);
+      setChallengeTimerActive(false);
+      setChallengeTimerExpired(false);
 
       try {
         const result = await learnMutation.mutateAsync({
@@ -628,6 +860,10 @@ export default function AskScreen() {
           createdAt: new Date().toISOString(),
           currentStageIndex: 0,
           completed: false,
+          xpEarned: 0,
+          masteryScore: 0,
+          perfectJourney: false,
+          streakMultiplier: getStreakMultiplier(state.profile.checkStreak ?? 0),
         };
 
         setActiveJourney(journey);
@@ -646,7 +882,8 @@ export default function AskScreen() {
           dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.3 } });
         }
 
-        addXp(15);
+        // Award XP for starting a journey (hook stage)
+        awardStageXp("hook");
         dispatch({ type: "UPDATE_STREAK" });
       } catch {
         // Fallback
@@ -665,8 +902,19 @@ export default function AskScreen() {
       if (!activeJourney || idx < 0 || idx >= activeJourney.stages.length) return;
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+      // Award XP for the stage we're advancing FROM (only when moving forward)
+      if (idx > currentStageIdx) {
+        const prevStage = activeJourney.stages[currentStageIdx];
+        if (prevStage && prevStage.type !== "hook" && prevStage.type !== "check") {
+          // hook is awarded at start, check is awarded on answer
+          awardStageXp(prevStage.type);
+        }
+      }
+
       setCurrentStageIdx(idx);
       setCheckAnswered(false);
+      setChallengeTimerActive(false);
+      setChallengeTimerExpired(false);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
 
       // Update journey progress
@@ -676,7 +924,6 @@ export default function AskScreen() {
           id: activeJourney.id,
           updates: {
             currentStageIndex: idx,
-            completed: idx === activeJourney.stages.length - 1,
           },
         },
       });
@@ -686,8 +933,16 @@ export default function AskScreen() {
       if (stage.type === "video") {
         fetchVideoForStage(stage);
       }
+      // Start challenge timer for check stages (if streak >= 3)
+      if (stage.type === "check") {
+        setCheckStartTime(Date.now());
+        if ((state.profile.checkStreak ?? 0) >= 3) {
+          setChallengeTimerActive(true);
+          setChallengeTimerExpired(false);
+        }
+      }
     },
-    [activeJourney, dispatch, fetchVideoForStage]
+    [activeJourney, currentStageIdx, dispatch, fetchVideoForStage, awardStageXp, state.profile.checkStreak]
   );
 
   const goNext = useCallback(() => {
@@ -695,8 +950,35 @@ export default function AskScreen() {
     const nextIdx = currentStageIdx + 1;
     if (nextIdx < activeJourney.stages.length) {
       goToStage(nextIdx);
+    } else {
+      // Journey complete!
+      const mastery = calculateMasteryScore({
+        stagesCompleted: activeJourney.stages.length,
+        totalStages: activeJourney.stages.length,
+        checkCorrect: journeyCheckCorrect,
+        videoWatched: videoWatched,
+      });
+      const isPerfect = journeyCheckCorrect && videoWatched;
+
+      // Award next_steps XP
+      awardStageXp("next_steps");
+
+      dispatch({
+        type: "COMPLETE_JOURNEY",
+        payload: {
+          journeyId: activeJourney.id,
+          xpEarned: journeyXp,
+          masteryScore: mastery,
+          perfect: isPerfect,
+        },
+      });
+
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setShowCompletion(true);
     }
-  }, [activeJourney, currentStageIdx, goToStage]);
+  }, [activeJourney, currentStageIdx, goToStage, journeyCheckCorrect, videoWatched, journeyXp, awardStageXp, dispatch]);
 
   const goPrev = useCallback(() => {
     if (currentStageIdx > 0) {
@@ -709,8 +991,35 @@ export default function AskScreen() {
   const handleCheckAnswer = useCallback(
     (correct: boolean) => {
       setCheckAnswered(true);
-      addXp(correct ? 15 : 5);
+      setChallengeTimerActive(false);
+      setJourneyCheckCorrect(correct);
+
+      // Calculate time bonus
+      const timeMs = Date.now() - checkStartTime;
+      const withinChallenge = timeMs < CHALLENGE_TIMER_SECONDS * 1000 && !challengeTimerExpired;
+      const bonusXp = correct && withinChallenge ? CHALLENGE_BONUS_XP : 0;
+
+      // Award check XP
+      const checkXp = correct ? JOURNEY_STAGE_XP.check : CHECK_INCORRECT_XP;
+      const total = Math.round((checkXp + bonusXp) * currentMultiplier);
+      setJourneyXp((prev) => prev + total);
+      setLastXpGain(total);
+      setShowXpPopup(true);
+      addXp(total);
+      setTimeout(() => setShowXpPopup(false), 1800);
+
+      // Update streak
+      dispatch({ type: "RECORD_CHECK_RESULT", payload: { correct } });
       dispatch({ type: "RECORD_QUIZ", payload: { correct } });
+
+      // Haptic feedback
+      if (Platform.OS !== "web") {
+        if (correct) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+      }
 
       if (correct && activeJourney) {
         for (const concept of activeJourney.mappedConcepts) {
@@ -718,19 +1027,20 @@ export default function AskScreen() {
         }
       }
     },
-    [addXp, dispatch, activeJourney]
+    [addXp, dispatch, activeJourney, checkStartTime, challengeTimerExpired, currentMultiplier]
   );
 
-  // ─── Handle Video Watch ─────────────────────────────────────────────────────
+  // ─── Handle Video Watch ─────────────────────────────────────────────────
 
   const handleVideoWatch = useCallback(
     (url: string, title: string) => {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       openVideoInApp(url, title);
-      addXp(10);
+      setVideoWatched(true);
+      awardStageXp("video");
       dispatch({ type: "INCREMENT_VIDEOS" });
     },
-    [addXp, dispatch]
+    [awardStageXp, dispatch]
   );
 
   // ─── Handle Next Steps Selection ────────────────────────────────────────────
@@ -754,6 +1064,12 @@ export default function AskScreen() {
     setShowWelcome(true);
     setStageVideos([]);
     setCheckAnswered(false);
+    setShowCompletion(false);
+    setJourneyXp(0);
+    setJourneyCheckCorrect(false);
+    setVideoWatched(false);
+    setChallengeTimerActive(false);
+    setChallengeTimerExpired(false);
     dispatch({ type: "SET_ACTIVE_JOURNEY", payload: null });
     loadSmartSuggestions();
   }, [dispatch, loadSmartSuggestions]);
@@ -848,15 +1164,25 @@ export default function AskScreen() {
             )}
           </View>
           {activeJourney && (
-            <TouchableOpacity
-              onPress={handleNewJourney}
-              activeOpacity={0.7}
-              style={[styles.newBtn, { backgroundColor: colors.primary + "15" }]}
-            >
-              <Text style={[styles.newBtnText, { color: colors.primary }]}>New</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {/* XP Badge */}
+              <View style={styles.xpHeaderBadge}>
+                <Text style={styles.xpHeaderIcon}>{"\u2B50"}</Text>
+                <Text style={[styles.xpHeaderText, { color: "#22C55E" }]}>{journeyXp}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleNewJourney}
+                activeOpacity={0.7}
+                style={[styles.newBtn, { backgroundColor: colors.primary + "15" }]}
+              >
+                <Text style={[styles.newBtnText, { color: colors.primary }]}>New</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
+
+        {/* XP Popup */}
+        {showXpPopup && <XpPopup amount={lastXpGain} multiplier={1} />}
 
         {/* Loading State */}
         {isLoading ? (
@@ -892,6 +1218,24 @@ export default function AskScreen() {
             />
             <RecentJourneys journeys={state.journeys} onSelect={handleResumeJourney} />
           </ScrollView>
+        ) : activeJourney && showCompletion ? (
+          /* Journey Completion */
+          <ScrollView style={styles.flex1} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+            <JourneyCompleteCard
+              journey={activeJourney}
+              xpEarned={journeyXp}
+              masteryScore={calculateMasteryScore({
+                stagesCompleted: activeJourney.stages.length,
+                totalStages: activeJourney.stages.length,
+                checkCorrect: journeyCheckCorrect,
+                videoWatched: videoWatched,
+              })}
+              isPerfect={journeyCheckCorrect && videoWatched}
+              checkStreak={state.profile.checkStreak ?? 0}
+              isDark={isDark}
+              onNewJourney={handleNewJourney}
+            />
+          </ScrollView>
         ) : activeJourney ? (
           /* Journey View */
           <View style={styles.flex1}>
@@ -901,6 +1245,18 @@ export default function AskScreen() {
               current={currentStageIdx}
               onDotPress={goToStage}
             />
+
+            {/* Streak Badge */}
+            <StreakBadge streak={state.profile.checkStreak ?? 0} multiplier={currentMultiplier} />
+
+            {/* Challenge Timer (on check stages) */}
+            {currentStage?.type === "check" && !checkAnswered && (
+              <ChallengeTimer
+                seconds={CHALLENGE_TIMER_SECONDS}
+                onExpire={() => setChallengeTimerExpired(true)}
+                active={challengeTimerActive}
+              />
+            )}
 
             {/* Stage Content */}
             <ScrollView
@@ -938,23 +1294,27 @@ export default function AskScreen() {
 
                 <TouchableOpacity
                   onPress={goNext}
-                  disabled={!canAdvance || isLastStage}
+                  disabled={!canAdvance}
                   activeOpacity={0.7}
                   style={[
                     styles.navBtnNext,
                     {
-                      backgroundColor: canAdvance && !isLastStage ? colors.primary : colors.surface,
-                      opacity: canAdvance && !isLastStage ? 1 : 0.4,
+                      backgroundColor: canAdvance ? colors.primary : colors.surface,
+                      opacity: canAdvance ? 1 : 0.4,
                     },
                   ]}
                 >
                   <Text
                     style={[
                       styles.navBtnNextText,
-                      { color: canAdvance && !isLastStage ? "#FFFFFF" : colors.muted },
+                      { color: canAdvance ? "#FFFFFF" : colors.muted },
                     ]}
                   >
-                    {isCheckStage && !checkAnswered ? "Answer to continue" : "Continue"}
+                    {isCheckStage && !checkAnswered
+                      ? "Answer to continue"
+                      : isLastStage
+                      ? "Complete Journey"
+                      : "Continue"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1225,4 +1585,132 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendIcon: { fontSize: 20, fontWeight: "700" },
+
+  // XP Popup
+  xpPopup: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    zIndex: 100,
+    backgroundColor: "rgba(34, 197, 94, 0.15)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  xpPopupText: { fontSize: 16, fontWeight: "800" },
+
+  // Streak Badge
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginHorizontal: 20,
+    marginBottom: 8,
+  },
+  streakBadgeIcon: { fontSize: 20 },
+  streakBadgeLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  streakBadgeValue: { fontSize: 12, fontWeight: "500" },
+
+  // Challenge Timer
+  timerWrap: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  timerBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  timerFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  timerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  timerLabel: { fontSize: 12, fontWeight: "700" },
+  timerValue: { fontSize: 12, fontWeight: "600" },
+
+  // Journey Complete Card
+  completeCard: {
+    borderRadius: 24,
+    padding: 28,
+    marginHorizontal: 20,
+    marginTop: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  completeHeader: { alignItems: "center", marginBottom: 24 },
+  completeEmoji: { fontSize: 56, marginBottom: 12 },
+  completeTitle: { fontSize: 24, fontWeight: "800", textAlign: "center" },
+  completeQuestion: { fontSize: 14, textAlign: "center", marginTop: 6, lineHeight: 20 },
+
+  // Stats Grid
+  statsGrid: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  statBox: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+  },
+  statValue: { fontSize: 28, fontWeight: "800" },
+  statLabel: { fontSize: 12, fontWeight: "600", marginTop: 4 },
+
+  // Complete Streak
+  completeStreak: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 16,
+  },
+  completeStreakIcon: { fontSize: 24 },
+  completeStreakText: { fontSize: 13, fontWeight: "600", flex: 1, lineHeight: 18 },
+
+  // Concepts
+  completeConcepts: { marginBottom: 20 },
+  completeConceptsTitle: { fontSize: 14, fontWeight: "700", marginBottom: 10 },
+  conceptTags: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  conceptTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  conceptTagText: { fontSize: 13, fontWeight: "600" },
+
+  // Complete Button
+  completeBtn: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  completeBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+
+  // XP Header Badge
+  xpHeaderBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(34, 197, 94, 0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  xpHeaderText: { fontSize: 13, fontWeight: "700" },
+  xpHeaderIcon: { fontSize: 14 },
 });

@@ -352,6 +352,10 @@ describe("scoreContent", () => {
     dailyGoalsCompleted: 3,
     mindBlownCount: 5,
     streakFreezes: 1,
+    checkStreak: 0,
+    bestCheckStreak: 0,
+    perfectJourneys: 0,
+    totalJourneysCompleted: 0,
   };
 
   const content: ContentItemData = {
@@ -476,6 +480,10 @@ describe("UserProfile shape", () => {
       dailyGoalsCompleted: 0,
       mindBlownCount: 0,
         streakFreezes: 1,
+        checkStreak: 0,
+        bestCheckStreak: 0,
+        perfectJourneys: 0,
+        totalJourneysCompleted: 0,
     };
 
     expect(profile.skillLevel).toBe("beginner");
