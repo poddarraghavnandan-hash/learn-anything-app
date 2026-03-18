@@ -880,6 +880,80 @@ Return JSON:
         }
       }),
 
+    // Regenerate a single stage at a different difficulty (Explain Simpler / Tell Me More)
+    regenStage: publicProcedure
+      .input(z.object({
+        stageType: z.enum(["hook", "foundation", "explanation", "real_world"]),
+        originalContent: z.string(),
+        originalTitle: z.string(),
+        question: z.string().min(1),
+        direction: z.enum(["simpler", "deeper"]),
+        currentDifficultyLevel: z.number().min(1).max(5),
+        learnerContext: z.string().optional().default(""),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const { getDifficultyPrompt } = await import("../shared/types.js");
+          const targetLevel = input.direction === "simpler"
+            ? Math.max(1, input.currentDifficultyLevel - 1)
+            : Math.min(5, input.currentDifficultyLevel + 1);
+          const diffPrompt = getDifficultyPrompt(targetLevel);
+
+          const directionInstruction = input.direction === "simpler"
+            ? `The learner found the previous explanation too complex. Rewrite this stage to be SIMPLER and more accessible:
+- Use shorter sentences and everyday words
+- Add a vivid analogy from daily life
+- Remove jargon or define every term immediately
+- Make it feel warm and encouraging, like talking to a curious friend
+- If there's a key takeaway, make it crystal clear in one simple sentence`
+            : `The learner wants to go DEEPER and learn more. Rewrite this stage with MORE depth and detail:
+- Add nuance, edge cases, or "what most people don't realize" insights
+- Include connections to related concepts or fields
+- Use more precise terminology (still define new terms)
+- Add a thought-provoking angle they haven't considered
+- If there's a key takeaway, make it richer and more insightful`;
+
+          const stageTypeInstruction: Record<string, string> = {
+            hook: "This is a HOOK stage — it should spark curiosity. Keep it short (2-3 sentences) and punchy.",
+            foundation: "This is a FOUNDATION stage — prerequisite context. Include a keyTakeaway field.",
+            explanation: "This is an EXPLANATION stage — the core answer. Use **bold** for key terms. Include a keyTakeaway field.",
+            real_world: "This is a REAL_WORLD stage — a concrete example. Make it vivid and tangible. Include a keyTakeaway field.",
+          };
+
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}\n\n${diffPrompt}\n\n${directionInstruction}\n\n${stageTypeInstruction[input.stageType] || ""}\n\n${input.learnerContext ? `ABOUT THIS LEARNER:\n${input.learnerContext}` : ""}\n\nThe learner's original question was: "${input.question}"\n\nReturn JSON:\n{\n  "title": "New title for this stage",\n  "content": "Rewritten content",\n  "emoji": "appropriate emoji",\n  "keyTakeaway": "one sentence key insight (for foundation/explanation/real_world stages)"\n}`,
+              },
+              {
+                role: "user",
+                content: `Here is the current stage to rewrite:\n\nTitle: ${input.originalTitle}\nContent: ${input.originalContent}`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            title: parsed.title || input.originalTitle,
+            content: parsed.content || input.originalContent,
+            emoji: parsed.emoji || "💡",
+            keyTakeaway: parsed.keyTakeaway || undefined,
+            newDifficultyLevel: targetLevel,
+          };
+        } catch (e) {
+          console.error("[Chat.regenStage] LLM failed:", e);
+          return {
+            title: input.originalTitle,
+            content: input.originalContent,
+            emoji: "💡",
+            keyTakeaway: undefined,
+            newDifficultyLevel: input.currentDifficultyLevel,
+          };
+        }
+      }),
+
     // Legacy: keep ask endpoint for backward compatibility
     ask: publicProcedure
       .input(z.object({

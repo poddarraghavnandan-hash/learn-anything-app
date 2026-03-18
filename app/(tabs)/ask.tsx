@@ -693,6 +693,79 @@ function NextStepsCard({
   );
 }
 
+// ─── Stage Actions (Explain Simpler / Tell Me More) ─────────────────────────
+
+const REGEN_STAGES = new Set(["foundation", "explanation", "real_world", "hook"]);
+
+function StageActions({
+  stageType,
+  isRegenerating,
+  regenDirection,
+  onSimpler,
+  onDeeper,
+  isDark,
+}: {
+  stageType: string;
+  isRegenerating: boolean;
+  regenDirection: "simpler" | "deeper" | null;
+  onSimpler: () => void;
+  onDeeper: () => void;
+  isDark: boolean;
+}) {
+  const colors = useColors();
+  if (!REGEN_STAGES.has(stageType)) return null;
+
+  return (
+    <Animated.View entering={FadeIn.delay(400).duration(300)} style={styles.stageActionsRow}>
+      <TouchableOpacity
+        onPress={onSimpler}
+        disabled={isRegenerating}
+        activeOpacity={0.7}
+        style={[
+          styles.stageActionBtn,
+          {
+            backgroundColor: isDark ? "#3B82F620" : "#EFF6FF",
+            borderColor: isDark ? "#3B82F640" : "#BFDBFE",
+            opacity: isRegenerating && regenDirection !== "simpler" ? 0.4 : 1,
+          },
+        ]}
+      >
+        {isRegenerating && regenDirection === "simpler" ? (
+          <ActivityIndicator size="small" color="#3B82F6" />
+        ) : (
+          <>
+            <Text style={styles.stageActionIcon}>{"\u2728"}</Text>
+            <Text style={[styles.stageActionText, { color: "#3B82F6" }]}>Explain Simpler</Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={onDeeper}
+        disabled={isRegenerating}
+        activeOpacity={0.7}
+        style={[
+          styles.stageActionBtn,
+          {
+            backgroundColor: isDark ? "#8B5CF620" : "#F5F3FF",
+            borderColor: isDark ? "#8B5CF640" : "#C4B5FD",
+            opacity: isRegenerating && regenDirection !== "deeper" ? 0.4 : 1,
+          },
+        ]}
+      >
+        {isRegenerating && regenDirection === "deeper" ? (
+          <ActivityIndicator size="small" color="#8B5CF6" />
+        ) : (
+          <>
+            <Text style={styles.stageActionIcon}>{"\uD83D\uDD2D"}</Text>
+            <Text style={[styles.stageActionText, { color: "#8B5CF6" }]}>Tell Me More</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 // ─── Recent Journeys ──────────────────────────────────────────────────────────
 
 function RecentJourneys({
@@ -775,6 +848,11 @@ export default function AskScreen() {
   const learnMutation = trpc.chat.learn.useMutation();
   const fetchContentMutation = trpc.chat.fetchStepContent.useMutation();
   const suggestionsMutation = trpc.chat.suggestions.useMutation();
+  const regenStageMutation = trpc.chat.regenStage.useMutation();
+
+  // Stage regeneration state
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenDirection, setRegenDirection] = useState<"simpler" | "deeper" | null>(null);
 
   // ─── XP Award Helper ─────────────────────────────────────────────────────────
 
@@ -1223,7 +1301,93 @@ export default function AskScreen() {
   const isCheckStage = currentStage?.type === "check";
   const canAdvance = isCheckStage ? checkAnswered : true;
 
-  // ─── Render Stage ───────────────────────────────────────────────────────────
+   // ─── Handle Stage Regeneration (Explain Simpler / Tell Me More) ────────
+
+  const handleRegenStage = useCallback(
+    async (direction: "simpler" | "deeper") => {
+      if (!activeJourney || !currentStage || isRegenerating) return;
+      if (!REGEN_STAGES.has(currentStage.type)) return;
+
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setIsRegenerating(true);
+      setRegenDirection(direction);
+
+      try {
+        const lm = state.learnerModel;
+        const learnerCtx = [
+          lm.strengthAreas?.length ? `Strengths: ${lm.strengthAreas.join(", ")}` : "",
+          lm.confusionPoints?.length ? `Struggles with: ${lm.confusionPoints.join(", ")}` : "",
+          lm.preferredDepth ? `Preferred depth: ${lm.preferredDepth}` : "",
+          lm.learningStyle ? `Learning style: ${lm.learningStyle}` : "",
+        ].filter(Boolean).join("\n");
+
+        const result = await regenStageMutation.mutateAsync({
+          stageType: currentStage.type as "hook" | "foundation" | "explanation" | "real_world",
+          originalContent: currentStage.content,
+          originalTitle: currentStage.title,
+          question: activeJourney.question,
+          direction,
+          currentDifficultyLevel: activeJourney.difficultyLevel || 1,
+          learnerContext: learnerCtx,
+        });
+
+        // Update the stage in the journey
+        const updatedStages = [...activeJourney.stages];
+        updatedStages[currentStageIdx] = {
+          ...updatedStages[currentStageIdx],
+          title: result.title,
+          content: result.content,
+          emoji: result.emoji,
+          keyTakeaway: result.keyTakeaway,
+        };
+
+        const updatedJourney = { ...activeJourney, stages: updatedStages };
+        setActiveJourney(updatedJourney);
+        dispatch({
+          type: "UPDATE_JOURNEY",
+          payload: { id: activeJourney.id, updates: { stages: updatedStages } },
+        });
+
+        // Feed back into learner model
+        if (direction === "simpler") {
+          dispatch({
+            type: "UPDATE_LEARNER_MODEL",
+            payload: {
+              explainSimplerCount: (lm.explainSimplerCount || 0) + 1,
+              confusionPoints: [
+                ...new Set([...(lm.confusionPoints || []), ...activeJourney.mappedConcepts.slice(0, 1)]),
+              ].slice(-10),
+            },
+          });
+        } else {
+          dispatch({
+            type: "UPDATE_LEARNER_MODEL",
+            payload: {
+              strengthAreas: [
+                ...new Set([...(lm.strengthAreas || []), ...activeJourney.mappedConcepts.slice(0, 1)]),
+              ].slice(-20),
+              preferredDepth: lm.preferredDepth === "overview" ? "detailed" : lm.preferredDepth === "detailed" ? "expert" : lm.preferredDepth,
+            },
+          });
+          for (const concept of activeJourney.mappedConcepts.slice(0, 2)) {
+            dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.6 } });
+          }
+        }
+
+        // Small XP bonus for engaging with content
+        awardStageXp("hook");
+
+      } catch (e) {
+        console.error("[RegenStage] Failed:", e);
+      } finally {
+        setIsRegenerating(false);
+        setRegenDirection(null);
+      }
+    },
+    [activeJourney, currentStage, currentStageIdx, isRegenerating, state.learnerModel, dispatch, regenStageMutation, awardStageXp]
+  );
+
+  // ─── Render Stage ─────────────────────────────────────────────────────────
 
   const renderStage = () => {
     if (!currentStage) return null;
@@ -1394,6 +1558,17 @@ export default function AskScreen() {
               >
                 {renderStage()}
               </Animated.View>
+              {/* Explain Simpler / Tell Me More */}
+              {currentStage && REGEN_STAGES.has(currentStage.type) && (
+                <StageActions
+                  stageType={currentStage.type}
+                  isRegenerating={isRegenerating}
+                  regenDirection={regenDirection}
+                  onSimpler={() => handleRegenStage("simpler")}
+                  onDeeper={() => handleRegenStage("deeper")}
+                  isDark={isDark}
+                />
+              )}
             </ScrollView>
 
             {/* Navigation */}
@@ -1854,6 +2029,27 @@ const styles = StyleSheet.create({
   },
   xpHeaderText: { fontSize: 13, fontWeight: "700" },
   xpHeaderIcon: { fontSize: 14 },
+  // Stage Actions (Explain Simpler / Tell Me More)
+  stageActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+    paddingHorizontal: 20,
+  },
+  stageActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  stageActionIcon: { fontSize: 16 },
+  stageActionText: { fontSize: 13, fontWeight: "700" },
+
   // Difficulty Badge
   difficultyBadge: {
     flexDirection: "row",

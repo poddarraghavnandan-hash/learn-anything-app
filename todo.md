@@ -332,3 +332,13 @@
 - [x] Add difficulty level indicator in journey UI so learner sees their level
 - [x] Update learner model after each journey based on performance (promote/demote difficulty)
 - [x] Add tests for adaptive difficulty computation and level transitions
+
+## Explain Simpler & Tell Me More
+- [x] Add backend endpoint to regenerate a single stage at a different difficulty level
+- [x] Build "Explain Simpler" button on content stages (hook, foundation, explanation, real_world) — regenerates at one level lower
+- [x] Build "Tell Me More" button on content stages — regenerates at one level higher with more depth
+- [x] Show loading state while regenerating a stage
+- [x] Feed "Explain Simpler" usage into learner model (increment explainSimplerCount, add to confusionPoints)
+- [x] Feed "Tell Me More" usage into learner model (boost concept confidence, add to strengthAreas)
+- [x] Animate the stage content swap when regenerated content arrives (FadeInDown animation on stage key change)
+- [x] Buttons should feel intuitive and contextual, not like settings (color-coded, emoji-labeled, appear below content)
