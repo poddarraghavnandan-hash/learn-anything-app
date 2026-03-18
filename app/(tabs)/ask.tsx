@@ -46,7 +46,10 @@ import {
   CHALLENGE_BONUS_XP,
   getStreakMultiplier,
   calculateMasteryScore,
+  computeDifficultyLevel,
+  DIFFICULTY_LEVELS,
 } from "@/shared/types";
+import type { DifficultyLevel } from "@/shared/types";
 import * as Haptics from "expo-haptics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -190,6 +193,31 @@ function ChallengeTimer({
   );
 }
 
+// ─── Difficulty Badge ─────────────────────────────────────────────────────
+
+const DIFFICULTY_COLORS: Record<number, string> = {
+  1: "#22C55E", // green
+  2: "#0EA5E9", // blue
+  3: "#8B5CF6", // purple
+  4: "#F59E0B", // amber
+  5: "#EF4444", // red
+};
+
+function DifficultyBadge({ level, label }: { level: number; label: string }) {
+  const badgeColor = DIFFICULTY_COLORS[level] || "#8B5CF6";
+  const levelEmoji = DIFFICULTY_LEVELS[level - 1]?.emoji || "📚";
+
+  return (
+    <Animated.View
+      entering={FadeIn.duration(300)}
+      style={[styles.difficultyBadge, { backgroundColor: badgeColor + "15", borderColor: badgeColor + "30" }]}
+    >
+      <Text style={styles.difficultyBadgeEmoji}>{levelEmoji}</Text>
+      <Text style={[styles.difficultyBadgeText, { color: badgeColor }]}>{label}</Text>
+    </Animated.View>
+  );
+}
+
 // ─── Journey Completion Card ─────────────────────────────────────────────────
 
 function JourneyCompleteCard({
@@ -250,6 +278,15 @@ function JourneyCompleteCard({
           </Text>
         </View>
       )}
+
+      {/* Difficulty level */}
+      <View style={[styles.completeDifficulty, { backgroundColor: isDark ? (DIFFICULTY_COLORS[journey.difficultyLevel] || "#8B5CF6") + "10" : (DIFFICULTY_COLORS[journey.difficultyLevel] || "#8B5CF6") + "08" }]}>
+        <Text style={styles.completeDifficultyEmoji}>{DIFFICULTY_LEVELS[(journey.difficultyLevel || 1) - 1]?.emoji || "📚"}</Text>
+        <View>
+          <Text style={[styles.completeDifficultyLabel, { color: DIFFICULTY_COLORS[journey.difficultyLevel] || "#8B5CF6" }]}>Level {journey.difficultyLevel || 1}</Text>
+          <Text style={[styles.completeDifficultyName, { color: colors.muted }]}>{journey.difficultyLabel || "Curious Beginner"}</Text>
+        </View>
+      </View>
 
       {/* Concepts learned */}
       <View style={styles.completeConcepts}>
@@ -874,9 +911,14 @@ export default function AskScreen() {
       setChallengeTimerExpired(false);
 
       try {
+        // Compute adaptive difficulty from learner signals
+        const currentDifficulty = computeDifficultyLevel(state.profile, state.learnerModel);
+
         const result = await learnMutation.mutateAsync({
           question: question.trim(),
           skillLevel: state.profile.skillLevel,
+          difficultyLevel: currentDifficulty.level,
+          difficultyLabel: currentDifficulty.label,
           learnerModel: getLearnerSnapshot(),
           pastConversations: getPastConversationSummaries(),
         });
@@ -887,6 +929,8 @@ export default function AskScreen() {
           stages: result.stages as JourneyStage[],
           mappedConcepts: result.mappedConcepts,
           difficulty: result.difficulty as any,
+          difficultyLevel: currentDifficulty.level,
+          difficultyLabel: currentDifficulty.label,
           emoji: result.emoji,
           createdAt: new Date().toISOString(),
           currentStageIndex: 0,
@@ -1071,8 +1115,36 @@ export default function AskScreen() {
       },
     });
 
+    // Post-journey adaptive model update:
+    // If mastery is high, boost concept confidence further (learner is advancing)
+    // If mastery is low, add concepts to confusion points (needs reinforcement)
+    if (mastery >= 80) {
+      for (const concept of activeJourney.mappedConcepts) {
+        dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.95 } });
+      }
+      // Promote strengths
+      dispatch({
+        type: "UPDATE_LEARNER_MODEL",
+        payload: {
+          strengthAreas: [
+            ...new Set([...(state.learnerModel.strengthAreas || []), ...activeJourney.mappedConcepts]),
+          ].slice(-20),
+        },
+      });
+    } else if (mastery < 50) {
+      // Add to confusion points for gentler treatment next time
+      dispatch({
+        type: "UPDATE_LEARNER_MODEL",
+        payload: {
+          confusionPoints: [
+            ...new Set([...(state.learnerModel.confusionPoints || []), ...activeJourney.mappedConcepts]),
+          ].slice(-10),
+        },
+      });
+    }
+
     setShowCompletion(true);
-  }, [activeJourney, journeyCheckCorrect, videoWatched, journeyXp, awardStageXp, dispatch]);
+  }, [activeJourney, journeyCheckCorrect, videoWatched, journeyXp, awardStageXp, dispatch, state.learnerModel]);
 
   // ─── Handle Next Steps Selection ────────────────────────────────────────────
 
@@ -1294,8 +1366,11 @@ export default function AskScreen() {
               onDotPress={goToStage}
             />
 
-            {/* Streak Badge */}
-            <StreakBadge streak={state.profile.checkStreak ?? 0} multiplier={currentMultiplierRef.current} />
+            {/* Difficulty & Streak */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 4 }}>
+              <DifficultyBadge level={activeJourney.difficultyLevel || 1} label={activeJourney.difficultyLabel || "Curious Beginner"} />
+              <StreakBadge streak={state.profile.checkStreak ?? 0} multiplier={currentMultiplierRef.current} />
+            </View>
 
             {/* Challenge Timer (on check stages) */}
             {currentStage?.type === "check" && !checkAnswered && (
@@ -1779,4 +1854,30 @@ const styles = StyleSheet.create({
   },
   xpHeaderText: { fontSize: 13, fontWeight: "700" },
   xpHeaderIcon: { fontSize: 14 },
+  // Difficulty Badge
+  difficultyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+    alignSelf: "flex-start",
+  },
+  difficultyBadgeEmoji: { fontSize: 14 },
+  difficultyBadgeText: { fontSize: 12, fontWeight: "600" },
+  // Completion Difficulty
+  completeDifficulty: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 12,
+    marginBottom: 16,
+  },
+  completeDifficultyEmoji: { fontSize: 24 },
+  completeDifficultyLabel: { fontSize: 14, fontWeight: "700" },
+  completeDifficultyName: { fontSize: 12, marginTop: 1 },
 });

@@ -679,6 +679,8 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
       .input(z.object({
         question: z.string().min(1),
         skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        difficultyLevel: z.number().min(1).max(5).optional().default(1),
+        difficultyLabel: z.string().optional().default("Curious Beginner"),
         learnerModel: z.object({
           preferredPace: z.enum(["quick", "moderate", "deep"]).optional(),
           preferredTone: z.enum(["casual", "balanced", "formal"]).optional(),
@@ -700,6 +702,7 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
       .mutation(async ({ input }) => {
         try {
           const lm = input.learnerModel;
+          const diffLevel = input.difficultyLevel;
 
           const pastConvContext = input.pastConversations.length > 0
             ? `\nPAST LEARNING JOURNEYS:\n${input.pastConversations.slice(-5).map(pc => `- Explored "${pc.question}" → concepts: ${pc.concepts.join(", ")}`).join("\n")}\nReference past explorations naturally when there's a genuine connection.`
@@ -716,13 +719,17 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
             pastConvContext,
           ].filter(Boolean).join("\n");
 
+          // Import adaptive difficulty prompt
+          const { getDifficultyPrompt } = await import("../shared/types.js");
+          const adaptiveDifficultyInstructions = getDifficultyPrompt(diffLevel);
+
           const response = await invokeLLM({
             messages: [
               {
                 role: "system",
                 content: `${LEARNLM_SYSTEM}
 
-${getLevelPrompt(input.skillLevel)}
+${adaptiveDifficultyInstructions}
 
 You are designing a LEARNING JOURNEY — a structured, progressive experience that takes a learner from curiosity to understanding. This is NOT a chat response. It's a guided learning strategy.
 
@@ -846,6 +853,8 @@ Return JSON:
             stages,
             mappedConcepts: parsed.mappedConcepts || [],
             difficulty: parsed.difficulty || input.skillLevel,
+            difficultyLevel: diffLevel,
+            difficultyLabel: input.difficultyLabel,
             emoji: parsed.emoji || "🧠",
           };
         } catch (e) {
@@ -864,6 +873,8 @@ Return JSON:
             ],
             mappedConcepts: [],
             difficulty: input.skillLevel,
+            difficultyLevel: input.difficultyLevel,
+            difficultyLabel: input.difficultyLabel,
             emoji: "🧠",
           };
         }

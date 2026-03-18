@@ -320,3 +320,15 @@
 - [x] Review and fix challenge timer behavior
 - [x] Verify all stage types render correctly
 - [x] End-to-end test of full journey flow
+
+## Adaptive Difficulty Scaling
+- [x] Design 5 difficulty levels (Curious Beginner through Expert Explorer) with clear criteria
+- [x] Compute learner difficulty level from learner model (concept confidence, check accuracy, journey count)
+- [x] Update backend LLM prompts to accept difficulty level and adjust content accordingly
+- [x] Adjust explanation depth based on difficulty (simpler analogies vs technical detail)
+- [x] Adjust check question complexity based on difficulty (recall vs application vs synthesis)
+- [x] Adjust vocabulary and sentence complexity based on difficulty
+- [x] Send learner model data to backend for difficulty-aware generation
+- [x] Add difficulty level indicator in journey UI so learner sees their level
+- [x] Update learner model after each journey based on performance (promote/demote difficulty)
+- [x] Add tests for adaptive difficulty computation and level transitions

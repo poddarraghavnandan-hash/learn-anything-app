@@ -463,6 +463,8 @@ export interface LearningJourney {
   stages: JourneyStage[];
   mappedConcepts: string[];
   difficulty: SkillLevel;
+  difficultyLevel: number;       // 1-5 adaptive difficulty
+  difficultyLabel: string;       // Human-readable difficulty name
   emoji: string;
   createdAt: string;
   currentStageIndex: number;   // Tracks where the user is
@@ -497,6 +499,135 @@ export function getStreakMultiplier(checkStreak: number): number {
   if (checkStreak >= 5) return 2;
   if (checkStreak >= 3) return 1.5;
   return 1;
+}
+
+// ─── Adaptive Difficulty Scaling ────────────────────────────────────────────
+
+export interface DifficultyLevel {
+  level: number;        // 1-5
+  label: string;
+  emoji: string;
+  description: string;
+}
+
+export const DIFFICULTY_LEVELS: DifficultyLevel[] = [
+  { level: 1, label: "Curious Beginner", emoji: "🌱", description: "Starting your learning journey" },
+  { level: 2, label: "Building Foundations", emoji: "🧱", description: "Growing your knowledge base" },
+  { level: 3, label: "Making Connections", emoji: "🔗", description: "Linking ideas together" },
+  { level: 4, label: "Deep Understanding", emoji: "🔬", description: "Exploring with depth and nuance" },
+  { level: 5, label: "Expert Explorer", emoji: "🚀", description: "Pushing the boundaries" },
+];
+
+export function computeDifficultyLevel(
+  profile: Pick<UserProfile, "totalQuizCorrect" | "totalQuizAttempted" | "checkStreak" | "totalJourneysCompleted">,
+  learnerModel: Pick<LearnerModel, "conceptConfidence" | "confusionPoints" | "explainSimplerCount" | "preferredDepth">,
+): DifficultyLevel {
+  let score = 0;
+
+  // Check/quiz accuracy (30% weight)
+  if (profile.totalQuizAttempted > 0) {
+    const accuracy = profile.totalQuizCorrect / profile.totalQuizAttempted;
+    score += accuracy * 30;
+  }
+
+  // Check streak (20% weight)
+  score += Math.min(profile.checkStreak / 10, 1) * 20;
+
+  // Concept confidence average (20% weight)
+  const confidences = Object.values(learnerModel.conceptConfidence);
+  if (confidences.length > 0) {
+    const avg = confidences.reduce((a, b) => a + b, 0) / confidences.length;
+    score += avg * 20;
+  }
+
+  // Journey experience (10% weight)
+  score += Math.min(profile.totalJourneysCompleted / 20, 1) * 10;
+
+  // Inverse: confusion and simpler requests (10% penalty)
+  const confusionPenalty = Math.min(learnerModel.confusionPoints.length / 10, 1) * 5;
+  const simplerPenalty = Math.min(learnerModel.explainSimplerCount / 5, 1) * 5;
+  score -= (confusionPenalty + simplerPenalty);
+
+  // Self-reported depth preference (10% weight)
+  const depthBonus: Record<string, number> = { overview: 0, detailed: 5, expert: 10 };
+  score += depthBonus[learnerModel.preferredDepth] ?? 5;
+
+  // Clamp
+  score = Math.max(0, Math.min(100, score));
+
+  // Map to level
+  if (score < 20) return DIFFICULTY_LEVELS[0];
+  if (score < 40) return DIFFICULTY_LEVELS[1];
+  if (score < 60) return DIFFICULTY_LEVELS[2];
+  if (score < 80) return DIFFICULTY_LEVELS[3];
+  return DIFFICULTY_LEVELS[4];
+}
+
+export function getDifficultyPrompt(level: number): string {
+  switch (level) {
+    case 1:
+      return `DIFFICULTY: CURIOUS BEGINNER (Level 1)
+- Use simple everyday language a child could understand
+- Explain with vivid analogies from daily life ("It's like...")
+- Short sentences (8-12 words). No jargon whatsoever
+- Hook: Use a relatable, everyday surprise
+- Foundation: Give full prerequisite explanation — assume they know nothing
+- Explanation: ELI5 style. One idea per paragraph. Bold key terms and immediately define them
+- Real World: Use a common everyday example (kitchen, playground, driving)
+- Check: Recall-based question ("What is X?" / "Which of these is true?")
+- Video search: Add "explained simply for beginners" to the query
+- Keep total content SHORT — about 60% of normal length`;
+    case 2:
+      return `DIFFICULTY: BUILDING FOUNDATIONS (Level 2)
+- Use clear language with occasional technical terms — always define them in parentheses
+- Analogies should be relatable but can reference slightly more complex scenarios
+- Medium sentences (10-15 words)
+- Hook: A surprising fact that challenges common assumptions
+- Foundation: Brief refresher — they know the basics but need a reminder
+- Explanation: Clear and structured. Define technical terms on first use. Build step by step
+- Real World: Practical example from work, technology, or nature
+- Check: Comprehension-based ("Why does X happen?" / "What would you expect if...?")
+- Video search: Add "tutorial explained" to the query
+- Standard content length`;
+    case 3:
+      return `DIFFICULTY: MAKING CONNECTIONS (Level 3)
+- Use some technical vocabulary — define only uncommon terms
+- Draw connections between concepts and related fields
+- Medium-length sentences (12-18 words)
+- Hook: A counterintuitive fact or common misconception
+- Foundation: Brief 1-2 sentence reference — they likely know the prerequisites
+- Explanation: Moderate depth. Include nuance and "but actually" moments. Connect to related concepts
+- Real World: Industry or professional example showing practical application
+- Check: Application-based ("What would happen if...?" / "How would you use this to...?")
+- Video search: Add "how it works in depth" to the query
+- Standard to slightly longer content`;
+    case 4:
+      return `DIFFICULTY: DEEP UNDERSTANDING (Level 4)
+- Use precise technical language freely
+- Explore edge cases, exceptions, and nuances
+- Longer, more complex sentences are fine (15-22 words)
+- Hook: A paradox, open research question, or surprising implication
+- Foundation: Skip or give a single-sentence reference — they know the prerequisites well
+- Explanation: Go deep. Discuss mechanisms, trade-offs, and competing theories. Include "what most people get wrong"
+- Real World: Research application or cutting-edge industry use case
+- Check: Synthesis-based ("How does X relate to Y?" / "What's the key trade-off between...?")
+- Video search: Add "advanced deep dive" to the query
+- Longer content with more detail (about 120% of normal)`;
+    case 5:
+      return `DIFFICULTY: EXPERT EXPLORER (Level 5)
+- Full technical vocabulary — no simplification needed
+- Challenge them with frontier knowledge and open questions
+- Complex, precise sentences (15-25 words)
+- Hook: Cutting-edge research, unsolved problems, or paradigm-shifting ideas
+- Foundation: Skip entirely or reference as "As you know..."
+- Explanation: Expert-level depth. Discuss competing models, recent developments, mathematical intuitions where relevant. Include caveats and limitations
+- Real World: Frontier research, novel applications, or cross-domain connections
+- Check: Evaluation-based ("What's the strongest argument against...?" / "How would you design an experiment to test...?")
+- Video search: Add "advanced lecture" or "research talk" to the query
+- Longest content with full technical depth (about 140% of normal)`;
+    default:
+      return getDifficultyPrompt(3); // Default to middle
+  }
 }
 
 export function calculateMasteryScore(opts: {

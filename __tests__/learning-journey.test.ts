@@ -156,6 +156,8 @@ describe("LearningJourney", () => {
     ],
     mappedConcepts: ["Rayleigh scattering", "light spectrum", "wavelength"],
     difficulty: "beginner",
+    difficultyLevel: 1,
+    difficultyLabel: "Curious Beginner",
     emoji: "🌍",
     createdAt: new Date().toISOString(),
     currentStageIndex: 0,
@@ -394,6 +396,8 @@ describe("LearningJourney Gamification Fields", () => {
       stages: [{ type: "hook", emoji: "🔮", title: "Hook", content: "Content" }],
       mappedConcepts: ["test"],
       difficulty: "beginner",
+      difficultyLevel: 1,
+      difficultyLabel: "Curious Beginner",
       emoji: "🧪",
       createdAt: new Date().toISOString(),
       currentStageIndex: 0,
@@ -423,6 +427,8 @@ describe("LearningJourney Gamification Fields", () => {
       stages: [],
       mappedConcepts: [],
       difficulty: "beginner",
+      difficultyLevel: 2,
+      difficultyLabel: "Building Foundations",
       emoji: "🌟",
       createdAt: new Date().toISOString(),
       currentStageIndex: 0,
@@ -435,5 +441,140 @@ describe("LearningJourney Gamification Fields", () => {
 
     expect(journey.perfectJourney).toBe(true);
     expect(journey.masteryScore).toBe(100);
+  });
+});
+
+import {
+  computeDifficultyLevel,
+  getDifficultyPrompt,
+  DIFFICULTY_LEVELS,
+} from "../shared/types";
+import type { UserProfile, LearnerModel } from "../shared/types";
+
+describe("Adaptive Difficulty Scaling", () => {
+  const makeProfile = (overrides: Partial<Pick<UserProfile, "totalQuizCorrect" | "totalQuizAttempted" | "checkStreak" | "totalJourneysCompleted">> = {}) => ({
+    totalQuizCorrect: 0,
+    totalQuizAttempted: 0,
+    checkStreak: 0,
+    totalJourneysCompleted: 0,
+    ...overrides,
+  });
+
+  const makeLearnerModel = (overrides: Partial<LearnerModel> = {}): LearnerModel => ({
+    preferredPace: "moderate",
+    preferredTone: "balanced",
+    preferredDepth: "detailed",
+    strengthAreas: [],
+    confusionPoints: [],
+    conceptConfidence: {},
+    realWorldConnections: [],
+    learningStyle: "mixed",
+    explainSimplerCount: 0,
+    questionsAsked: 0,
+    pastTopics: [],
+    peakHours: [],
+    avgSessionMinutes: 0,
+    contentFormatWeights: { video: 0.5, article: 0.3, interactive: 0.2 },
+    totalNudgesAnswered: 0,
+    nudgeResponsePatterns: {} as any,
+    topicSwitchCount: 0,
+    avgQuizResponseTimeMs: 0,
+    followUpDepth: 0,
+    lastUpdated: new Date().toISOString(),
+    ...overrides,
+  });
+
+  it("returns level 1 for a brand new learner", () => {
+    const result = computeDifficultyLevel(makeProfile(), makeLearnerModel());
+    expect(result.level).toBe(1);
+    expect(result.label).toBe("Curious Beginner");
+  });
+
+  it("returns level 2+ for a learner with some experience", () => {
+    const result = computeDifficultyLevel(
+      makeProfile({
+        totalQuizCorrect: 6,
+        totalQuizAttempted: 10,
+        checkStreak: 3,
+        totalJourneysCompleted: 5,
+      }),
+      makeLearnerModel({
+        conceptConfidence: { physics: 0.6, math: 0.5 },
+        preferredDepth: "detailed",
+      })
+    );
+    expect(result.level).toBeGreaterThanOrEqual(2);
+    expect(result.level).toBeLessThanOrEqual(3);
+  });
+
+  it("returns level 4+ for an advanced learner with high confidence", () => {
+    const result = computeDifficultyLevel(
+      makeProfile({
+        totalQuizCorrect: 18,
+        totalQuizAttempted: 20,
+        checkStreak: 8,
+        totalJourneysCompleted: 15,
+      }),
+      makeLearnerModel({
+        conceptConfidence: { physics: 0.9, math: 0.85, chemistry: 0.8, biology: 0.75 },
+        preferredDepth: "expert",
+      })
+    );
+    expect(result.level).toBeGreaterThanOrEqual(4);
+  });
+
+  it("penalizes confusion points and simpler requests", () => {
+    const withoutConfusion = computeDifficultyLevel(
+      makeProfile({ totalQuizCorrect: 8, totalQuizAttempted: 10, checkStreak: 5 }),
+      makeLearnerModel({ conceptConfidence: { a: 0.7, b: 0.6 } })
+    );
+    const withConfusion = computeDifficultyLevel(
+      makeProfile({ totalQuizCorrect: 8, totalQuizAttempted: 10, checkStreak: 5 }),
+      makeLearnerModel({
+        conceptConfidence: { a: 0.7, b: 0.6 },
+        confusionPoints: ["topic1", "topic2", "topic3", "topic4", "topic5"],
+        explainSimplerCount: 4,
+      })
+    );
+    expect(withConfusion.level).toBeLessThanOrEqual(withoutConfusion.level);
+  });
+
+  it("all 5 difficulty levels are defined", () => {
+    expect(DIFFICULTY_LEVELS).toHaveLength(5);
+    expect(DIFFICULTY_LEVELS[0].level).toBe(1);
+    expect(DIFFICULTY_LEVELS[4].level).toBe(5);
+  });
+
+  it("each difficulty level has a unique emoji", () => {
+    const emojis = DIFFICULTY_LEVELS.map((d) => d.emoji);
+    expect(new Set(emojis).size).toBe(5);
+  });
+});
+
+describe("getDifficultyPrompt", () => {
+  it("returns a prompt for each level 1-5", () => {
+    for (let i = 1; i <= 5; i++) {
+      const prompt = getDifficultyPrompt(i);
+      expect(prompt).toBeTruthy();
+      expect(prompt.length).toBeGreaterThan(100);
+      expect(prompt).toContain("DIFFICULTY:");
+    }
+  });
+
+  it("level 1 prompt uses simple language instructions", () => {
+    const prompt = getDifficultyPrompt(1);
+    expect(prompt).toContain("simple");
+    expect(prompt).toContain("beginner");
+  });
+
+  it("level 5 prompt uses expert language instructions", () => {
+    const prompt = getDifficultyPrompt(5);
+    expect(prompt).toContain("Expert");
+    expect(prompt).toContain("technical");
+  });
+
+  it("defaults to level 3 for invalid input", () => {
+    const prompt = getDifficultyPrompt(0);
+    expect(prompt).toContain("MAKING CONNECTIONS");
   });
 });
