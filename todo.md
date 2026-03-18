@@ -310,3 +310,13 @@
 - [ ] Concept connections: after multiple journeys, show how concepts link together (future)
 - [ ] Progress ring on journey cards: visual completion indicator on recent journeys (future)
 - [x] Backend: enhanced learn endpoint with gamification metadata (XP per stage, challenge hints, difficulty scaling)
+
+## Bug Review — Gamification Flow, Video & Text Layout
+- [x] Review and fix gamification flow consistency (XP tracking, streak multiplier, completion detection)
+- [x] Review and fix video stage layout and playback
+- [x] Review and fix text layout and rendering across all stages
+- [x] Review and fix stage navigation (back/forward, completion)
+- [x] Review and fix completion celebration card
+- [x] Review and fix challenge timer behavior
+- [x] Verify all stage types render correctly
+- [x] End-to-end test of full journey flow

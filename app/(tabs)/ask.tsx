@@ -31,6 +31,7 @@ import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useLearning } from "@/lib/learning-store";
 import { useColors } from "@/hooks/use-colors";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { trpc } from "@/lib/trpc";
 import { openVideoInApp } from "@/lib/video-utils";
 import type {
@@ -100,7 +101,7 @@ const STAGE_ACCENTS_DARK: Record<string, { bg: string; text: string; label: stri
 
 function XpPopup({ amount, multiplier }: { amount: number; multiplier: number }) {
   const colors = useColors();
-  const total = Math.round(amount * multiplier);
+  // amount already includes multiplier, just display it
   return (
     <Animated.View
       entering={FadeInUp.duration(400).springify()}
@@ -108,7 +109,7 @@ function XpPopup({ amount, multiplier }: { amount: number; multiplier: number })
       style={styles.xpPopup}
     >
       <Text style={[styles.xpPopupText, { color: colors.success }]}>
-        +{total} XP{multiplier > 1 ? ` (${multiplier}x)` : ""}
+        +{amount} XP{multiplier > 1 ? ` (${multiplier}x)` : ""}
       </Text>
     </Animated.View>
   );
@@ -392,6 +393,12 @@ function FoundationCard({ stage, isDark }: { stage: JourneyStage; isDark: boolea
       <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
       <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+      {stage.keyTakeaway ? (
+        <View style={[styles.takeawayBox, { backgroundColor: isDark ? accent.text + "20" : "#ECFDF5", borderColor: isDark ? accent.text + "40" : "#6EE7B7" }]}>
+          <Text style={[styles.takeawayLabel, { color: accent.text }]}>Key Concept</Text>
+          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -424,6 +431,12 @@ function RealWorldCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean
       <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
       <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+      {stage.keyTakeaway ? (
+        <View style={[styles.takeawayBox, { backgroundColor: isDark ? accent.text + "20" : "#ECFDF5", borderColor: isDark ? accent.text + "40" : "#6EE7B7" }]}>
+          <Text style={[styles.takeawayLabel, { color: accent.text }]}>Real-World Example</Text>
+          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -455,7 +468,7 @@ function CheckCard({
       <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.question || stage.title}</Text>
       {stage.content ? (
-        <Text style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 16 }]}>{stage.content}</Text>
+        <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 20 }]} />
       ) : null}
 
       {(stage.options || []).map((opt, idx) => {
@@ -538,9 +551,7 @@ function VideoCard({
       <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
       {stage.videoContext ? (
-        <Text style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 16 }]}>
-          {stage.videoContext}
-        </Text>
+        <RichText text={stage.videoContext} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 20 }]} />
       ) : null}
 
       {videosLoading ? (
@@ -591,10 +602,12 @@ function NextStepsCard({
   stage,
   isDark,
   onSelect,
+  onComplete,
 }: {
   stage: JourneyStage;
   isDark: boolean;
   onSelect: (question: string) => void;
+  onComplete: () => void;
 }) {
   const colors = useColors();
   const accent = isDark ? STAGE_ACCENTS_DARK.next_steps : STAGE_ACCENTS.next_steps;
@@ -625,6 +638,20 @@ function NextStepsCard({
           </TouchableOpacity>
         </Animated.View>
       ))}
+
+      {/* Complete Journey button */}
+      <Animated.View entering={FadeInUp.delay(paths.length * 100 + 100).duration(300)}>
+        <TouchableOpacity
+          onPress={() => {
+            if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onComplete();
+          }}
+          activeOpacity={0.7}
+          style={[styles.completeJourneyBtn, { backgroundColor: colors.primary }]}
+        >
+          <Text style={styles.completeJourneyBtnText}>{"\u2728"} Complete Journey</Text>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
@@ -674,7 +701,8 @@ function RecentJourneys({
 
 export default function AskScreen() {
   const colors = useColors();
-  const isDark = colors.background === "#0A0A14" || colors.background.startsWith("#0");
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
   const { state, dispatch, addXp } = useLearning();
   const params = useLocalSearchParams<{ q?: string }>();
   const [inputText, setInputText] = useState("");
@@ -703,7 +731,9 @@ export default function AskScreen() {
   const [journeyCheckCorrect, setJourneyCheckCorrect] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [videoWatched, setVideoWatched] = useState(false);
-  const currentMultiplier = getStreakMultiplier(state.profile.checkStreak ?? 0);
+  // Compute multiplier fresh each render (avoid stale closure)
+  const currentMultiplierRef = useRef(getStreakMultiplier(state.profile.checkStreak ?? 0));
+  currentMultiplierRef.current = getStreakMultiplier(state.profile.checkStreak ?? 0);
 
   const learnMutation = trpc.chat.learn.useMutation();
   const fetchContentMutation = trpc.chat.fetchStepContent.useMutation();
@@ -713,15 +743,16 @@ export default function AskScreen() {
 
   const awardStageXp = useCallback(
     (stageType: string, bonusXp: number = 0) => {
+      const mult = currentMultiplierRef.current;
       const baseXp = JOURNEY_STAGE_XP[stageType as keyof typeof JOURNEY_STAGE_XP] ?? 5;
-      const total = Math.round((baseXp + bonusXp) * currentMultiplier);
+      const total = Math.round((baseXp + bonusXp) * mult);
       setJourneyXp((prev) => prev + total);
       setLastXpGain(total);
       setShowXpPopup(true);
       addXp(total);
       setTimeout(() => setShowXpPopup(false), 1800);
     },
-    [currentMultiplier, addXp]
+    [addXp]
   );
 
   // ─── Load Smart Suggestions ─────────────────────────────────────────────────
@@ -905,8 +936,8 @@ export default function AskScreen() {
       // Award XP for the stage we're advancing FROM (only when moving forward)
       if (idx > currentStageIdx) {
         const prevStage = activeJourney.stages[currentStageIdx];
-        if (prevStage && prevStage.type !== "hook" && prevStage.type !== "check") {
-          // hook is awarded at start, check is awarded on answer
+        // hook is awarded at start, check is awarded on answer, video is awarded on watch
+        if (prevStage && prevStage.type !== "hook" && prevStage.type !== "check" && prevStage.type !== "video") {
           awardStageXp(prevStage.type);
         }
       }
@@ -933,13 +964,11 @@ export default function AskScreen() {
       if (stage.type === "video") {
         fetchVideoForStage(stage);
       }
-      // Start challenge timer for check stages (if streak >= 3)
+      // Start challenge timer for check stages
       if (stage.type === "check") {
         setCheckStartTime(Date.now());
-        if ((state.profile.checkStreak ?? 0) >= 3) {
-          setChallengeTimerActive(true);
-          setChallengeTimerExpired(false);
-        }
+        setChallengeTimerActive(true);
+        setChallengeTimerExpired(false);
       }
     },
     [activeJourney, currentStageIdx, dispatch, fetchVideoForStage, awardStageXp, state.profile.checkStreak]
@@ -950,35 +979,9 @@ export default function AskScreen() {
     const nextIdx = currentStageIdx + 1;
     if (nextIdx < activeJourney.stages.length) {
       goToStage(nextIdx);
-    } else {
-      // Journey complete!
-      const mastery = calculateMasteryScore({
-        stagesCompleted: activeJourney.stages.length,
-        totalStages: activeJourney.stages.length,
-        checkCorrect: journeyCheckCorrect,
-        videoWatched: videoWatched,
-      });
-      const isPerfect = journeyCheckCorrect && videoWatched;
-
-      // Award next_steps XP
-      awardStageXp("next_steps");
-
-      dispatch({
-        type: "COMPLETE_JOURNEY",
-        payload: {
-          journeyId: activeJourney.id,
-          xpEarned: journeyXp,
-          masteryScore: mastery,
-          perfect: isPerfect,
-        },
-      });
-
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      setShowCompletion(true);
     }
-  }, [activeJourney, currentStageIdx, goToStage, journeyCheckCorrect, videoWatched, journeyXp, awardStageXp, dispatch]);
+    // Journey completion is handled by handleCompleteJourney (via NextStepsCard)
+  }, [activeJourney, currentStageIdx, goToStage]);
 
   const goPrev = useCallback(() => {
     if (currentStageIdx > 0) {
@@ -1001,7 +1004,7 @@ export default function AskScreen() {
 
       // Award check XP
       const checkXp = correct ? JOURNEY_STAGE_XP.check : CHECK_INCORRECT_XP;
-      const total = Math.round((checkXp + bonusXp) * currentMultiplier);
+      const total = Math.round((checkXp + bonusXp) * currentMultiplierRef.current);
       setJourneyXp((prev) => prev + total);
       setLastXpGain(total);
       setShowXpPopup(true);
@@ -1027,7 +1030,7 @@ export default function AskScreen() {
         }
       }
     },
-    [addXp, dispatch, activeJourney, checkStartTime, challengeTimerExpired, currentMultiplier]
+    [addXp, dispatch, activeJourney, checkStartTime, challengeTimerExpired]
   );
 
   // ─── Handle Video Watch ─────────────────────────────────────────────────
@@ -1043,17 +1046,62 @@ export default function AskScreen() {
     [awardStageXp, dispatch]
   );
 
+  // ─── Handle Complete Journey ─────────────────────────────────────────────
+
+  const handleCompleteJourney = useCallback(() => {
+    if (!activeJourney) return;
+    const mastery = calculateMasteryScore({
+      stagesCompleted: activeJourney.stages.length,
+      totalStages: activeJourney.stages.length,
+      checkCorrect: journeyCheckCorrect,
+      videoWatched: videoWatched,
+    });
+    const isPerfect = journeyCheckCorrect && videoWatched;
+
+    // Award next_steps XP
+    awardStageXp("next_steps");
+
+    dispatch({
+      type: "COMPLETE_JOURNEY",
+      payload: {
+        journeyId: activeJourney.id,
+        xpEarned: journeyXp,
+        masteryScore: mastery,
+        perfect: isPerfect,
+      },
+    });
+
+    setShowCompletion(true);
+  }, [activeJourney, journeyCheckCorrect, videoWatched, journeyXp, awardStageXp, dispatch]);
+
   // ─── Handle Next Steps Selection ────────────────────────────────────────────
 
   const handleNextStepSelect = useCallback(
     (question: string) => {
-      // Start a brand new journey
+      // Complete current journey first, then start new one
+      if (activeJourney && !activeJourney.completed) {
+        const mastery = calculateMasteryScore({
+          stagesCompleted: activeJourney.stages.length,
+          totalStages: activeJourney.stages.length,
+          checkCorrect: journeyCheckCorrect,
+          videoWatched: videoWatched,
+        });
+        dispatch({
+          type: "COMPLETE_JOURNEY",
+          payload: {
+            journeyId: activeJourney.id,
+            xpEarned: journeyXp,
+            masteryScore: mastery,
+            perfect: journeyCheckCorrect && videoWatched,
+          },
+        });
+      }
       setActiveJourney(null);
       setCurrentStageIdx(0);
       dispatch({ type: "SET_ACTIVE_JOURNEY", payload: null });
       startJourney(question);
     },
-    [dispatch, startJourney]
+    [dispatch, startJourney, activeJourney, journeyCheckCorrect, videoWatched, journeyXp]
   );
 
   // ─── New Journey ────────────────────────────────────────────────────────────
@@ -1130,7 +1178,7 @@ export default function AskScreen() {
           />
         );
       case "next_steps":
-        return <NextStepsCard stage={currentStage} isDark={isDark} onSelect={handleNextStepSelect} />;
+        return <NextStepsCard stage={currentStage} isDark={isDark} onSelect={handleNextStepSelect} onComplete={handleCompleteJourney} />;
       default:
         return <ExplanationCard stage={currentStage} isDark={isDark} />;
     }
@@ -1182,7 +1230,7 @@ export default function AskScreen() {
         </View>
 
         {/* XP Popup */}
-        {showXpPopup && <XpPopup amount={lastXpGain} multiplier={1} />}
+        {showXpPopup && <XpPopup amount={lastXpGain} multiplier={currentMultiplierRef.current} />}
 
         {/* Loading State */}
         {isLoading ? (
@@ -1247,7 +1295,7 @@ export default function AskScreen() {
             />
 
             {/* Streak Badge */}
-            <StreakBadge streak={state.profile.checkStreak ?? 0} multiplier={currentMultiplier} />
+            <StreakBadge streak={state.profile.checkStreak ?? 0} multiplier={currentMultiplierRef.current} />
 
             {/* Challenge Timer (on check stages) */}
             {currentStage?.type === "check" && !checkAnswered && (
@@ -1447,14 +1495,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
-  stageTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: 12 },
-  stageContent: { fontSize: 16, lineHeight: 26 },
+  stageTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: 16 },
+  stageContent: { fontSize: 16, lineHeight: 28 },
 
   // Key Takeaway
   takeawayBox: {
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 12,
+    marginTop: 24,
+    padding: 18,
+    borderRadius: 14,
     borderWidth: 1,
   },
   takeawayLabel: {
@@ -1464,23 +1512,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 6,
   },
-  takeawayText: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
+  takeawayText: { fontSize: 15, lineHeight: 24, fontWeight: "500" },
 
   // Check Options
   checkOption: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  checkOptionText: { fontSize: 15, fontWeight: "500", lineHeight: 22 },
+  checkOptionText: { fontSize: 15, fontWeight: "500", lineHeight: 24 },
   checkExplanation: {
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 12,
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 14,
   },
-  checkExplanationText: { fontSize: 14, lineHeight: 22 },
+  checkExplanationText: { fontSize: 14, lineHeight: 24 },
 
   // Video
   videoLoading: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 20 },
@@ -1491,7 +1539,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   videoThumbWrap: { position: "relative" },
-  videoThumb: { width: "100%", height: 180, borderTopLeftRadius: 13, borderTopRightRadius: 13 },
+  videoThumb: { width: "100%", height: 200, borderTopLeftRadius: 13, borderTopRightRadius: 13 },
   playOverlay: {
     position: "absolute",
     top: 0,
@@ -1521,9 +1569,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   durationText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
-  videoMeta: { padding: 14 },
-  videoMetaTitle: { fontSize: 15, fontWeight: "600", lineHeight: 22 },
-  videoMetaChannel: { fontSize: 13, marginTop: 4 },
+  videoMeta: { padding: 16 },
+  videoMetaTitle: { fontSize: 16, fontWeight: "600", lineHeight: 24 },
+  videoMetaChannel: { fontSize: 13, marginTop: 6 },
 
   // Next Steps
   nextPath: {
@@ -1589,13 +1637,18 @@ const styles = StyleSheet.create({
   // XP Popup
   xpPopup: {
     position: "absolute",
-    top: 60,
-    right: 20,
+    top: 80,
+    alignSelf: "center",
     zIndex: 100,
-    backgroundColor: "rgba(34, 197, 94, 0.15)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    backgroundColor: "rgba(34, 197, 94, 0.18)",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 24,
+    shadowColor: "#22C55E",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   xpPopupText: { fontSize: 16, fontWeight: "800" },
 
@@ -1700,6 +1753,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   completeBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+
+  // Complete Journey Button
+  completeJourneyBtn: {
+    marginTop: 16,
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center" as const,
+  },
+  completeJourneyBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700" as const,
+  },
 
   // XP Header Badge
   xpHeaderBadge: {
