@@ -371,3 +371,11 @@
 - [x] Feed answers into learner model (preferredDepth based on overall knowledge level)
 - [x] Award 5 XP for completing the prior knowledge check
 - [x] Skip prior knowledge check if avg confidence > 0.7 AND 3+ journeys completed
+
+## Comprehensive Bug Audit Fixes (March 18, 2026)
+- [x] Bug 1 CRITICAL: Nav bar "Complete Journey" button now calls handleCompleteJourney instead of goNext (was dead-end on last stage)
+- [x] Bug 2 MEDIUM: Back button disabled when previous stage is prior_knowledge; goPrev also blocks navigation to prior_knowledge
+- [x] Bug 3 MEDIUM: Hook XP now awarded via goToStage (prior_knowledge excluded since it has its own XP award)
+- [x] Bug 4 LOW: ChallengeTimer now uses key prop to force remount on stage change, ensuring fresh timer on re-entry
+- [x] Bug 5 LOW: Progress dots now skip prior_knowledge stage (adjusted total/current/onDotPress with offset)
+- [x] Bug 6 LOW: XP popup z-index raised to 999 with proper left/right centering and pointerEvents:none to prevent occlusion

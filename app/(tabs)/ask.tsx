@@ -113,9 +113,11 @@ function XpPopup({ amount, multiplier }: { amount: number; multiplier: number })
       exiting={FadeOut.delay(1200).duration(300)}
       style={styles.xpPopup}
     >
-      <Text style={[styles.xpPopupText, { color: colors.success }]}>
-        +{amount} XP{multiplier > 1 ? ` (${multiplier}x)` : ""}
-      </Text>
+      <View style={styles.xpPopupInner}>
+        <Text style={[styles.xpPopupText, { color: colors.success }]}>
+          +{amount} XP{multiplier > 1 ? ` (${multiplier}x)` : ""}
+        </Text>
+      </View>
     </Animated.View>
   );
 }
@@ -387,7 +389,7 @@ function ProgressDots({
           <TouchableOpacity
             key={i}
             onPress={() => {
-              if (isPast) onDotPress(i);
+              if (isPast && i !== current) onDotPress(i);
             }}
             activeOpacity={isPast ? 0.6 : 1}
             style={[
@@ -1444,8 +1446,8 @@ export default function AskScreen() {
       // Award XP for the stage we're advancing FROM (only when moving forward)
       if (idx > currentStageIdx) {
         const prevStage = activeJourney.stages[currentStageIdx];
-        // hook is awarded at start, check is awarded on answer, video is awarded on watch
-        if (prevStage && prevStage.type !== "hook" && prevStage.type !== "check" && prevStage.type !== "video") {
+        // prior_knowledge is awarded in handlePriorKnowledgeComplete, check is awarded on answer, video is awarded on watch
+        if (prevStage && prevStage.type !== "prior_knowledge" && prevStage.type !== "check" && prevStage.type !== "video") {
           awardStageXp(prevStage.type);
         }
       }
@@ -1492,10 +1494,13 @@ export default function AskScreen() {
   }, [activeJourney, currentStageIdx, goToStage]);
 
   const goPrev = useCallback(() => {
-    if (currentStageIdx > 0) {
-      goToStage(currentStageIdx - 1);
-    }
-  }, [currentStageIdx, goToStage]);
+    if (currentStageIdx <= 0) return;
+    // Don't go back to prior_knowledge stage — it has its own internal flow
+    const prevIdx = currentStageIdx - 1;
+    const prevStage = activeJourney?.stages[prevIdx];
+    if (prevStage?.type === "prior_knowledge") return;
+    goToStage(prevIdx);
+  }, [currentStageIdx, goToStage, activeJourney]);
 
   // ─── Handle Check Answer ────────────────────────────────────────────────────
 
@@ -1960,11 +1965,14 @@ export default function AskScreen() {
         ) : activeJourney ? (
           /* Journey View */
           <View style={styles.flex1}>
-            {/* Progress Dots */}
+            {/* Progress Dots — skip prior_knowledge stage */}
             <ProgressDots
-              total={activeJourney.stages.length}
-              current={currentStageIdx}
-              onDotPress={goToStage}
+              total={activeJourney.stages.filter(s => s.type !== "prior_knowledge").length}
+              current={activeJourney.stages[0]?.type === "prior_knowledge" ? currentStageIdx - 1 : currentStageIdx}
+              onDotPress={(dotIdx) => {
+                const offset = activeJourney.stages[0]?.type === "prior_knowledge" ? 1 : 0;
+                goToStage(dotIdx + offset);
+              }}
             />
 
             {/* Difficulty & Streak */}
@@ -1976,6 +1984,7 @@ export default function AskScreen() {
             {/* Challenge Timer (on check stages) */}
             {currentStage?.type === "check" && !checkAnswered && (
               <ChallengeTimer
+                key={`timer-${currentStageIdx}`}
                 seconds={CHALLENGE_TIMER_SECONDS}
                 onExpire={() => setChallengeTimerExpired(true)}
                 active={challengeTimerActive}
@@ -2016,14 +2025,14 @@ export default function AskScreen() {
               <View style={[styles.navBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
                 <TouchableOpacity
                   onPress={goPrev}
-                  disabled={currentStageIdx === 0}
+                  disabled={currentStageIdx === 0 || activeJourney?.stages[currentStageIdx - 1]?.type === "prior_knowledge"}
                   activeOpacity={0.7}
                   style={[
                     styles.navBtnBack,
                     {
-                      backgroundColor: currentStageIdx === 0 ? "transparent" : colors.surface,
+                      backgroundColor: (currentStageIdx === 0 || activeJourney?.stages[currentStageIdx - 1]?.type === "prior_knowledge") ? "transparent" : colors.surface,
                       borderColor: colors.border,
-                      opacity: currentStageIdx === 0 ? 0.3 : 1,
+                      opacity: (currentStageIdx === 0 || activeJourney?.stages[currentStageIdx - 1]?.type === "prior_knowledge") ? 0.3 : 1,
                     },
                   ]}
                 >
@@ -2031,7 +2040,7 @@ export default function AskScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={goNext}
+                  onPress={isLastStage ? handleCompleteJourney : goNext}
                   disabled={!canAdvance}
                   activeOpacity={0.7}
                   style={[
@@ -2328,8 +2337,14 @@ const styles = StyleSheet.create({
   xpPopup: {
     position: "absolute",
     top: 80,
-    alignSelf: "center",
-    zIndex: 100,
+    left: 0,
+    right: 0,
+    alignItems: "center" as const,
+    zIndex: 999,
+    elevation: 999,
+    pointerEvents: "none" as const,
+  },
+  xpPopupInner: {
     backgroundColor: "rgba(34, 197, 94, 0.18)",
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -2338,7 +2353,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 10,
   },
   xpPopupText: { fontSize: 16, fontWeight: "800" },
 
