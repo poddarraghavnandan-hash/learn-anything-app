@@ -7,9 +7,9 @@ import {
   TextInput,
   StyleSheet,
   Platform,
-  ActivityIndicator,
-  Linking,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -17,76 +17,92 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLearning } from "@/lib/learning-store";
 import { trpc } from "@/lib/trpc";
-import type { FeedCard, ContentItemData, QuizData, InsightData, ReviewData } from "@/shared/types";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
-import { SkeletonFeed } from "@/components/skeleton-card";
 
-// ─── Topic pill data (matches onboarding + discover) ──────────────────────────
+// ─── Category filter data ────────────────────────────────────────────────────
 
 const TOPIC_CATEGORIES = [
-  { key: "all", label: "For You", emoji: "✨" },
-  { key: "Science", label: "Science", emoji: "🔬" },
-  { key: "Programming", label: "Code", emoji: "💻" },
-  { key: "AI & Data", label: "AI", emoji: "🤖" },
-  { key: "Humanities", label: "Humanities", emoji: "📜" },
-  { key: "Creative", label: "Creative", emoji: "🎨" },
-  { key: "Business", label: "Business", emoji: "💼" },
-  { key: "Health", label: "Health", emoji: "💪" },
+  { key: "all", label: "For You", emoji: "\u2728" },
+  { key: "Science", label: "Science", emoji: "\ud83d\udd2c" },
+  { key: "Programming", label: "Code", emoji: "\ud83d\udcbb" },
+  { key: "AI & Data", label: "AI", emoji: "\ud83e\udd16" },
+  { key: "Humanities", label: "Humanities", emoji: "\ud83d\udcdc" },
+  { key: "Creative", label: "Creative", emoji: "\ud83c\udfa8" },
+  { key: "Business", label: "Business", emoji: "\ud83d\udcbc" },
+  { key: "Health", label: "Health", emoji: "\ud83d\udcaa" },
 ];
 
-// ─── Feed Card Components ─────────────────────────────────────────────────────
+// ─── Journey Topic Card ──────────────────────────────────────────────────────
 
-function VideoCard({
-  card,
+interface JourneyTopic {
+  title: string;
+  hook: string;
+  category: string;
+  emoji: string;
+  searchQuery: string;
+  estimatedMinutes: number;
+  thumbnailUrl?: string;
+  channelName?: string;
+  videoTitle?: string;
+}
+
+function JourneyTopicCard({
+  topic,
   colors,
   onPress,
+  index,
 }: {
-  card: FeedCard;
+  topic: JourneyTopic;
   colors: ReturnType<typeof useColors>;
-  onPress: (card: FeedCard) => void;
+  onPress: (topic: JourneyTopic) => void;
+  index: number;
 }) {
-  const content = card.content;
-  if (!content) return null;
-
-  const duration = content.durationSeconds
-    ? `${Math.floor(content.durationSeconds / 60)}:${String(content.durationSeconds % 60).padStart(2, "0")}`
-    : null;
-
   return (
-    <Animated.View entering={FadeInDown.duration(300)}>
+    <Animated.View entering={FadeInDown.delay(index * 80).duration(350)}>
       <Pressable
-        onPress={() => onPress(card)}
+        onPress={() => onPress(topic)}
         style={({ pressed }) => [
-          styles.feedCard,
+          styles.journeyCard,
           { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.95 : 1 },
         ]}
       >
-        {content.thumbnailUrl ? (
-          <View style={styles.thumbWrap}>
-            <Image source={{ uri: content.thumbnailUrl }} style={styles.thumb} contentFit="cover" />
-            {duration && (
-              <View style={styles.durationBadge}>
-                <Text style={styles.durationText}>{duration}</Text>
-              </View>
-            )}
-            {content.topicEmoji && (
-              <View style={[styles.topicBadge, { backgroundColor: colors.primary + "E0" }]}>
-                <Text style={styles.topicBadgeText}>
-                  {content.topicEmoji} {content.topicName || content.topicSlug}
-                </Text>
-              </View>
-            )}
+        {/* Thumbnail */}
+        {topic.thumbnailUrl ? (
+          <View style={styles.journeyThumbWrap}>
+            <Image source={{ uri: topic.thumbnailUrl }} style={styles.journeyThumb} contentFit="cover" />
+            {/* Gradient overlay for text readability */}
+            <View style={styles.journeyThumbOverlay} />
+            {/* Time badge */}
+            <View style={styles.timeBadge}>
+              <Text style={styles.timeBadgeText}>{topic.estimatedMinutes} min journey</Text>
+            </View>
+            {/* Category badge */}
+            <View style={[styles.categoryBadge, { backgroundColor: colors.primary + "E0" }]}>
+              <Text style={styles.categoryBadgeText}>{topic.emoji} {topic.category}</Text>
+            </View>
           </View>
-        ) : null}
-        <View style={styles.cardBody}>
-          <Text numberOfLines={2} style={[styles.cardTitle, { color: colors.foreground }]}>
-            {content.title}
+        ) : (
+          <View style={[styles.journeyThumbPlaceholder, { backgroundColor: colors.primary + "15" }]}>
+            <Text style={styles.journeyThumbEmoji}>{topic.emoji}</Text>
+            <View style={styles.timeBadge}>
+              <Text style={styles.timeBadgeText}>{topic.estimatedMinutes} min journey</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Content */}
+        <View style={styles.journeyBody}>
+          <Text numberOfLines={2} style={[styles.journeyTitle, { color: colors.foreground }]}>
+            {topic.title}
           </Text>
-          <View style={styles.cardMeta}>
-            <Text numberOfLines={1} style={[styles.cardSource, { color: colors.muted }]}>
-              {content.channelOrAuthor || content.source}
-            </Text>
+          <Text numberOfLines={2} style={[styles.journeyHook, { color: colors.muted }]}>
+            {topic.hook}
+          </Text>
+          <View style={styles.journeyFooter}>
+            <View style={[styles.learnBadge, { backgroundColor: colors.primary + "15" }]}>
+              <Text style={[styles.learnBadgeText, { color: colors.primary }]}>Start Learning</Text>
+            </View>
           </View>
         </View>
       </Pressable>
@@ -94,92 +110,60 @@ function VideoCard({
   );
 }
 
-function QuizCard({
-  card,
+// ─── Suggestion Chip ─────────────────────────────────────────────────────────
+
+function SuggestionChip({
+  text,
   colors,
-  onAnswer,
+  onPress,
+  index,
 }: {
-  card: FeedCard;
+  text: string;
   colors: ReturnType<typeof useColors>;
-  onAnswer: (correct: boolean, topicSlug: string) => void;
+  onPress: () => void;
+  index: number;
 }) {
-  const quiz = card.quiz;
-  const [selected, setSelected] = useState<number | null>(null);
-  if (!quiz) return null;
-  const answered = selected !== null;
-
-  const handleSelect = (idx: number) => {
-    if (answered) return;
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelected(idx);
-    onAnswer(idx === quiz.correctIndex, quiz.topicSlug);
-  };
-
   return (
-    <Animated.View entering={FadeInDown.duration(300)}>
-      <View style={[styles.quizFeedCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.quizHeader}>
-          <Text style={[styles.quizLabel, { color: colors.primary }]}>Quick Check</Text>
-          {quiz.topicEmoji && <Text style={{ fontSize: 18 }}>{quiz.topicEmoji}</Text>}
-        </View>
-        <Text style={[styles.quizQuestion, { color: colors.foreground }]}>{quiz.question}</Text>
-
-        {quiz.options.map((opt, idx) => {
-          const isCorrect = idx === quiz.correctIndex;
-          const isSelected = idx === selected;
-          let bg = "transparent";
-          let border = colors.border;
-          let textColor = colors.foreground;
-
-          if (answered) {
-            if (isCorrect) { bg = colors.success + "20"; border = colors.success; textColor = colors.success; }
-            else if (isSelected) { bg = colors.error + "20"; border = colors.error; textColor = colors.error; }
-          }
-
-          return (
-            <Pressable
-              key={idx}
-              onPress={() => handleSelect(idx)}
-              style={({ pressed }) => [
-                styles.quizOption,
-                { backgroundColor: bg, borderColor: border, opacity: pressed && !answered ? 0.8 : 1 },
-              ]}
-            >
-              <Text style={[styles.quizOptionText, { color: textColor }]}>{opt}</Text>
-            </Pressable>
-          );
-        })}
-
-        {answered && (
-          <Animated.View entering={FadeIn.duration(250)} style={[styles.explanationBox, { backgroundColor: colors.primary + "08" }]}>
-            <Text style={[styles.explanationText, { color: colors.muted }]}>{quiz.explanation}</Text>
-          </Animated.View>
-        )}
-      </View>
+    <Animated.View entering={FadeInRight.delay(index * 60).duration(300)}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.suggestionChip,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            opacity: pressed ? 0.8 : 1,
+          },
+        ]}
+      >
+        <Text numberOfLines={1} style={[styles.suggestionText, { color: colors.foreground }]}>
+          {text}
+        </Text>
+        <Text style={[styles.suggestionArrow, { color: colors.primary }]}>{"\u2192"}</Text>
+      </Pressable>
     </Animated.View>
   );
 }
 
-function InsightCard({ card, colors }: { card: FeedCard; colors: ReturnType<typeof useColors> }) {
-  const insight = card.insight;
-  if (!insight) return null;
+// ─── Skeleton for loading journey topics ─────────────────────────────────────
 
+function JourneyTopicSkeleton({ colors }: { colors: ReturnType<typeof useColors> }) {
   return (
-    <Animated.View entering={FadeInDown.duration(300)}>
-      <View style={[styles.insightCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "20" }]}>
-        <View style={styles.insightHeader}>
-          <Text style={{ fontSize: 18 }}>{insight.emojiA || "💡"}</Text>
-          <Text style={[styles.insightConnector, { color: colors.primary }]}>connects to</Text>
-          <Text style={{ fontSize: 18 }}>{insight.emojiB || "🔗"}</Text>
+    <View style={styles.skeletonWrap}>
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={[styles.journeyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.journeyThumbPlaceholder, { backgroundColor: colors.muted + "20", height: 160 }]} />
+          <View style={styles.journeyBody}>
+            <View style={[styles.skeletonLine, { backgroundColor: colors.muted + "25", width: "85%" }]} />
+            <View style={[styles.skeletonLine, { backgroundColor: colors.muted + "18", width: "65%", marginTop: 8 }]} />
+          </View>
         </View>
-        <Text style={[styles.insightTitle, { color: colors.foreground }]}>{insight.title}</Text>
-        <Text style={[styles.insightBody, { color: colors.muted }]}>{insight.body}</Text>
-      </View>
-    </Animated.View>
+      ))}
+    </View>
   );
 }
 
-// ─── Main Home Screen ─────────────────────────────────────────────────────────
+// ─── Main Home Screen ────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -189,105 +173,81 @@ export default function HomeScreen() {
   const [askInput, setAskInput] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
+  const askInputRef = useRef<TextInput>(null);
 
-  // Feed data — poll every 3s while feed is empty (waiting for background refresh to populate DB)
-  const [feedHasData, setFeedHasData] = useState(false);
-  const feedQuery = trpc.feed.get.useQuery(
-    { topicSlugs: profile.interests, skillLevel: profile.skillLevel },
-    {
-      enabled: profile.onboardingDone && profile.interests.length > 0,
-      // Keep polling every 3s until we have content, then stop
-      refetchInterval: feedHasData ? false : 3000,
-    }
-  );
-  const refreshMutation = trpc.feed.refresh.useMutation();
-  const autoRefreshAttempted = useRef(false);
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
+  // ─── Smart Suggestions (personalized question ideas) ─────────────────────
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const suggestionsMutation = trpc.chat.suggestions.useMutation();
 
-  // Track when we have feed data to stop polling
-  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   useEffect(() => {
-    if (feedQuery.data?.items?.length) {
-      setFeedHasData(true);
-      setIsAutoRefreshing(false);
+    if (!profile.onboardingDone || profile.interests.length === 0) return;
+    loadSuggestions();
+  }, [profile.onboardingDone, profile.interests.length]);
+
+  const loadSuggestions = useCallback(async () => {
+    setSuggestionsLoading(true);
+    try {
+      const result = await suggestionsMutation.mutateAsync({
+        interests: profile.interests,
+        pastTopics: state.learnerModel.pastTopics.slice(-10),
+        confusionPoints: state.learnerModel.confusionPoints.slice(-5),
+        strengthAreas: state.learnerModel.strengthAreas.slice(-5),
+        questionsAsked: state.learnerModel.questionsAsked,
+      });
+      if (result.suggestions.length > 0) {
+        setSuggestions(result.suggestions);
+      }
+    } catch {
+      // Use interest-based fallbacks
+      const fallbacks = profile.interests.slice(0, 4).map((i) => `How does ${i.replace(/-/g, " ")} work?`);
+      setSuggestions(fallbacks);
+    } finally {
+      setSuggestionsLoading(false);
     }
-  }, [feedQuery.data?.items?.length]);
+  }, [profile.interests, state.learnerModel]);
 
-  // Timeout: after 30s of empty feed, stop showing skeleton and show Load Content button
+  // ─── Journey Topic Suggestions (the main feed) ──────────────────────────
+  const [journeyTopics, setJourneyTopics] = useState<JourneyTopic[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
+  const [topicsLoaded, setTopicsLoaded] = useState(false);
+  const journeyTopicsMutation = trpc.journeyTopics.suggest.useMutation();
+
   useEffect(() => {
-    if (feedHasData || !profile.onboardingDone) return;
-    const timer = setTimeout(() => {
-      if (!feedHasData) setLoadingTimedOut(true);
-    }, 30000);
-    return () => clearTimeout(timer);
-  }, [feedHasData, profile.onboardingDone]);
+    if (!profile.onboardingDone || profile.interests.length === 0) return;
+    loadJourneyTopics();
+  }, [profile.onboardingDone, profile.interests.length]);
 
-  // Topics for the pills
-  const topicsQuery = trpc.topics.list.useQuery(undefined, { enabled: profile.onboardingDone });
-  const allTopics = topicsQuery.data || [];
-
-  // Transform feed items into FeedCard format
-  const feedCards: FeedCard[] = useMemo(() => {
-    const items = feedQuery.data?.items || [];
-    const cards: FeedCard[] = items.map((item: any, idx: number) => ({
-      id: `feed-${item.id || idx}`,
-      cardType: (item.type === "video" ? "video" : "article") as FeedCard["cardType"],
-      content: {
-        id: item.id,
-        externalId: item.externalId,
-        type: item.type,
-        title: item.title,
-        description: item.description,
-        url: item.url,
-        thumbnailUrl: item.thumbnailUrl,
-        source: item.source,
-        channelOrAuthor: item.channelOrAuthor,
-        durationSeconds: item.durationSeconds,
-        topicSlug: item.topicSlug,
-        topicEmoji: allTopics.find((t) => t.slug === item.topicSlug)?.emoji || "",
-        topicName: allTopics.find((t) => t.slug === item.topicSlug)?.name || "",
-        publishedAt: item.publishedAt,
-      },
-    }));
-    if (selectedCategory === "all") return cards;
-    return cards.filter((c) => {
-      const slug = c.content?.topicSlug || "";
-      const topic = allTopics.find((t) => t.slug === slug);
-      return topic?.category === selectedCategory;
-    });
-  }, [feedQuery.data, selectedCategory, allTopics]);
-
-  // Auto-refresh on cold start: if onboarding done + interests exist but feed is empty
-  // Only attempt once per mount. The 3s polling will pick up data once the server finishes.
-  useEffect(() => {
-    if (autoRefreshAttempted.current) return;
-    const hasInterests = profile.onboardingDone && profile.interests.length > 0;
-    const feedResolved = !feedQuery.isLoading && feedQuery.isFetched;
-    const feedEmpty = !feedQuery.data?.items?.length;
-
-    if (hasInterests && feedResolved && feedEmpty) {
-      autoRefreshAttempted.current = true;
-      setIsAutoRefreshing(true);
-      // Fire refresh — the onboarding may have already started one, but this is a safety net
-      refreshMutation
-        .mutateAsync({
-          topicSlugs: profile.interests.slice(0, 5),
-          skillLevel: profile.skillLevel,
-        })
-        .then(() => {
-          // Refetch immediately, then polling will continue every 3s
-          feedQuery.refetch();
-        })
-        .catch(() => {
-          // Even on failure, polling will keep trying to fetch from DB
-          // Reset so user can try manual refresh
-          autoRefreshAttempted.current = false;
-          setIsAutoRefreshing(false);
-        });
+  const loadJourneyTopics = useCallback(async (category?: string) => {
+    setTopicsLoading(true);
+    try {
+      const result = await journeyTopicsMutation.mutateAsync({
+        interests: profile.interests,
+        skillLevel: profile.skillLevel,
+        age: profile.age,
+        pastTopics: state.learnerModel.pastTopics.slice(-10),
+        strengthAreas: state.learnerModel.strengthAreas.slice(-5),
+        confusionPoints: state.learnerModel.confusionPoints.slice(-5),
+        category: category || selectedCategory,
+      });
+      setJourneyTopics(result.topics || []);
+      setTopicsLoaded(true);
+    } catch {
+      setTopicsLoaded(true);
+    } finally {
+      setTopicsLoading(false);
     }
-  }, [profile.onboardingDone, profile.interests.length, feedQuery.isLoading, feedQuery.isFetched, feedQuery.data?.items?.length]);
+  }, [profile, state.learnerModel, selectedCategory, journeyTopicsMutation]);
 
-  // Greeting based on time of day
+  // ─── Filter by category ────────────────────────────────────────────────────
+
+  const filteredTopics = useMemo(() => {
+    if (selectedCategory === "all") return journeyTopics;
+    return journeyTopics.filter((t) => t.category === selectedCategory);
+  }, [journeyTopics, selectedCategory]);
+
+  // ─── Greeting ──────────────────────────────────────────────────────────────
+
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -297,7 +257,16 @@ export default function HomeScreen() {
 
   const displayName = profile.displayName || (profile.age && profile.age < 16 ? "learner" : null);
 
-  // Handle ask submission — navigate to Ask tab with the question
+  // ─── Quick Burst topic (personalized) ──────────────────────────────────────
+
+  const burstTopic = useMemo(() => {
+    if (profile.interests.length === 0) return null;
+    const interest = profile.interests[Math.floor(Math.random() * profile.interests.length)];
+    return interest.replace(/-/g, " ");
+  }, [profile.interests]);
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
+
   const handleAskSubmit = useCallback(() => {
     if (!askInput.trim()) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -305,86 +274,46 @@ export default function HomeScreen() {
     setAskInput("");
   }, [askInput, router]);
 
-  // Handle card press
-  const handleCardPress = useCallback(
-    (card: FeedCard) => {
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      if (card.content?.url) {
-        router.push({
-          pathname: "/content/[id]",
-          params: {
-            id: String(card.content.id || 0),
-            title: card.content.title,
-            url: card.content.url,
-            thumbnailUrl: card.content.thumbnailUrl || "",
-            source: card.content.source || "",
-            channelOrAuthor: card.content.channelOrAuthor || "",
-            topicSlug: card.content.topicSlug || "",
-            topicEmoji: card.content.topicEmoji || "",
-            description: card.content.description || "",
-          },
-        } as any);
-      }
-    },
-    [router]
-  );
+  const handleSuggestionPress = useCallback((suggestion: string) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({ pathname: "/(tabs)/ask", params: { q: suggestion } } as any);
+  }, [router]);
 
-  // Handle quiz answer
-  const handleQuizAnswer = useCallback(
-    (correct: boolean, topicSlug: string) => {
-      addXp(correct ? 15 : 5);
-      dispatch({ type: "RECORD_QUIZ", payload: { correct, topicSlug } });
-    },
-    [addXp, dispatch]
-  );
+  const handleJourneyTopicPress = useCallback((topic: JourneyTopic) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Navigate to the Ask tab with this topic as the question — starts a full learning journey
+    router.push({ pathname: "/(tabs)/ask", params: { q: topic.title } } as any);
+  }, [router]);
 
-  // Handle topic pill press — navigate to topic detail
-  const handleTopicPress = useCallback(
-    (slug: string, name: string, emoji: string) => {
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const hasCuriosityResult = !!state.curiosityResults?.[slug];
-      if (hasCuriosityResult) {
-        router.push({ pathname: "/topic/[slug]", params: { slug, name, emoji } } as any);
-      } else {
-        router.push({ pathname: "/curiosity-check", params: { slug, name, emoji } } as any);
-      }
-    },
-    [router, state.curiosityResults]
-  );
+  const handleCategoryChange = useCallback((key: string) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCategory(key);
+    // Reload topics for the new category
+    loadJourneyTopics(key);
+  }, [loadJourneyTopics]);
 
-  // Refresh feed
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      await refreshMutation.mutateAsync({
-        topicSlugs: profile.interests.slice(0, 5),
-        skillLevel: profile.skillLevel,
-      });
-      feedQuery.refetch();
-    } catch {}
+    await Promise.all([
+      loadSuggestions(),
+      loadJourneyTopics(selectedCategory),
+    ]);
     setRefreshing(false);
-  }, [profile.interests, profile.skillLevel, refreshMutation, feedQuery]);
+  }, [loadSuggestions, loadJourneyTopics, selectedCategory]);
 
-  // ─── Render Feed Item ────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────
 
-  const renderFeedItem = useCallback(
-    ({ item }: { item: FeedCard }) => {
-      switch (item.cardType) {
-        case "video":
-        case "article":
-          return <VideoCard card={item} colors={colors} onPress={handleCardPress} />;
-        case "quiz":
-          return <QuizCard card={item} colors={colors} onAnswer={handleQuizAnswer} />;
-        case "insight":
-          return <InsightCard card={item} colors={colors} />;
-        default:
-          return <VideoCard card={item} colors={colors} onPress={handleCardPress} />;
-      }
-    },
-    [colors, handleCardPress, handleQuizAnswer]
+  const renderJourneyTopic = useCallback(
+    ({ item, index }: { item: JourneyTopic; index: number }) => (
+      <JourneyTopicCard
+        topic={item}
+        colors={colors}
+        onPress={handleJourneyTopicPress}
+        index={index}
+      />
+    ),
+    [colors, handleJourneyTopicPress]
   );
-
-  // ─── Header Component (Ask bar + Topics) ─────────────────────────────────────
 
   const ListHeader = useMemo(
     () => (
@@ -394,24 +323,25 @@ export default function HomeScreen() {
           <Text style={[styles.greeting, { color: colors.foreground }]}>
             {greeting}{displayName ? `, ${displayName}` : ""}
           </Text>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>
-            What would you like to learn today?
-          </Text>
         </Animated.View>
 
-        {/* Ask Input Bar */}
+        {/* Big Ask Section */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+          <Text style={[styles.askPrompt, { color: colors.muted }]}>
+            What would you like to learn about today?
+          </Text>
           <View style={[styles.askBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={styles.askIcon}>💬</Text>
             <TextInput
+              ref={askInputRef}
               value={askInput}
               onChangeText={setAskInput}
-              placeholder="Ask anything..."
-              placeholderTextColor={colors.muted}
+              placeholder="Type a question or topic..."
+              placeholderTextColor={colors.muted + "80"}
               style={[styles.askInput, { color: colors.foreground }]}
               returnKeyType="send"
               onSubmitEditing={handleAskSubmit}
               blurOnSubmit
+              multiline={false}
             />
             {askInput.trim().length > 0 && (
               <Pressable
@@ -421,85 +351,61 @@ export default function HomeScreen() {
                   { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
                 ]}
               >
-                <Text style={styles.askSendIcon}>→</Text>
+                <Text style={styles.askSendIcon}>{"\u2192"}</Text>
               </Pressable>
             )}
           </View>
         </Animated.View>
 
-        {/* Quick Burst */}
-        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
-          <Pressable
-            onPress={() => {
-              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              router.push("/quick-burst" as any);
-            }}
-            style={({ pressed }) => [
-              styles.burstBtn,
-              { backgroundColor: colors.warning + "12", borderColor: colors.warning + "30", opacity: pressed ? 0.85 : 1 },
-            ]}
-          >
-            <Text style={styles.burstEmoji}>{"\u26A1"}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.burstTitle, { color: colors.foreground }]}>Quick Burst</Text>
-              <Text style={[styles.burstDesc, { color: colors.muted }]}>60 seconds. Learn one concept.</Text>
-            </View>
-            <Text style={[styles.burstArrow, { color: colors.muted }]}>{"\u203A"}</Text>
-          </Pressable>
-        </Animated.View>
-
-        {/* Your Topics (horizontal scroll) */}
-        {profile.interests.length > 0 && (
+        {/* Suggestion Chips */}
+        {suggestions.length > 0 && (
           <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <Text style={[styles.sectionLabel, { color: colors.muted }]}>Your Topics</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.topicPillsContainer}
+              contentContainerStyle={styles.suggestionsContainer}
             >
-              {allTopics
-                .filter((t) => profile.interests.includes(t.slug))
-                .map((topic) => (
-                  <Pressable
-                    key={topic.slug}
-                    onPress={() => handleTopicPress(topic.slug, topic.name, topic.emoji)}
-                    style={({ pressed }) => [
-                      styles.topicPill,
-                      {
-                        backgroundColor: colors.primary + "12",
-                        borderColor: colors.primary + "30",
-                        opacity: pressed ? 0.8 : 1,
-                      },
-                    ]}
-                  >
-                    <Text style={styles.topicPillEmoji}>{topic.emoji}</Text>
-                    <Text style={[styles.topicPillName, { color: colors.foreground }]}>{topic.name}</Text>
-                  </Pressable>
-                ))}
-              {/* Explore more pill */}
-              <Pressable
-                onPress={() => {
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedCategory("all");
-                }}
-                style={({ pressed }) => [
-                  styles.topicPill,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    opacity: pressed ? 0.8 : 1,
-                  },
-                ]}
-              >
-                <Text style={styles.topicPillEmoji}>+</Text>
-                <Text style={[styles.topicPillName, { color: colors.muted }]}>Explore</Text>
-              </Pressable>
+              {suggestions.map((s, i) => (
+                <SuggestionChip
+                  key={`sug-${i}`}
+                  text={s}
+                  colors={colors}
+                  onPress={() => handleSuggestionPress(s)}
+                  index={i}
+                />
+              ))}
             </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* Quick Burst — personalized */}
+        {burstTopic && (
+          <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+            <Pressable
+              onPress={() => {
+                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push("/quick-burst" as any);
+              }}
+              style={({ pressed }) => [
+                styles.burstBtn,
+                { backgroundColor: colors.warning + "10", borderColor: colors.warning + "25", opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={styles.burstEmoji}>{"\u26A1"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.burstTitle, { color: colors.foreground }]}>Quick Burst</Text>
+                <Text numberOfLines={1} style={[styles.burstDesc, { color: colors.muted }]}>
+                  60 sec challenge about {burstTopic}
+                </Text>
+              </View>
+              <Text style={[styles.burstArrow, { color: colors.muted }]}>{"\u203A"}</Text>
+            </Pressable>
           </Animated.View>
         )}
 
         {/* Category Filter Pills */}
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <Text style={[styles.sectionLabel, { color: colors.muted }]}>Explore Learning Journeys</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -510,10 +416,7 @@ export default function HomeScreen() {
               return (
                 <Pressable
                   key={cat.key}
-                  onPress={() => {
-                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedCategory(cat.key);
-                  }}
+                  onPress={() => handleCategoryChange(cat.key)}
                   style={({ pressed }) => [
                     styles.categoryPill,
                     {
@@ -531,75 +434,73 @@ export default function HomeScreen() {
             })}
           </ScrollView>
         </Animated.View>
-
-        {/* Feed section label */}
-        <View style={styles.feedLabelRow}>
-          <Text style={[styles.sectionLabel, { color: colors.muted }]}>
-            {selectedCategory === "all" ? "Your Feed" : `${TOPIC_CATEGORIES.find((c) => c.key === selectedCategory)?.label || ""} Feed`}
-          </Text>
-        </View>
       </View>
     ),
-    [greeting, displayName, askInput, colors, profile.interests, allTopics, selectedCategory, handleAskSubmit, handleTopicPress]
+    [greeting, displayName, askInput, colors, suggestions, burstTopic, selectedCategory, handleAskSubmit, handleSuggestionPress, handleCategoryChange, router]
   );
 
-  // ─── Empty State ─────────────────────────────────────────────────────────────
+  // ─── Empty / Loading State ─────────────────────────────────────────────────
 
-  // Show loading state on cold start: if we don't have data yet AND haven't timed out
-  const isLoadingFeed = !loadingTimedOut && (feedQuery.isLoading || isAutoRefreshing || refreshMutation.isPending || (!feedHasData && !feedQuery.isError));
-
-  const EmptyFeed = useMemo(
-    () => (
-      <View style={styles.emptyWrap}>
-        {isLoadingFeed ? (
-          <View style={styles.emptyContent}>
-            <Text style={[styles.emptyTitle, { color: colors.foreground, marginBottom: 4 }]}>
-              Loading your feed...
-            </Text>
-            <Text style={[styles.emptyDesc, { color: colors.muted, marginBottom: 16 }]}>
-              Finding the best content for your interests
-            </Text>
-            <SkeletonFeed />
-          </View>
-        ) : (
+  const EmptyFeed = useMemo(() => {
+    if (topicsLoading) {
+      return <JourneyTopicSkeleton colors={colors} />;
+    }
+    if (!profile.onboardingDone || profile.interests.length === 0) {
+      return (
+        <View style={styles.emptyWrap}>
           <Animated.View entering={FadeIn.duration(300)} style={styles.emptyContent}>
-            <Text style={styles.emptyEmoji}>🌱</Text>
+            <Text style={styles.emptyEmoji}>{"\ud83c\udf31"}</Text>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              Your feed is growing
+              Complete onboarding to get started
             </Text>
             <Text style={[styles.emptyDesc, { color: colors.muted }]}>
-              As you explore topics and ask questions, your personalized feed will fill with content matched to your level and interests.
+              Tell us what you're curious about and we'll create personalized learning journeys just for you.
             </Text>
-            <Pressable
-              onPress={handleRefresh}
-              style={({ pressed }) => [
-                styles.refreshBtn,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Text style={styles.refreshBtnText}>Load Content</Text>
-            </Pressable>
           </Animated.View>
-        )}
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyWrap}>
+        <Animated.View entering={FadeIn.duration(300)} style={styles.emptyContent}>
+          <Text style={styles.emptyEmoji}>{"\ud83d\ude80"}</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            Preparing your journeys
+          </Text>
+          <Text style={[styles.emptyDesc, { color: colors.muted }]}>
+            We're crafting personalized learning paths based on your interests. Pull down to refresh.
+          </Text>
+          <Pressable
+            onPress={() => loadJourneyTopics(selectedCategory)}
+            style={({ pressed }) => [
+              styles.refreshBtn,
+              { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+            ]}
+          >
+            <Text style={styles.refreshBtnText}>Load Journeys</Text>
+          </Pressable>
+        </Animated.View>
       </View>
-    ),
-    [isLoadingFeed, colors, handleRefresh]
-  );
-
-  // ─── Render ──────────────────────────────────────────────────────────────────
+    );
+  }, [topicsLoading, profile.onboardingDone, profile.interests.length, colors, selectedCategory, loadJourneyTopics]);
 
   return (
     <ScreenContainer className="flex-1">
       <FlatList
-        data={feedCards}
-        renderItem={renderFeedItem}
-        keyExtractor={(item) => item.id}
+        data={filteredTopics}
+        renderItem={renderJourneyTopic}
+        keyExtractor={(item, idx) => `journey-${idx}-${item.title.slice(0, 20)}`}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={EmptyFeed}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
       />
     </ScreenContainer>
   );
@@ -608,34 +509,60 @@ export default function HomeScreen() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  listContent: { paddingBottom: 20 },
+  listContent: { paddingBottom: 30 },
 
   // Header Section
-  headerSection: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
-  greeting: { fontSize: 26, fontWeight: "800", lineHeight: 32 },
-  subtitle: { fontSize: 15, marginTop: 4, marginBottom: 16, lineHeight: 20 },
+  headerSection: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
+  greeting: { fontSize: 28, fontWeight: "800", lineHeight: 34 },
 
-  // Ask Bar
+  // Ask Section
+  askPrompt: {
+    fontSize: 16,
+    fontWeight: "500",
+    marginTop: 6,
+    marginBottom: 14,
+    lineHeight: 22,
+  },
   askBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 20,
+    borderWidth: 1.5,
+    marginBottom: 14,
     gap: 10,
   },
-  askIcon: { fontSize: 18 },
-  askInput: { flex: 1, fontSize: 16, padding: 0, lineHeight: 20 },
+  askInput: {
+    flex: 1,
+    fontSize: 17,
+    padding: 0,
+    lineHeight: 22,
+    fontWeight: "400",
+  },
   askSendBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
-  askSendIcon: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+  askSendIcon: { color: "#FFF", fontSize: 18, fontWeight: "700" },
+
+  // Suggestion Chips
+  suggestionsContainer: { gap: 8, paddingBottom: 16 },
+  suggestionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+    maxWidth: 260,
+  },
+  suggestionText: { fontSize: 14, fontWeight: "500", flexShrink: 1 },
+  suggestionArrow: { fontSize: 14, fontWeight: "700" },
 
   // Section Labels
   sectionLabel: {
@@ -644,21 +571,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 10,
+    marginTop: 8,
   },
-
-  // Topic Pills (your topics)
-  topicPillsContainer: { gap: 8, paddingBottom: 16 },
-  topicPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 6,
-  },
-  topicPillEmoji: { fontSize: 16 },
-  topicPillName: { fontSize: 14, fontWeight: "600" },
 
   // Category Pills
   categoryPillsContainer: { gap: 8, paddingBottom: 16 },
@@ -670,30 +584,48 @@ const styles = StyleSheet.create({
   },
   categoryPillText: { fontSize: 13, fontWeight: "600" },
 
-  // Feed Label
-  feedLabelRow: { marginTop: 4 },
-
-  // Feed Cards
-  feedCard: {
+  // Journey Topic Cards
+  journeyCard: {
     marginHorizontal: 20,
-    marginBottom: 14,
+    marginBottom: 16,
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
   },
-  thumbWrap: { position: "relative" },
-  thumb: { width: "100%", height: 180, borderTopLeftRadius: 15, borderTopRightRadius: 15 },
-  durationBadge: {
+  journeyThumbWrap: { position: "relative" },
+  journeyThumb: {
+    width: "100%",
+    height: 160,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+  },
+  journeyThumbOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+  },
+  journeyThumbPlaceholder: {
+    width: "100%",
+    height: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    position: "relative",
+  },
+  journeyThumbEmoji: { fontSize: 48 },
+  timeBadge: {
     position: "absolute",
     bottom: 8,
     right: 8,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  durationText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
-  topicBadge: {
+  timeBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
+  categoryBadge: {
     position: "absolute",
     top: 8,
     left: 8,
@@ -701,58 +633,43 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 10,
   },
-  topicBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
-  cardBody: { padding: 14 },
-  cardTitle: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
-  cardMeta: { flexDirection: "row", alignItems: "center", marginTop: 6 },
-  cardSource: { fontSize: 13 },
-
-  // Quiz Feed Card
-  quizFeedCard: {
-    marginHorizontal: 20,
-    marginBottom: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 18,
-  },
-  quizHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-  quizLabel: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  quizQuestion: { fontSize: 17, fontWeight: "700", lineHeight: 24, marginBottom: 14 },
-  quizOption: {
+  categoryBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
+  journeyBody: { padding: 14 },
+  journeyTitle: { fontSize: 17, fontWeight: "700", lineHeight: 23 },
+  journeyHook: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  journeyFooter: { flexDirection: "row", alignItems: "center", marginTop: 10 },
+  learnBadge: {
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    borderWidth: 1.5,
-    marginBottom: 8,
   },
-  quizOptionText: { fontSize: 15, fontWeight: "500" },
-  explanationBox: { marginTop: 8, padding: 12, borderRadius: 10 },
-  explanationText: { fontSize: 13, lineHeight: 20 },
+  learnBadgeText: { fontSize: 13, fontWeight: "700" },
 
-  // Insight Card
-  insightCard: {
-    marginHorizontal: 20,
-    marginBottom: 14,
-    borderRadius: 16,
+  // Quick Burst
+  burstBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 18,
+    marginBottom: 16,
+    gap: 12,
   },
-  insightHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-  insightConnector: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-  insightTitle: { fontSize: 16, fontWeight: "700", lineHeight: 22, marginBottom: 6 },
-  insightBody: { fontSize: 14, lineHeight: 21 },
+  burstEmoji: { fontSize: 28 },
+  burstTitle: { fontSize: 15, fontWeight: "700" },
+  burstDesc: { fontSize: 12, marginTop: 2, lineHeight: 16 },
+  burstArrow: { fontSize: 24, fontWeight: "300" },
 
   // Empty State
   emptyWrap: { alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 },
   emptyContent: { alignItems: "center" },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
-  emptyDesc: { fontSize: 14, textAlign: "center", lineHeight: 21, maxWidth: 280, marginBottom: 20 },
+  emptyDesc: { fontSize: 14, textAlign: "center", lineHeight: 21, maxWidth: 300, marginBottom: 20 },
   refreshBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   refreshBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
-  burstBtn: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 12, gap: 12 },
-  burstEmoji: { fontSize: 28 },
-  burstTitle: { fontSize: 15, fontWeight: "700" },
-  burstDesc: { fontSize: 12, marginTop: 2 },
-  burstArrow: { fontSize: 24, fontWeight: "300" },
+
+  // Skeleton
+  skeletonWrap: { paddingHorizontal: 0 },
+  skeletonLine: { height: 16, borderRadius: 8 },
 });

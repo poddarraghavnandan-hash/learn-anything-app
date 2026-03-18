@@ -379,3 +379,23 @@
 - [x] Bug 4 LOW: ChallengeTimer now uses key prop to force remount on stage change, ensuring fresh timer on re-entry
 - [x] Bug 5 LOW: Progress dots now skip prior_knowledge stage (adjusted total/current/onDotPress with offset)
 - [x] Bug 6 LOW: XP popup z-index raised to 999 with proper left/right centering and pointerEvents:none to prevent occlusion
+
+## Home Feed Redesign — Learning Journey Topics, Not Video Lists
+- [x] Redesign "For You" feed to show personalized learning journey topics (not raw video lists)
+- [x] Each feed card = a learning topic with video thumbnail as visual hook, not a video to watch
+- [x] Tapping a feed card starts a full guided learning journey (7-stage path), not video playback
+- [x] Backend: generate personalized topic suggestions based on user interests/age/learner model
+- [x] Backend: fetch relevant YouTube thumbnail for each topic suggestion as visual hook
+- [x] Topic cards should feel like invitations to learn, not a content dump
+- [x] Category pills (For You, Science, Code, AI, etc.) filter the topic suggestions
+- [x] Remove raw video feed items — everything leads to a learning journey
+
+## Home Screen UX Overhaul — Inviting, Personalized, Journey-First
+- [x] Redesign Ask bar: bigger text box, "What would you like to learn about today?" prompt, with suggestion chips below
+- [x] Ask bar suggestions should be personalized based on interests/learner model (reuse chat.suggestions endpoint)
+- [x] Quick Burst: personalize prompt to user's interests (not generic "learn one concept")
+- [x] Replace video feed with personalized learning journey topic cards
+- [x] Each journey topic card uses a YouTube thumbnail as visual hook but tapping starts a learning journey
+- [x] Backend: new endpoint to generate journey topic suggestions with YouTube thumbnails
+- [x] Category pills filter journey topics, not raw videos
+- [x] Overall Home screen should feel like an invitation to learn, not a content dump

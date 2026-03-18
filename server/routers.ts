@@ -1602,6 +1602,117 @@ Return JSON: { "suggestions": ["q1", "q2", "q3", "q4"], "reasons": ["why1", "why
       }),
   }),
 
+  // ─── Journey Topic Suggestions for Home Feed ─────────────────────────────
+  journeyTopics: router({
+    // Generate personalized learning journey topic suggestions with YouTube thumbnails
+    suggest: publicProcedure
+      .input(z.object({
+        interests: z.array(z.string()),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        age: z.number().optional(),
+        pastTopics: z.array(z.string()).optional().default([]),
+        strengthAreas: z.array(z.string()).optional().default([]),
+        confusionPoints: z.array(z.string()).optional().default([]),
+        category: z.string().optional(), // filter by category
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const ageContext = input.age
+            ? input.age < 10 ? "a child under 10" : input.age < 16 ? `a teenager (${input.age} years old)` : `an adult (${input.age} years old)`
+            : "a curious learner";
+
+          const categoryFilter = input.category && input.category !== "all"
+            ? `\nFocus specifically on the "${input.category}" category.`
+            : "";
+
+          const hasHistory = input.pastTopics.length > 0;
+
+          const prompt = `Generate 6 compelling learning journey topics for ${ageContext} at ${input.skillLevel} level.
+
+Their interests: ${input.interests.join(", ") || "general knowledge"}
+${hasHistory ? `Topics they've already explored: ${input.pastTopics.slice(-10).join(", ")}` : ""}
+${input.strengthAreas.length ? `Strong in: ${input.strengthAreas.join(", ")}` : ""}
+${input.confusionPoints.length ? `Struggles with: ${input.confusionPoints.join(", ")}` : ""}${categoryFilter}
+
+For each topic, provide:
+1. A curiosity-sparking question or topic title (the kind that makes you go "wait, really?")
+2. A 1-sentence hook that makes them NEED to know the answer
+3. A category (one of: Science, Programming, AI & Data, Humanities, Creative, Business, Health, General)
+4. An emoji that captures the topic
+5. A YouTube search query to find a great thumbnail image for this topic
+6. Estimated learning time in minutes (5-15)
+
+Rules:
+- Topics should feel like fascinating questions, not textbook chapters
+- ${hasHistory ? "2 topics should build on what they've explored, 2 should be fresh angles on their interests, 2 should be surprising tangents" : "Mix practical how-it-works topics with mind-blowing why-does-this-happen topics"}
+- Each topic should be something that leads to a full learning journey, not just a video to watch
+- Make them specific and concrete, not vague ("Why do cats purr?" not "Animal behavior")
+- Keep titles under 60 characters
+
+Return JSON: {
+  "topics": [
+    {
+      "title": "...",
+      "hook": "...",
+      "category": "...",
+      "emoji": "...",
+      "searchQuery": "...",
+      "estimatedMinutes": 10
+    }
+  ]
+}`;
+
+          const response = await invokeLLM({
+            messages: [
+              { role: "system", content: `${LEARNLM_SYSTEM}\nYou generate personalized learning topic suggestions. Return valid JSON only.` },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          const topics = parsed.topics || [];
+
+          // Fetch YouTube thumbnails for each topic in parallel
+          const topicsWithThumbnails = await Promise.all(
+            topics.map(async (topic: any) => {
+              try {
+                const result = await callDataApi("Youtube/search", {
+                  query: { q: topic.searchQuery, hl: "en", gl: "US" },
+                }) as any;
+                const firstVideo = (result?.contents || []).find((c: any) => c.type === "video" && c.video);
+                const video = firstVideo?.video;
+                return {
+                  ...topic,
+                  thumbnailUrl: video?.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${video?.videoId || "dQw4w9WgXcQ"}/hqdefault.jpg`,
+                  channelName: video?.channelTitle || video?.channelName || "",
+                  videoTitle: video?.title || "",
+                };
+              } catch {
+                return { ...topic, thumbnailUrl: "", channelName: "", videoTitle: "" };
+              }
+            })
+          );
+
+          return { topics: topicsWithThumbnails };
+        } catch {
+          // Fallback: generate basic topics from interests
+          const fallbackTopics = input.interests.slice(0, 6).map((interest) => ({
+            title: `How does ${interest.replace(/-/g, " ")} actually work?`,
+            hook: `The answer might surprise you.`,
+            category: "General",
+            emoji: "🧠",
+            searchQuery: `${interest.replace(/-/g, " ")} explained`,
+            estimatedMinutes: 10,
+            thumbnailUrl: "",
+            channelName: "",
+            videoTitle: "",
+          }));
+          return { topics: fallbackTopics };
+        }
+      }),
+  }),
+
   // ─── Search ───────────────────────────────────────────────────────────────
   search: router({
     query: publicProcedure
