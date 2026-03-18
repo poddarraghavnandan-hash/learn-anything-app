@@ -889,6 +889,7 @@ Return JSON:
         question: z.string().min(1),
         direction: z.enum(["simpler", "deeper"]),
         currentDifficultyLevel: z.number().min(1).max(5),
+        depthLevel: z.number().min(0).max(3).optional().default(0),
         learnerContext: z.string().optional().default(""),
       }))
       .mutation(async ({ input }) => {
@@ -899,6 +900,9 @@ Return JSON:
             : Math.min(5, input.currentDifficultyLevel + 1);
           const diffPrompt = getDifficultyPrompt(targetLevel);
 
+          const depthLevel = input.depthLevel ?? 0;
+          const depthLabels = ["", "Expanded", "Deep Dive", "Expert Analysis"];
+
           const directionInstruction = input.direction === "simpler"
             ? `The learner found the previous explanation too complex. Rewrite this stage to be SIMPLER and more accessible:
 - Use shorter sentences and everyday words
@@ -906,12 +910,26 @@ Return JSON:
 - Remove jargon or define every term immediately
 - Make it feel warm and encouraging, like talking to a curious friend
 - If there's a key takeaway, make it crystal clear in one simple sentence`
-            : `The learner wants to go DEEPER and learn more. Rewrite this stage with MORE depth and detail:
+            : depthLevel === 0
+            ? `The learner wants to go DEEPER (Depth 1/3: Expanded). Rewrite this stage with MORE depth and detail:
 - Add nuance, edge cases, or "what most people don't realize" insights
 - Include connections to related concepts or fields
 - Use more precise terminology (still define new terms)
 - Add a thought-provoking angle they haven't considered
-- If there's a key takeaway, make it richer and more insightful`;
+- If there's a key takeaway, make it richer and more insightful`
+            : depthLevel === 1
+            ? `The learner wants to go EVEN DEEPER (Depth 2/3: Deep Dive). They've already seen an expanded version. Now provide a DEEP DIVE:
+- Explain the underlying mechanisms or principles at work
+- Add historical context, research findings, or expert perspectives
+- Discuss trade-offs, limitations, or common misconceptions
+- Connect to adjacent fields or advanced applications
+- Make the key takeaway synthesize multiple layers of understanding`
+            : `The learner wants MAXIMUM DEPTH (Depth 3/3: Expert Analysis). They've seen expanded and deep dive versions. Now provide EXPERT-LEVEL analysis:
+- Discuss cutting-edge developments, open questions, or active debates in the field
+- Reference specific frameworks, models, or seminal ideas by name
+- Explore second-order effects and systemic implications
+- Challenge assumptions and present contrarian viewpoints
+- The key takeaway should be a sophisticated insight that connects multiple domains`;
 
           const stageTypeInstruction: Record<string, string> = {
             hook: "This is a HOOK stage — it should spark curiosity. Keep it short (2-3 sentences) and punchy.",

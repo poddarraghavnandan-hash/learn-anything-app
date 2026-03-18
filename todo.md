@@ -342,3 +342,18 @@
 - [x] Feed "Tell Me More" usage into learner model (boost concept confidence, add to strengthAreas)
 - [x] Animate the stage content swap when regenerated content arrives (FadeInDown animation on stage key change)
 - [x] Buttons should feel intuitive and contextual, not like settings (color-coded, emoji-labeled, appear below content)
+
+## Auto-Detect Pause Hint for Explain Simpler
+- [x] Track time spent on each content stage (hook, foundation, explanation, real_world)
+- [x] After 15 seconds without advancing, subtly pulse the Explain Simpler button as a visual hint
+- [x] Reset timer when user advances, goes back, or taps a button
+- [x] Use Reanimated for smooth pulse animation (not jarring)
+- [x] Only trigger on content stages where Explain Simpler is available
+
+## Tell Me More Depth Chain
+- [x] Track depth level per stage (starts at 0, max 3 taps)
+- [x] Each Tell Me More tap progressively deepens the explanation
+- [x] Show depth indicator (1/3, 2/3, 3/3) on the Tell Me More button
+- [x] Disable Tell Me More after max depth (3/3) reached
+- [x] Reset depth counter when navigating to a new journey
+- [x] Backend receives current depth level to generate progressively deeper content (Expanded > Deep Dive > Expert Analysis)

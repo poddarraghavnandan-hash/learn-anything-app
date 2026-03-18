@@ -697,6 +697,9 @@ function NextStepsCard({
 
 const REGEN_STAGES = new Set(["foundation", "explanation", "real_world", "hook"]);
 
+const MAX_DEPTH = 3;
+const PAUSE_HINT_DELAY = 15000; // 15 seconds
+
 function StageActions({
   stageType,
   isRegenerating,
@@ -704,6 +707,9 @@ function StageActions({
   onSimpler,
   onDeeper,
   isDark,
+  showPulseHint,
+  depthLevel,
+  maxDepthReached,
 }: {
   stageType: string;
   isRegenerating: boolean;
@@ -711,45 +717,89 @@ function StageActions({
   onSimpler: () => void;
   onDeeper: () => void;
   isDark: boolean;
+  showPulseHint: boolean;
+  depthLevel: number;
+  maxDepthReached: boolean;
 }) {
   const colors = useColors();
+  const pulseAnim = useSharedValue(1);
+
+  useEffect(() => {
+    if (showPulseHint) {
+      // Subtle breathing pulse: scale 1 -> 1.04 -> 1 over 1.5s, repeat
+      const pulse = () => {
+        pulseAnim.value = withTiming(1.04, { duration: 750, easing: Easing.inOut(Easing.ease) }, () => {
+          pulseAnim.value = withTiming(1, { duration: 750, easing: Easing.inOut(Easing.ease) });
+        });
+      };
+      pulse();
+      const interval = setInterval(pulse, 1600);
+      return () => clearInterval(interval);
+    } else {
+      pulseAnim.value = withTiming(1, { duration: 200 });
+    }
+  }, [showPulseHint]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }],
+  }));
+
   if (!REGEN_STAGES.has(stageType)) return null;
+
+  const depthLabel = depthLevel > 0 ? ` (${depthLevel}/${MAX_DEPTH})` : "";
 
   return (
     <Animated.View entering={FadeIn.delay(400).duration(300)} style={styles.stageActionsRow}>
-      <TouchableOpacity
-        onPress={onSimpler}
-        disabled={isRegenerating}
-        activeOpacity={0.7}
-        style={[
-          styles.stageActionBtn,
-          {
-            backgroundColor: isDark ? "#3B82F620" : "#EFF6FF",
-            borderColor: isDark ? "#3B82F640" : "#BFDBFE",
-            opacity: isRegenerating && regenDirection !== "simpler" ? 0.4 : 1,
-          },
-        ]}
-      >
-        {isRegenerating && regenDirection === "simpler" ? (
-          <ActivityIndicator size="small" color="#3B82F6" />
-        ) : (
-          <>
-            <Text style={styles.stageActionIcon}>{"\u2728"}</Text>
-            <Text style={[styles.stageActionText, { color: "#3B82F6" }]}>Explain Simpler</Text>
-          </>
+      {/* Explain Simpler — with optional pulse hint */}
+      <Animated.View style={[{ flex: 1 }, showPulseHint ? pulseStyle : {}]}>
+        <TouchableOpacity
+          onPress={onSimpler}
+          disabled={isRegenerating}
+          activeOpacity={0.7}
+          style={[
+            styles.stageActionBtn,
+            {
+              backgroundColor: isDark ? "#3B82F620" : "#EFF6FF",
+              borderColor: showPulseHint
+                ? "#3B82F6"
+                : isDark ? "#3B82F640" : "#BFDBFE",
+              borderWidth: showPulseHint ? 1.5 : 1,
+              opacity: isRegenerating && regenDirection !== "simpler" ? 0.4 : 1,
+            },
+          ]}
+        >
+          {isRegenerating && regenDirection === "simpler" ? (
+            <ActivityIndicator size="small" color="#3B82F6" />
+          ) : (
+            <>
+              <Text style={styles.stageActionIcon}>{"\u2728"}</Text>
+              <Text style={[styles.stageActionText, { color: "#3B82F6" }]}>Explain Simpler</Text>
+            </>
+          )}
+        </TouchableOpacity>
+        {showPulseHint && (
+          <Animated.Text
+            entering={FadeIn.duration(400)}
+            style={[styles.pulseHintText, { color: "#3B82F6" }]}
+          >
+            Need a simpler take?
+          </Animated.Text>
         )}
-      </TouchableOpacity>
+      </Animated.View>
 
+      {/* Tell Me More — with depth indicator */}
       <TouchableOpacity
         onPress={onDeeper}
-        disabled={isRegenerating}
+        disabled={isRegenerating || maxDepthReached}
         activeOpacity={0.7}
         style={[
           styles.stageActionBtn,
           {
             backgroundColor: isDark ? "#8B5CF620" : "#F5F3FF",
             borderColor: isDark ? "#8B5CF640" : "#C4B5FD",
-            opacity: isRegenerating && regenDirection !== "deeper" ? 0.4 : 1,
+            opacity: maxDepthReached
+              ? 0.4
+              : isRegenerating && regenDirection !== "deeper" ? 0.4 : 1,
           },
         ]}
       >
@@ -758,7 +808,26 @@ function StageActions({
         ) : (
           <>
             <Text style={styles.stageActionIcon}>{"\uD83D\uDD2D"}</Text>
-            <Text style={[styles.stageActionText, { color: "#8B5CF6" }]}>Tell Me More</Text>
+            <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
+              <Text style={[styles.stageActionText, { color: "#8B5CF6" }]}>
+                {maxDepthReached ? "Max Depth" : "Tell Me More"}
+              </Text>
+              {depthLevel > 0 && (
+                <View style={styles.depthDotsRow}>
+                  {Array.from({ length: MAX_DEPTH }).map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.depthDot,
+                        {
+                          backgroundColor: i < depthLevel ? "#8B5CF6" : isDark ? "#8B5CF630" : "#C4B5FD50",
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
           </>
         )}
       </TouchableOpacity>
@@ -853,6 +922,15 @@ export default function AskScreen() {
   // Stage regeneration state
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenDirection, setRegenDirection] = useState<"simpler" | "deeper" | null>(null);
+
+  // Pause hint state (auto-detect when learner pauses)
+  const [showPulseHint, setShowPulseHint] = useState(false);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Depth chain state (Tell Me More progressive deepening)
+  const [depthMap, setDepthMap] = useState<Record<number, number>>({});
+  const currentDepth = depthMap[currentStageIdx] ?? 0;
+  const maxDepthReached = currentDepth >= MAX_DEPTH;
 
   // ─── XP Award Helper ─────────────────────────────────────────────────────────
 
@@ -986,6 +1064,8 @@ export default function AskScreen() {
       setJourneyCheckCorrect(false);
       setVideoWatched(false);
       setChallengeTimerActive(false);
+      setDepthMap({});
+      setShowPulseHint(false);
       setChallengeTimerExpired(false);
 
       try {
@@ -1267,6 +1347,8 @@ export default function AskScreen() {
     setJourneyCheckCorrect(false);
     setVideoWatched(false);
     setChallengeTimerActive(false);
+    setDepthMap({});
+    setShowPulseHint(false);
     setChallengeTimerExpired(false);
     dispatch({ type: "SET_ACTIVE_JOURNEY", payload: null });
     loadSmartSuggestions();
@@ -1301,12 +1383,38 @@ export default function AskScreen() {
   const isCheckStage = currentStage?.type === "check";
   const canAdvance = isCheckStage ? checkAnswered : true;
 
-   // ─── Handle Stage Regeneration (Explain Simpler / Tell Me More) ────────
+  // ─── Pause Hint Timer ──────────────────────────────────────────────────────
+
+  useEffect(() => {
+    // Clear previous timer
+    if (pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+    }
+    setShowPulseHint(false);
+
+    // Only start timer on content stages where Explain Simpler is available
+    if (currentStage && REGEN_STAGES.has(currentStage.type) && activeJourney && !showCompletion) {
+      pauseTimerRef.current = setTimeout(() => {
+        setShowPulseHint(true);
+      }, PAUSE_HINT_DELAY);
+    }
+
+    return () => {
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
+      }
+    };
+  }, [currentStageIdx, activeJourney?.id, showCompletion]);
+
+  // ─── Handle Stage Regeneration (Explain Simpler / Tell Me More) ────────
 
   const handleRegenStage = useCallback(
     async (direction: "simpler" | "deeper") => {
       if (!activeJourney || !currentStage || isRegenerating) return;
       if (!REGEN_STAGES.has(currentStage.type)) return;
+      if (direction === "deeper" && (depthMap[currentStageIdx] ?? 0) >= MAX_DEPTH) return;
 
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setIsRegenerating(true);
@@ -1328,6 +1436,7 @@ export default function AskScreen() {
           question: activeJourney.question,
           direction,
           currentDifficultyLevel: activeJourney.difficultyLevel || 1,
+          depthLevel: direction === "deeper" ? (depthMap[currentStageIdx] ?? 0) : 0,
           learnerContext: learnerCtx,
         });
 
@@ -1348,6 +1457,12 @@ export default function AskScreen() {
           payload: { id: activeJourney.id, updates: { stages: updatedStages } },
         });
 
+        // Clear pulse hint since user interacted
+        setShowPulseHint(false);
+        // Reset pause timer
+        if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = setTimeout(() => setShowPulseHint(true), PAUSE_HINT_DELAY);
+
         // Feed back into learner model
         if (direction === "simpler") {
           dispatch({
@@ -1360,6 +1475,11 @@ export default function AskScreen() {
             },
           });
         } else {
+          // Increment depth for Tell Me More
+          setDepthMap((prev) => ({
+            ...prev,
+            [currentStageIdx]: (prev[currentStageIdx] ?? 0) + 1,
+          }));
           dispatch({
             type: "UPDATE_LEARNER_MODEL",
             payload: {
@@ -1567,6 +1687,9 @@ export default function AskScreen() {
                   onSimpler={() => handleRegenStage("simpler")}
                   onDeeper={() => handleRegenStage("deeper")}
                   isDark={isDark}
+                  showPulseHint={showPulseHint}
+                  depthLevel={currentDepth}
+                  maxDepthReached={maxDepthReached}
                 />
               )}
             </ScrollView>
@@ -2049,6 +2172,23 @@ const styles = StyleSheet.create({
   },
   stageActionIcon: { fontSize: 16 },
   stageActionText: { fontSize: 13, fontWeight: "700" },
+  pulseHintText: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 4,
+    opacity: 0.8,
+  },
+  depthDotsRow: {
+    flexDirection: "row" as const,
+    gap: 3,
+    marginTop: 2,
+  },
+  depthDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
 
   // Difficulty Badge
   difficultyBadge: {
