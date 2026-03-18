@@ -38,6 +38,8 @@ import type {
   JourneyStage,
   LearningJourney,
   ContentItemData,
+  PriorKnowledgeQuestion,
+  PriorKnowledgeResult,
 } from "@/shared/types";
 import {
   JOURNEY_STAGE_XP,
@@ -407,6 +409,181 @@ function ProgressDots({
 }
 
 // ─── Stage Cards ──────────────────────────────────────────────────────────────
+
+// ─── Prior Knowledge Card ────────────────────────────────────────────────────
+
+const ENCOURAGEMENTS = ["Great!", "That helps!", "Perfect!", "Got it!", "Thanks!"];
+
+function PriorKnowledgeCard({
+  stage,
+  isDark,
+  questions,
+  warmGreeting,
+  onComplete,
+  colors,
+}: {
+  stage: JourneyStage;
+  isDark: boolean;
+  questions: PriorKnowledgeQuestion[];
+  warmGreeting: string;
+  onComplete: (answers: number[], overallLevel: "none" | "low" | "medium" | "high") => void;
+  colors: any;
+}) {
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [showEncouragement, setShowEncouragement] = useState("");
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [allDone, setAllDone] = useState(false);
+
+  const handleAnswer = useCallback((optionIndex: number) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    const newAnswers = [...answers, optionIndex];
+    setAnswers(newAnswers);
+
+    // Show encouragement
+    const encouragement = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
+    setShowEncouragement(encouragement);
+
+    setTimeout(() => {
+      setShowEncouragement("");
+      if (currentQ < questions.length - 1) {
+        setCurrentQ(currentQ + 1);
+        setIsTransitioning(false);
+      } else {
+        // All questions answered — compute overall level
+        setAllDone(true);
+        const levels = newAnswers.map((ai, qi) => {
+          const q = questions[qi];
+          return q?.knowledgeLevels?.[ai] || "low";
+        });
+        const levelScores = { none: 0, low: 1, medium: 2, high: 3 };
+        const avgScore = levels.reduce((sum, l) => sum + levelScores[l], 0) / levels.length;
+        const overallLevel: "none" | "low" | "medium" | "high" =
+          avgScore < 0.5 ? "none" : avgScore < 1.5 ? "low" : avgScore < 2.5 ? "medium" : "high";
+
+        setTimeout(() => {
+          onComplete(newAnswers, overallLevel);
+        }, 1200);
+      }
+    }, 800);
+  }, [currentQ, answers, questions, isTransitioning, onComplete]);
+
+  if (!questions.length) return null;
+
+  const q = questions[currentQ];
+
+  return (
+    <View style={[styles.stageCard, { backgroundColor: isDark ? "#1a2332" : "#EEF2FF" }]}>
+      {/* Warm greeting */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={[styles.stageEmoji, { fontSize: 36 }]}>{stage.emoji || "\ud83d\udc4b"}</Text>
+        <Text style={[styles.stageTitle, { color: isDark ? "#E0E7FF" : "#3730A3", marginTop: 8 }]}>
+          {stage.title || "Before we start..."}
+        </Text>
+        <Text style={[styles.stageContent, { color: isDark ? "#C7D2FE" : "#4338CA", marginTop: 8, fontStyle: "italic" }]}>
+          {warmGreeting}
+        </Text>
+      </View>
+
+      {/* Progress dots */}
+      <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+        {questions.map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: i === currentQ ? 24 : 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: i < currentQ
+                ? (isDark ? "#818CF8" : "#6366F1")
+                : i === currentQ
+                  ? (isDark ? "#A5B4FC" : "#818CF8")
+                  : (isDark ? "#334155" : "#D1D5DB"),
+            }}
+          />
+        ))}
+      </View>
+
+      {/* Current question */}
+      {!allDone && q && (
+        <Animated.View key={`pkq-${currentQ}`} entering={FadeInDown.duration(300)}>
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ fontSize: 20, marginBottom: 4 }}>{q.emoji}</Text>
+            <Text style={[styles.stageContent, { color: isDark ? "#E2E8F0" : "#1E293B", fontWeight: "600", fontSize: 16, lineHeight: 24 }]}>
+              {q.question}
+            </Text>
+          </View>
+
+          {/* Options */}
+          <View style={{ gap: 10 }}>
+            {q.options.map((option, oi) => (
+              <TouchableOpacity
+                key={oi}
+                onPress={() => handleAnswer(oi)}
+                disabled={isTransitioning}
+                style={{
+                  backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
+                  borderRadius: 12,
+                  padding: 14,
+                  borderWidth: 1.5,
+                  borderColor: isDark ? "#475569" : "#C7D2FE",
+                  opacity: isTransitioning ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ color: isDark ? "#E2E8F0" : "#1E293B", fontSize: 15, lineHeight: 22 }}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Encouragement */}
+          {showEncouragement !== "" && (
+            <Animated.View entering={FadeIn.duration(200)} style={{ alignItems: "center", marginTop: 16 }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? "#818CF8" : "#6366F1" }}>
+                {showEncouragement}
+              </Text>
+            </Animated.View>
+          )}
+        </Animated.View>
+      )}
+
+      {/* Completion state — tailoring message */}
+      {allDone && (
+        <Animated.View entering={FadeIn.duration(400)} style={{ alignItems: "center", paddingVertical: 24 }}>
+          <ActivityIndicator size="small" color={isDark ? "#818CF8" : "#6366F1"} style={{ marginBottom: 12 }} />
+          <Text style={{ fontSize: 16, fontWeight: "600", color: isDark ? "#C7D2FE" : "#4338CA" }}>
+            Tailoring your journey...
+          </Text>
+          <Text style={{ fontSize: 14, color: isDark ? "#94A3B8" : "#64748B", marginTop: 4 }}>
+            Personalizing content just for you
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* Skip button */}
+      {!allDone && (
+        <TouchableOpacity
+          onPress={() => {
+            const defaultAnswers = questions.map(() => 1); // default to "low"
+            onComplete(defaultAnswers, "low");
+          }}
+          style={{ alignItems: "center", marginTop: 20, paddingVertical: 8 }}
+        >
+          <Text style={{ fontSize: 13, color: isDark ? "#64748B" : "#94A3B8" }}>
+            Skip — I'm ready to learn
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
 
 function HookCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
   const colors = useColors();
@@ -918,6 +1095,13 @@ export default function AskScreen() {
   const fetchContentMutation = trpc.chat.fetchStepContent.useMutation();
   const suggestionsMutation = trpc.chat.suggestions.useMutation();
   const regenStageMutation = trpc.chat.regenStage.useMutation();
+  const priorKnowledgeMutation = trpc.chat.priorKnowledge.useMutation();
+
+  // Prior knowledge check state
+  const [priorKnowledgeQuestions, setPriorKnowledgeQuestions] = useState<PriorKnowledgeQuestion[]>([]);
+  const [priorKnowledgeGreeting, setPriorKnowledgeGreeting] = useState("");
+  const [priorKnowledgeResult, setPriorKnowledgeResult] = useState<PriorKnowledgeResult | null>(null);
+  const [pendingQuestion, setPendingQuestion] = useState("");
 
   // Stage regeneration state
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -1049,6 +1233,16 @@ export default function AskScreen() {
 
   // ─── Start a New Journey ────────────────────────────────────────────────────
 
+  // Check if we should skip prior knowledge (high confidence in related topics)
+  const shouldSkipPriorKnowledge = useCallback(() => {
+    const confidences = Object.values(state.learnerModel.conceptConfidence);
+    if (confidences.length === 0) return false;
+    const avgConfidence = confidences.reduce((a, b) => a + b, 0) / confidences.length;
+    // Skip if average confidence > 0.7 AND completed 3+ journeys
+    return avgConfidence > 0.7 && (state.profile.totalJourneysCompleted ?? 0) >= 3;
+  }, [state.learnerModel.conceptConfidence, state.profile.totalJourneysCompleted]);
+
+  // Phase 1: Fetch prior knowledge questions, then show them
   const startJourney = useCallback(
     async (question: string) => {
       if (!question.trim() || isLoading) return;
@@ -1067,23 +1261,92 @@ export default function AskScreen() {
       setDepthMap({});
       setShowPulseHint(false);
       setChallengeTimerExpired(false);
+      setPriorKnowledgeResult(null);
+      setPriorKnowledgeQuestions([]);
+      setPriorKnowledgeGreeting("");
+
+      const trimmedQ = question.trim();
+      setPendingQuestion(trimmedQ);
+
+      // Check if we should skip prior knowledge
+      if (shouldSkipPriorKnowledge()) {
+        // Skip directly to journey generation
+        await generateJourney(trimmedQ, "");
+        return;
+      }
 
       try {
-        // Compute adaptive difficulty from learner signals
+        // Fetch prior knowledge questions
+        const pkResult = await priorKnowledgeMutation.mutateAsync({
+          question: trimmedQ,
+          difficultyLevel: computeDifficultyLevel(state.profile, state.learnerModel).level,
+          ageGroup: "unknown", // Could be set from profile in future
+          existingConfidence: state.learnerModel.conceptConfidence,
+          pastTopics: state.learnerModel.pastTopics,
+        });
+
+        setPriorKnowledgeQuestions(pkResult.questions);
+        setPriorKnowledgeGreeting(pkResult.warmGreeting);
+
+        // Create a temporary journey with just the prior_knowledge stage
+        const pkStage: JourneyStage = {
+          type: "prior_knowledge",
+          emoji: "\ud83d\udc4b",
+          title: "Before we start...",
+          content: pkResult.warmGreeting,
+          priorKnowledgeQuestions: pkResult.questions,
+        };
+
+        const tempJourney: LearningJourney = {
+          id: genId(),
+          question: trimmedQ,
+          stages: [pkStage],
+          mappedConcepts: [],
+          difficulty: state.profile.skillLevel as any,
+          difficultyLevel: computeDifficultyLevel(state.profile, state.learnerModel).level,
+          difficultyLabel: computeDifficultyLevel(state.profile, state.learnerModel).label,
+          emoji: "\ud83e\udde0",
+          createdAt: new Date().toISOString(),
+          currentStageIndex: 0,
+          completed: false,
+          xpEarned: 0,
+          masteryScore: 0,
+          perfectJourney: false,
+          streakMultiplier: getStreakMultiplier(state.profile.checkStreak ?? 0),
+        };
+
+        setActiveJourney(tempJourney);
+        setCurrentStageIdx(0);
+        setIsLoading(false);
+      } catch {
+        // If prior knowledge fails, skip directly to journey
+        await generateJourney(trimmedQ, "");
+      }
+    },
+    [isLoading, state.profile, state.learnerModel, dispatch, priorKnowledgeMutation, shouldSkipPriorKnowledge]
+  );
+
+  // Phase 2: Generate the full journey (called after prior knowledge check or directly)
+  const generateJourney = useCallback(
+    async (question: string, priorKnowledgeContext: string) => {
+      setIsLoading(true);
+
+      try {
         const currentDifficulty = computeDifficultyLevel(state.profile, state.learnerModel);
 
         const result = await learnMutation.mutateAsync({
-          question: question.trim(),
+          question,
           skillLevel: state.profile.skillLevel,
           difficultyLevel: currentDifficulty.level,
           difficultyLabel: currentDifficulty.label,
           learnerModel: getLearnerSnapshot(),
           pastConversations: getPastConversationSummaries(),
+          priorKnowledgeContext,
         });
 
         const journey: LearningJourney = {
           id: genId(),
-          question: question.trim(),
+          question,
           stages: result.stages as JourneyStage[],
           mappedConcepts: result.mappedConcepts,
           difficulty: result.difficulty as any,
@@ -1097,6 +1360,7 @@ export default function AskScreen() {
           masteryScore: 0,
           perfectJourney: false,
           streakMultiplier: getStreakMultiplier(state.profile.checkStreak ?? 0),
+          priorKnowledgeResult: priorKnowledgeResult ?? undefined,
         };
 
         setActiveJourney(journey);
@@ -1106,7 +1370,7 @@ export default function AskScreen() {
           type: "UPDATE_LEARNER_MODEL",
           payload: {
             questionsAsked: state.learnerModel.questionsAsked + 1,
-            pastTopics: [...state.learnerModel.pastTopics, question.trim().slice(0, 50)],
+            pastTopics: [...state.learnerModel.pastTopics, question.slice(0, 50)],
           },
         });
 
@@ -1119,13 +1383,55 @@ export default function AskScreen() {
         awardStageXp("hook");
         dispatch({ type: "UPDATE_STREAK" });
       } catch {
-        // Fallback
         setShowWelcome(true);
       } finally {
         setIsLoading(false);
       }
     },
-    [isLoading, state.profile.skillLevel, state.learnerModel, dispatch, learnMutation, addXp, getLearnerSnapshot, getPastConversationSummaries]
+    [state.profile, state.learnerModel, dispatch, learnMutation, getLearnerSnapshot, getPastConversationSummaries, priorKnowledgeResult, awardStageXp]
+  );
+
+  // Handle prior knowledge completion — generate the full journey with context
+  const handlePriorKnowledgeComplete = useCallback(
+    async (answers: number[], overallLevel: "none" | "low" | "medium" | "high") => {
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      // Build prior knowledge context string for the LLM
+      const pkContext = priorKnowledgeQuestions.map((q, i) => {
+        const answer = answers[i];
+        const level = q.knowledgeLevels[answer] || "low";
+        return `Q: ${q.question} \u2192 A: "${q.options[answer]}" (knowledge level: ${level})`;
+      }).join("\n");
+      const contextStr = `Overall prior knowledge: ${overallLevel}\n${pkContext}`;
+
+      // Store the result
+      const result: PriorKnowledgeResult = {
+        questions: priorKnowledgeQuestions,
+        answers,
+        overallLevel,
+        topicCategory: "general",
+      };
+      setPriorKnowledgeResult(result);
+
+      // Award XP for completing prior knowledge check
+      awardStageXp("prior_knowledge");
+
+      // Update learner model based on answers
+      const levelScores = { none: 0, low: 0.2, medium: 0.5, high: 0.8 };
+      const avgConfidence = levelScores[overallLevel];
+      dispatch({
+        type: "UPDATE_LEARNER_MODEL",
+        payload: {
+          preferredDepth: overallLevel === "high" ? "expert" : overallLevel === "medium" ? "detailed" : "overview",
+        },
+      });
+
+      // Generate the full journey with prior knowledge context
+      await generateJourney(pendingQuestion, contextStr);
+    },
+    [priorKnowledgeQuestions, pendingQuestion, generateJourney, awardStageXp, dispatch]
   );
 
   // ─── Navigate Stages ────────────────────────────────────────────────────────
@@ -1513,6 +1819,17 @@ export default function AskScreen() {
     if (!currentStage) return null;
 
     switch (currentStage.type) {
+      case "prior_knowledge":
+        return (
+          <PriorKnowledgeCard
+            stage={currentStage}
+            isDark={isDark}
+            questions={priorKnowledgeQuestions}
+            warmGreeting={priorKnowledgeGreeting}
+            onComplete={handlePriorKnowledgeComplete}
+            colors={colors}
+          />
+        );
       case "hook":
         return <HookCard stage={currentStage} isDark={isDark} />;
       case "foundation":
@@ -1694,8 +2011,8 @@ export default function AskScreen() {
               )}
             </ScrollView>
 
-            {/* Navigation */}
-            {currentStage?.type !== "next_steps" && (
+            {/* Navigation — hide for prior_knowledge (has its own flow) and next_steps */}
+            {currentStage?.type !== "next_steps" && currentStage?.type !== "prior_knowledge" && (
               <View style={[styles.navBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
                 <TouchableOpacity
                   onPress={goPrev}

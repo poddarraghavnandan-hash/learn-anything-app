@@ -357,3 +357,17 @@
 - [x] Disable Tell Me More after max depth (3/3) reached
 - [x] Reset depth counter when navigating to a new journey
 - [x] Backend receives current depth level to generate progressively deeper content (Expanded > Deep Dive > Expert Analysis)
+
+## Prior Knowledge Check — All Categories, All Ages
+- [x] Design prior knowledge check system covering all categories and age groups
+- [x] Add new "prior_knowledge" stage type to JourneyStage types
+- [x] Backend: generate 3 prior knowledge questions based on the topic (before generating full journey)
+- [x] Questions should feel personal, not like a test — warm, conversational phrasing
+- [x] Support 4 question types: familiarity, experience, intuition, recognition
+- [x] Age-aware language: 7 age groups (under_10 through 40_plus) with tailored phrasing
+- [x] Category-aware: LLM generates topic-specific questions covering 10 categories
+- [x] Use answers as priorKnowledgeContext to dynamically adjust journey content
+- [x] Build PriorKnowledgeCard UI with one-at-a-time questions, encouragement, progress dots
+- [x] Feed answers into learner model (preferredDepth based on overall knowledge level)
+- [x] Award 5 XP for completing the prior knowledge check
+- [x] Skip prior knowledge check if avg confidence > 0.7 AND 3+ journeys completed

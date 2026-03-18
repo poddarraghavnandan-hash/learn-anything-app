@@ -698,6 +698,7 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
           concepts: z.array(z.string()),
           timestamp: z.string(),
         })).optional().default([]),
+        priorKnowledgeContext: z.string().optional().default(""),
       }))
       .mutation(async ({ input }) => {
         try {
@@ -706,6 +707,10 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
 
           const pastConvContext = input.pastConversations.length > 0
             ? `\nPAST LEARNING JOURNEYS:\n${input.pastConversations.slice(-5).map(pc => `- Explored "${pc.question}" → concepts: ${pc.concepts.join(", ")}`).join("\n")}\nReference past explorations naturally when there's a genuine connection.`
+            : "";
+
+          const priorKnowledgeInfo = input.priorKnowledgeContext
+            ? `\nPRIOR KNOWLEDGE ASSESSMENT (just completed):\n${input.priorKnowledgeContext}\nIMPORTANT: Use this prior knowledge assessment to calibrate your response. If they know the basics, keep Foundation very brief. If they're new to this, give more Foundation context. Match vocabulary to their demonstrated level.`
             : "";
 
           const learnerContext = [
@@ -717,6 +722,7 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
             lm.learningStyle ? `Learning style: ${lm.learningStyle}` : "",
             (lm.explainSimplerCount || 0) > 2 ? "This learner often needs simpler explanations — default to very clear, simple language" : "",
             pastConvContext,
+            priorKnowledgeInfo,
           ].filter(Boolean).join("\n");
 
           // Import adaptive difficulty prompt
@@ -876,6 +882,126 @@ Return JSON:
             difficultyLevel: input.difficultyLevel,
             difficultyLabel: input.difficultyLabel,
             emoji: "🧠",
+          };
+        }
+      }),
+
+    // ─── Prior Knowledge Check: Generate assessment questions ─────────────
+    priorKnowledge: publicProcedure
+      .input(z.object({
+        question: z.string().min(1),
+        difficultyLevel: z.number().min(1).max(5).optional().default(1),
+        ageGroup: z.string().optional().default("unknown"),
+        existingConfidence: z.record(z.string(), z.number()).optional().default({}),
+        pastTopics: z.array(z.string()).optional().default([]),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const agePrompt: Record<string, string> = {
+            "under_10": "The learner is a young child (under 10). Use very simple, playful language. Frame questions as fun curiosity checks: \"Do you know what [X] is? It's okay if you don't!\"",
+            "10_14": "The learner is 10-14 years old. Use friendly, curious language. Frame questions like: \"Have you learned about [X] in school?\"",
+            "15_18": "The learner is 15-18 years old. Use peer-like, respectful language. Frame questions like: \"How much do you know about [X]?\"",
+            "18_25": "The learner is 18-25 years old. Use direct, engaging language. Frame questions like: \"What's your background with [X]?\"",
+            "25_40": "The learner is 25-40 years old. Use professional, warm language. Frame questions like: \"How familiar are you with [X]?\"",
+            "40_plus": "The learner is 40+. Use respectful language that acknowledges their life experience. Frame questions like: \"You may have encountered [X] before — how much do you know?\"",
+            "unknown": "Age is unknown. Use neutral, warm language that works for any age. Frame questions like: \"Before we start, how familiar are you with [X]?\"",
+          };
+
+          const ageInstruction = agePrompt[input.ageGroup] || agePrompt["unknown"];
+          const pastTopicContext = input.pastTopics.length > 0
+            ? `\nThe learner has previously explored: ${input.pastTopics.slice(-10).join(", ")}. Consider this when assessing their likely knowledge.`
+            : "";
+
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `You are a warm, perceptive teacher about to start a learning session. Before teaching, you want to understand what the learner already knows — NOT to test them, but to personalize their experience.
+
+${ageInstruction}
+${pastTopicContext}
+
+Generate exactly 3 prior knowledge questions about the topic. Each question should:
+1. Feel personal and conversational, NOT like a standardized test
+2. Have exactly 4 options that map to knowledge levels (none, low, medium, high)
+3. Be non-judgmental — every answer is valid
+4. Cover different aspects: familiarity with the term, real-world experience, and intuitive understanding
+
+Question types to use:
+- "familiarity": How familiar are you with the concept? ("Never heard of it" → "Pretty comfortable")
+- "experience": Have you encountered this in real life? ("Not at all" → "All the time")
+- "intuition": What do you think happens when...? / What's your gut feeling about...? (Tests conceptual understanding without requiring formal knowledge)
+- "recognition": Can you recognize or identify...? (Tests ability to identify examples)
+
+Return JSON:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "The question text",
+      "type": "familiarity|experience|intuition|recognition",
+      "options": ["Option for none", "Option for low", "Option for medium", "Option for high"],
+      "emoji": "relevant emoji",
+      "knowledgeLevels": ["none", "low", "medium", "high"]
+    }
+  ],
+  "topicCategory": "science|code|math|history|art|language|health|philosophy|business|general",
+  "warmGreeting": "A brief, warm sentence to introduce the check (e.g., 'Before we explore black holes, let me understand where you're starting from...')"
+}`,
+              },
+              {
+                role: "user",
+                content: `Topic: ${input.question}`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            questions: (parsed.questions || []).map((q: any, i: number) => ({
+              id: q.id || `q${i + 1}`,
+              question: q.question || "",
+              type: q.type || "familiarity",
+              options: q.options || [],
+              emoji: q.emoji || "🤔",
+              knowledgeLevels: q.knowledgeLevels || ["none", "low", "medium", "high"],
+            })),
+            topicCategory: parsed.topicCategory || "general",
+            warmGreeting: parsed.warmGreeting || `Before we explore this, let me understand where you're starting from...`,
+          };
+        } catch (e) {
+          console.error("[Chat.priorKnowledge] LLM failed:", e);
+          // Fallback: generic questions
+          return {
+            questions: [
+              {
+                id: "q1",
+                question: `How familiar are you with this topic?`,
+                type: "familiarity" as const,
+                options: ["Never heard of it", "Heard the name before", "Know the basics", "Pretty comfortable"],
+                emoji: "🤔",
+                knowledgeLevels: ["none" as const, "low" as const, "medium" as const, "high" as const],
+              },
+              {
+                id: "q2",
+                question: `Have you ever encountered this in your daily life?`,
+                type: "experience" as const,
+                options: ["Not that I know of", "Maybe once or twice", "A few times", "All the time"],
+                emoji: "🌍",
+                knowledgeLevels: ["none" as const, "low" as const, "medium" as const, "high" as const],
+              },
+              {
+                id: "q3",
+                question: `If someone asked you to explain this topic, how would you feel?`,
+                type: "intuition" as const,
+                options: ["I'd have no idea where to start", "I could say a sentence or two", "I could give a decent explanation", "I could teach it"],
+                emoji: "💭",
+                knowledgeLevels: ["none" as const, "low" as const, "medium" as const, "high" as const],
+              },
+            ],
+            topicCategory: "general",
+            warmGreeting: "Before we dive in, let me understand where you're starting from...",
           };
         }
       }),

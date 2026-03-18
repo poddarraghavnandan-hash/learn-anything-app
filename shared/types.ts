@@ -431,6 +431,7 @@ export interface CuriosityCheckResult {
 // ─── Learning Journey — Guided Learning Strategy ────────────────────────────
 
 export type JourneyStageType =
+  | "prior_knowledge" // Pre-journey knowledge assessment
   | "hook"           // Curiosity-sparking opening
   | "foundation"     // Prerequisite context
   | "explanation"    // Core concept explanation (can have multiple parts)
@@ -438,6 +439,27 @@ export type JourneyStageType =
   | "check"          // Understanding check (interactive)
   | "video"          // Video as culmination
   | "next_steps";    // Follow-up learning paths
+
+// ─── Prior Knowledge Check ────────────────────────────────────────────────────
+
+export type PriorKnowledgeQuestionType = "familiarity" | "experience" | "intuition" | "recognition";
+
+export interface PriorKnowledgeQuestion {
+  id: string;
+  question: string;
+  type: PriorKnowledgeQuestionType;
+  options: string[];
+  emoji: string;
+  // Each option index maps to a knowledge level
+  knowledgeLevels: ("none" | "low" | "medium" | "high")[];
+}
+
+export interface PriorKnowledgeResult {
+  questions: PriorKnowledgeQuestion[];
+  answers: number[];  // selected option index per question
+  overallLevel: "none" | "low" | "medium" | "high";
+  topicCategory: string;
+}
 
 export interface JourneyStage {
   type: JourneyStageType;
@@ -455,6 +477,8 @@ export interface JourneyStage {
   videoContext?: string;       // Why this video matters now
   // For next_steps stages
   paths?: { question: string; reason: string }[];
+  // For prior_knowledge stages
+  priorKnowledgeQuestions?: PriorKnowledgeQuestion[];
 }
 
 export interface LearningJourney {
@@ -476,11 +500,13 @@ export interface LearningJourney {
   checkCorrect?: boolean;      // Whether the check was answered correctly
   checkTimeMs?: number;        // Time taken to answer check (for challenge mode)
   streakMultiplier: number;    // XP multiplier active during this journey
+  priorKnowledgeResult?: PriorKnowledgeResult;  // Results from prior knowledge check
 }
 
 // ─── Journey XP Table ────────────────────────────────────────────────────────
 
 export const JOURNEY_STAGE_XP: Record<JourneyStageType, number> = {
+  prior_knowledge: 5,  // Small reward for completing the check
   hook: 5,
   foundation: 10,
   explanation: 15,

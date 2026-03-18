@@ -7,8 +7,9 @@ import type {
 } from "../shared/types";
 
 describe("JourneyStageType", () => {
-  it("supports all 7 stage types in the learning strategy", () => {
+  it("supports all 8 stage types in the learning strategy", () => {
     const types: JourneyStageType[] = [
+      "prior_knowledge",
       "hook",
       "foundation",
       "explanation",
@@ -17,7 +18,7 @@ describe("JourneyStageType", () => {
       "video",
       "next_steps",
     ];
-    expect(types).toHaveLength(7);
+    expect(types).toHaveLength(8);
   });
 });
 
