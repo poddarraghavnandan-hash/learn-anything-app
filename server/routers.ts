@@ -1600,6 +1600,86 @@ Return JSON: { "suggestions": ["q1", "q2", "q3", "q4"], "reasons": ["why1", "why
           return { suggestions: fallbacks, reasons: fallbacks.map(() => "Based on your interests") };
         }
       }),
+
+    // ─── Journey Chat: Contextual Q&A within a learning journey ───────────
+    journeyChat: publicProcedure
+      .input(z.object({
+        question: z.string().min(1),
+        journeyQuestion: z.string(),
+        currentStageType: z.string(),
+        currentStageContent: z.string(),
+        currentStageTitle: z.string(),
+        chatHistory: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          text: z.string(),
+        })).optional().default([]),
+        skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional().default("beginner"),
+        learnerModel: z.object({
+          preferredDepth: z.enum(["overview", "detailed", "expert"]).optional(),
+          confusionPoints: z.array(z.string()).optional(),
+          strengthAreas: z.array(z.string()).optional(),
+        }).optional().default({}),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const lm = input.learnerModel;
+          const learnerCtx = [
+            lm.confusionPoints?.length ? `Struggles with: ${lm.confusionPoints.join(", ")}` : "",
+            lm.strengthAreas?.length ? `Good at: ${lm.strengthAreas.join(", ")}` : "",
+            lm.preferredDepth ? `Preferred depth: ${lm.preferredDepth}` : "",
+          ].filter(Boolean).join("\n");
+
+          const historyMessages = input.chatHistory.slice(-6).map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.text,
+          }));
+
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `${LEARNLM_SYSTEM}
+
+${getLevelPrompt(input.skillLevel)}
+
+${learnerCtx ? `ABOUT THIS LEARNER:\n${learnerCtx}` : ""}
+
+The learner is on a guided learning journey about: "${input.journeyQuestion}"
+They are currently on the "${input.currentStageType}" stage titled: "${input.currentStageTitle}"
+
+Current card content (for context):
+${input.currentStageContent.slice(0, 800)}
+
+The learner has a question about what they're learning. Answer it:
+- Be concise (2-3 short paragraphs max)
+- Reference the current card content when relevant
+- Use simple, warm language
+- If they're confused, try a different analogy
+- Use **bold** for key terms
+
+Return JSON: { "response": "your answer (markdown)", "emoji": "relevant emoji" }`,
+              },
+              ...historyMessages,
+              {
+                role: "user",
+                content: input.question,
+              },
+            ],
+            response_format: { type: "json_object" },
+          });
+
+          const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
+          return {
+            response: parsed.response || "Let me try explaining that differently...",
+            emoji: parsed.emoji || "💡",
+          };
+        } catch {
+          return {
+            response: "I'm having trouble answering right now. Try rephrasing your question!",
+            emoji: "🤔",
+          };
+        }
+      }),
   }),
 
   // ─── Journey Topic Suggestions for Home Feed ─────────────────────────────

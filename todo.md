@@ -399,3 +399,17 @@
 - [x] Backend: new endpoint to generate journey topic suggestions with YouTube thumbnails
 - [x] Category pills filter journey topics, not raw videos
 - [x] Overall Home screen should feel like an invitation to learn, not a content dump
+
+## Card Queue Learning Flow Redesign
+- [x] Replace current learning flow with card queue/flip card/slide card system (ALL entry points: Home feed, Ask tab, suggestions, Quick Burst)
+- [x] Each learning step = one card in the queue (info card, video card, challenge card)
+- [x] Cards support tap to advance through the learning sequence with SlideInRight animation
+- [x] After user inputs a question, learning mode resolves to a queue of cards (not chat bubbles)
+- [x] Chat thread becomes a contextual sidebar (Modal bottom sheet) — user can re-enter to ask follow-up questions
+- [x] Chat sidebar preserves full message history and context of the learning journey
+- [x] Info cards: key concept with clean typography, stage-specific accent colors, key takeaway boxes
+- [x] Video cards: thumbnail preview with play overlay, channel info, duration badge
+- [x] Challenge cards: interactive quiz with correct/incorrect feedback, challenge timer, streak multiplier
+- [x] Progress bar showing position in the card queue (segmented bar with active/past/future states)
+- [x] Smooth SlideInRight transitions between cards
+- [x] Card queue generated from the same backend journey stages (prior_knowledge filtered from progress bar)

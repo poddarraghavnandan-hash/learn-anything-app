@@ -10,6 +10,8 @@ import {
   Platform,
   Dimensions,
   KeyboardAvoidingView,
+  FlatList,
+  Modal,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -18,6 +20,8 @@ import Animated, {
   FadeOut,
   SlideInRight,
   SlideOutLeft,
+  SlideInDown,
+  SlideOutDown,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -106,7 +110,6 @@ const STAGE_ACCENTS_DARK: Record<string, { bg: string; text: string; label: stri
 
 function XpPopup({ amount, multiplier }: { amount: number; multiplier: number }) {
   const colors = useColors();
-  // amount already includes multiplier, just display it
   return (
     <Animated.View
       entering={FadeInUp.duration(400).springify()}
@@ -136,7 +139,7 @@ function StreakBadge({ streak, multiplier }: { streak: number; multiplier: numbe
       <Text style={[styles.streakBadgeIcon]}>{"⚡"}</Text>
       <View>
         <Text style={[styles.streakBadgeLabel, { color: badgeColor }]}>{label}</Text>
-        <Text style={[styles.streakBadgeValue, { color: badgeColor }]}>{streak} correct \u00B7 {multiplier}x XP</Text>
+        <Text style={[styles.streakBadgeValue, { color: badgeColor }]}>{streak} correct · {multiplier}x XP</Text>
       </View>
     </Animated.View>
   );
@@ -197,14 +200,14 @@ function ChallengeTimer({
   );
 }
 
-// ─── Difficulty Badge ─────────────────────────────────────────────────────
+// ─── Difficulty Badge ─────────────────────────────────────────────────────────
 
 const DIFFICULTY_COLORS: Record<number, string> = {
-  1: "#22C55E", // green
-  2: "#0EA5E9", // blue
-  3: "#8B5CF6", // purple
-  4: "#F59E0B", // amber
-  5: "#EF4444", // red
+  1: "#22C55E",
+  2: "#0EA5E9",
+  3: "#8B5CF6",
+  4: "#F59E0B",
+  5: "#EF4444",
 };
 
 function DifficultyBadge({ level, label }: { level: number; label: string }) {
@@ -219,6 +222,47 @@ function DifficultyBadge({ level, label }: { level: number; label: string }) {
       <Text style={styles.difficultyBadgeEmoji}>{levelEmoji}</Text>
       <Text style={[styles.difficultyBadgeText, { color: badgeColor }]}>{label}</Text>
     </Animated.View>
+  );
+}
+
+// ─── Card Progress Bar ──────────────────────────────────────────────────────
+
+function CardProgressBar({
+  total,
+  current,
+}: {
+  total: number;
+  current: number;
+}) {
+  const colors = useColors();
+  return (
+    <View style={styles.progressBarWrap}>
+      <View style={styles.progressBarRow}>
+        {Array.from({ length: total }).map((_, i) => {
+          const isActive = i === current;
+          const isPast = i < current;
+          return (
+            <View
+              key={i}
+              style={[
+                styles.progressSegment,
+                {
+                  backgroundColor: isPast
+                    ? colors.primary
+                    : isActive
+                    ? colors.primary + "80"
+                    : colors.border + "60",
+                  flex: isActive ? 1.5 : 1,
+                },
+              ]}
+            />
+          );
+        })}
+      </View>
+      <Text style={[styles.progressLabel, { color: colors.muted }]}>
+        {current + 1} of {total}
+      </Text>
+    </View>
   );
 }
 
@@ -250,7 +294,6 @@ function JourneyCompleteCard({
 
   return (
     <Animated.View entering={FadeIn.duration(500)} style={[styles.completeCard, { backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF" }]}>
-      {/* Celebration header */}
       <View style={styles.completeHeader}>
         <Text style={styles.completeEmoji}>{isPerfect ? "🌟" : "🎉"}</Text>
         <Text style={[styles.completeTitle, { color: colors.foreground }]}>
@@ -261,7 +304,6 @@ function JourneyCompleteCard({
         </Text>
       </View>
 
-      {/* Stats Grid */}
       <View style={styles.statsGrid}>
         <View style={[styles.statBox, { backgroundColor: isDark ? colors.surface : "#F0FDF4" }]}>
           <Text style={[styles.statValue, { color: "#22C55E" }]}>+{xpEarned}</Text>
@@ -273,7 +315,6 @@ function JourneyCompleteCard({
         </View>
       </View>
 
-      {/* Streak info */}
       {checkStreak >= 3 && (
         <View style={[styles.completeStreak, { backgroundColor: isDark ? "#F59E0B15" : "#FFFBEB" }]}>
           <Text style={styles.completeStreakIcon}>{"⚡"}</Text>
@@ -283,7 +324,6 @@ function JourneyCompleteCard({
         </View>
       )}
 
-      {/* Difficulty level */}
       <View style={[styles.completeDifficulty, { backgroundColor: isDark ? (DIFFICULTY_COLORS[journey.difficultyLevel] || "#8B5CF6") + "10" : (DIFFICULTY_COLORS[journey.difficultyLevel] || "#8B5CF6") + "08" }]}>
         <Text style={styles.completeDifficultyEmoji}>{DIFFICULTY_LEVELS[(journey.difficultyLevel || 1) - 1]?.emoji || "📚"}</Text>
         <View>
@@ -292,7 +332,6 @@ function JourneyCompleteCard({
         </View>
       </View>
 
-      {/* Concepts learned */}
       <View style={styles.completeConcepts}>
         <Text style={[styles.completeConceptsTitle, { color: colors.foreground }]}>Concepts Explored</Text>
         <View style={styles.conceptTags}>
@@ -304,7 +343,6 @@ function JourneyCompleteCard({
         </View>
       </View>
 
-      {/* Action */}
       <TouchableOpacity
         onPress={onNewJourney}
         activeOpacity={0.7}
@@ -368,50 +406,6 @@ function SuggestionChips({
   );
 }
 
-// ─── Progress Dots ────────────────────────────────────────────────────────────
-
-function ProgressDots({
-  total,
-  current,
-  onDotPress,
-}: {
-  total: number;
-  current: number;
-  onDotPress: (idx: number) => void;
-}) {
-  const colors = useColors();
-  return (
-    <View style={styles.dotsRow}>
-      {Array.from({ length: total }).map((_, i) => {
-        const isActive = i === current;
-        const isPast = i < current;
-        return (
-          <TouchableOpacity
-            key={i}
-            onPress={() => {
-              if (isPast && i !== current) onDotPress(i);
-            }}
-            activeOpacity={isPast ? 0.6 : 1}
-            style={[
-              styles.dot,
-              {
-                backgroundColor: isActive
-                  ? colors.primary
-                  : isPast
-                  ? colors.primary + "60"
-                  : colors.border,
-                width: isActive ? 24 : 8,
-              },
-            ]}
-          />
-        );
-      })}
-    </View>
-  );
-}
-
-// ─── Stage Cards ──────────────────────────────────────────────────────────────
-
 // ─── Prior Knowledge Card ────────────────────────────────────────────────────
 
 const ENCOURAGEMENTS = ["Great!", "That helps!", "Perfect!", "Got it!", "Thanks!"];
@@ -448,7 +442,6 @@ function PriorKnowledgeCard({
     const newAnswers = [...answers, optionIndex];
     setAnswers(newAnswers);
 
-    // Show encouragement
     const encouragement = ENCOURAGEMENTS[Math.floor(Math.random() * ENCOURAGEMENTS.length)];
     setShowEncouragement(encouragement);
 
@@ -458,7 +451,6 @@ function PriorKnowledgeCard({
         setCurrentQ(currentQ + 1);
         setIsTransitioning(false);
       } else {
-        // All questions answered — compute overall level
         setAllDone(true);
         const levels = newAnswers.map((ai, qi) => {
           const q = questions[qi];
@@ -481,14 +473,13 @@ function PriorKnowledgeCard({
   const q = questions[currentQ];
 
   return (
-    <View style={[styles.stageCard, { backgroundColor: isDark ? "#1a2332" : "#EEF2FF" }]}>
-      {/* Warm greeting */}
+    <View style={[styles.cardBody, { backgroundColor: isDark ? "#1a2332" : "#EEF2FF" }]}>
       <View style={{ marginBottom: 20 }}>
-        <Text style={[styles.stageEmoji, { fontSize: 36 }]}>{stage.emoji || "\ud83d\udc4b"}</Text>
-        <Text style={[styles.stageTitle, { color: isDark ? "#E0E7FF" : "#3730A3", marginTop: 8 }]}>
+        <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji || "👋"}</Text>
+        <Text style={[styles.cardTitle, { color: isDark ? "#E0E7FF" : "#3730A3" }]}>
           {stage.title || "Before we start..."}
         </Text>
-        <Text style={[styles.stageContent, { color: isDark ? "#C7D2FE" : "#4338CA", marginTop: 8, fontStyle: "italic" }]}>
+        <Text style={[styles.cardContent, { color: isDark ? "#C7D2FE" : "#4338CA", fontStyle: "italic" }]}>
           {warmGreeting}
         </Text>
       </View>
@@ -512,17 +503,15 @@ function PriorKnowledgeCard({
         ))}
       </View>
 
-      {/* Current question */}
       {!allDone && q && (
         <Animated.View key={`pkq-${currentQ}`} entering={FadeInDown.duration(300)}>
           <View style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 20, marginBottom: 4 }}>{q.emoji}</Text>
-            <Text style={[styles.stageContent, { color: isDark ? "#E2E8F0" : "#1E293B", fontWeight: "600", fontSize: 16, lineHeight: 24 }]}>
+            <Text style={[styles.cardContent, { color: isDark ? "#E2E8F0" : "#1E293B", fontWeight: "600", fontSize: 16 }]}>
               {q.question}
             </Text>
           </View>
 
-          {/* Options */}
           <View style={{ gap: 10 }}>
             {q.options.map((option, oi) => (
               <TouchableOpacity
@@ -545,7 +534,6 @@ function PriorKnowledgeCard({
             ))}
           </View>
 
-          {/* Encouragement */}
           {showEncouragement !== "" && (
             <Animated.View entering={FadeIn.duration(200)} style={{ alignItems: "center", marginTop: 16 }}>
               <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? "#818CF8" : "#6366F1" }}>
@@ -556,7 +544,6 @@ function PriorKnowledgeCard({
         </Animated.View>
       )}
 
-      {/* Completion state — tailoring message */}
       {allDone && (
         <Animated.View entering={FadeIn.duration(400)} style={{ alignItems: "center", paddingVertical: 24 }}>
           <ActivityIndicator size="small" color={isDark ? "#818CF8" : "#6366F1"} style={{ marginBottom: 12 }} />
@@ -569,11 +556,10 @@ function PriorKnowledgeCard({
         </Animated.View>
       )}
 
-      {/* Skip button */}
       {!allDone && (
         <TouchableOpacity
           onPress={() => {
-            const defaultAnswers = questions.map(() => 1); // default to "low"
+            const defaultAnswers = questions.map(() => 1);
             onComplete(defaultAnswers, "low");
           }}
           style={{ alignItems: "center", marginTop: 20, paddingVertical: 8 }}
@@ -587,31 +573,26 @@ function PriorKnowledgeCard({
   );
 }
 
-function HookCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
-  const colors = useColors();
-  const accent = isDark ? STAGE_ACCENTS_DARK.hook : STAGE_ACCENTS.hook;
-  return (
-    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
-      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
-      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
-      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
-      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
-    </View>
-  );
-}
+// ─── Card Content Renderers ──────────────────────────────────────────────────
 
-function FoundationCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
+function InfoCardContent({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
   const colors = useColors();
-  const accent = isDark ? STAGE_ACCENTS_DARK.foundation : STAGE_ACCENTS.foundation;
+  const stageType = stage.type as string;
+  const accent = isDark
+    ? (STAGE_ACCENTS_DARK[stageType] || STAGE_ACCENTS_DARK.explanation)
+    : (STAGE_ACCENTS[stageType] || STAGE_ACCENTS.explanation);
+
   return (
-    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
-      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
-      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
-      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
-      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+      <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
+      <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+      <RichText text={stage.content} style={[styles.cardContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
       {stage.keyTakeaway ? (
-        <View style={[styles.takeawayBox, { backgroundColor: isDark ? accent.text + "20" : "#ECFDF5", borderColor: isDark ? accent.text + "40" : "#6EE7B7" }]}>
-          <Text style={[styles.takeawayLabel, { color: accent.text }]}>Key Concept</Text>
+        <View style={[styles.takeawayBox, { backgroundColor: isDark ? accent.text + "20" : "#FFFFFF60", borderColor: isDark ? accent.text + "40" : accent.text + "30" }]}>
+          <Text style={[styles.takeawayLabel, { color: accent.text }]}>
+            {stageType === "real_world" ? "Real-World Example" : stageType === "foundation" ? "Key Concept" : "Key Takeaway"}
+          </Text>
           <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
         </View>
       ) : null}
@@ -619,45 +600,7 @@ function FoundationCard({ stage, isDark }: { stage: JourneyStage; isDark: boolea
   );
 }
 
-function ExplanationCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
-  const colors = useColors();
-  const accent = isDark ? STAGE_ACCENTS_DARK.explanation : STAGE_ACCENTS.explanation;
-  return (
-    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
-      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
-      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
-      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
-      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
-      {stage.keyTakeaway ? (
-        <View style={[styles.takeawayBox, { backgroundColor: isDark ? colors.primary + "20" : "#F5F3FF", borderColor: isDark ? colors.primary + "40" : "#C4B5FD" }]}>
-          <Text style={[styles.takeawayLabel, { color: accent.text }]}>Key Takeaway</Text>
-          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function RealWorldCard({ stage, isDark }: { stage: JourneyStage; isDark: boolean }) {
-  const colors = useColors();
-  const accent = isDark ? STAGE_ACCENTS_DARK.real_world : STAGE_ACCENTS.real_world;
-  return (
-    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
-      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
-      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
-      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
-      <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
-      {stage.keyTakeaway ? (
-        <View style={[styles.takeawayBox, { backgroundColor: isDark ? accent.text + "20" : "#ECFDF5", borderColor: isDark ? accent.text + "40" : "#6EE7B7" }]}>
-          <Text style={[styles.takeawayLabel, { color: accent.text }]}>Real-World Example</Text>
-          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function CheckCard({
+function CheckCardContent({
   stage,
   isDark,
   onAnswer,
@@ -679,12 +622,12 @@ function CheckCard({
   };
 
   return (
-    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
-      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
-      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
-      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.question || stage.title}</Text>
+    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+      <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
+      <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.question || stage.title}</Text>
       {stage.content ? (
-        <RichText text={stage.content} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 20 }]} />
+        <RichText text={stage.content} style={[styles.cardContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 20 }]} />
       ) : null}
 
       {(stage.options || []).map((opt, idx) => {
@@ -726,7 +669,6 @@ function CheckCard({
         </Animated.View>
       ) : null}
 
-      {/* Gamification feedback */}
       {answered && (
         <Animated.View entering={FadeInUp.delay(300).duration(300)} style={{ marginTop: 16, alignItems: "center" }}>
           <Text style={{ fontSize: 32, marginBottom: 4 }}>
@@ -741,7 +683,7 @@ function CheckCard({
   );
 }
 
-function VideoCard({
+function VideoCardContent({
   stage,
   isDark,
   videos,
@@ -762,12 +704,12 @@ function VideoCard({
     : null;
 
   return (
-    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
-      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
-      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
-      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+      <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
+      <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
       {stage.videoContext ? (
-        <RichText text={stage.videoContext} style={[styles.stageContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 20 }]} />
+        <RichText text={stage.videoContext} style={[styles.cardContent, { color: isDark ? colors.foreground + "DD" : "#374151", marginBottom: 20 }]} />
       ) : null}
 
       {videosLoading ? (
@@ -806,15 +748,15 @@ function VideoCard({
           </View>
         </TouchableOpacity>
       ) : (
-        <Text style={[styles.stageContent, { color: isDark ? colors.muted : "#6B7280" }]}>
-          No video found for this topic. Try the next steps below!
+        <Text style={[styles.cardContent, { color: isDark ? colors.muted : "#6B7280" }]}>
+          No video found for this topic. Tap Continue to keep going!
         </Text>
       )}
     </View>
   );
 }
 
-function NextStepsCard({
+function NextStepsCardContent({
   stage,
   isDark,
   onSelect,
@@ -830,10 +772,10 @@ function NextStepsCard({
   const paths = stage.paths || [];
 
   return (
-    <View style={[styles.stageCard, { backgroundColor: accent.bg }]}>
-      <Text style={styles.stageEmoji}>{stage.emoji}</Text>
-      <Text style={[styles.stageLabel, { color: accent.text }]}>{accent.label}</Text>
-      <Text style={[styles.stageTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
+    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+      <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
+      <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
+      <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
 
       {paths.map((path, idx) => (
         <Animated.View key={idx} entering={FadeInUp.delay(idx * 100).duration(300)}>
@@ -855,7 +797,6 @@ function NextStepsCard({
         </Animated.View>
       ))}
 
-      {/* Complete Journey button */}
       <Animated.View entering={FadeInUp.delay(paths.length * 100 + 100).duration(300)}>
         <TouchableOpacity
           onPress={() => {
@@ -865,7 +806,7 @@ function NextStepsCard({
           activeOpacity={0.7}
           style={[styles.completeJourneyBtn, { backgroundColor: colors.primary }]}
         >
-          <Text style={styles.completeJourneyBtnText}>{"\u2728"} Complete Journey</Text>
+          <Text style={styles.completeJourneyBtnText}>{"✨"} Complete Journey</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -875,9 +816,8 @@ function NextStepsCard({
 // ─── Stage Actions (Explain Simpler / Tell Me More) ─────────────────────────
 
 const REGEN_STAGES = new Set(["foundation", "explanation", "real_world", "hook"]);
-
 const MAX_DEPTH = 3;
-const PAUSE_HINT_DELAY = 15000; // 15 seconds
+const PAUSE_HINT_DELAY = 15000;
 
 function StageActions({
   stageType,
@@ -905,7 +845,6 @@ function StageActions({
 
   useEffect(() => {
     if (showPulseHint) {
-      // Subtle breathing pulse: scale 1 -> 1.04 -> 1 over 1.5s, repeat
       const pulse = () => {
         pulseAnim.value = withTiming(1.04, { duration: 750, easing: Easing.inOut(Easing.ease) }, () => {
           pulseAnim.value = withTiming(1, { duration: 750, easing: Easing.inOut(Easing.ease) });
@@ -925,11 +864,8 @@ function StageActions({
 
   if (!REGEN_STAGES.has(stageType)) return null;
 
-  const depthLabel = depthLevel > 0 ? ` (${depthLevel}/${MAX_DEPTH})` : "";
-
   return (
     <Animated.View entering={FadeIn.delay(400).duration(300)} style={styles.stageActionsRow}>
-      {/* Explain Simpler — with optional pulse hint */}
       <Animated.View style={[{ flex: 1 }, showPulseHint ? pulseStyle : {}]}>
         <TouchableOpacity
           onPress={onSimpler}
@@ -939,9 +875,7 @@ function StageActions({
             styles.stageActionBtn,
             {
               backgroundColor: isDark ? "#3B82F620" : "#EFF6FF",
-              borderColor: showPulseHint
-                ? "#3B82F6"
-                : isDark ? "#3B82F640" : "#BFDBFE",
+              borderColor: showPulseHint ? "#3B82F6" : isDark ? "#3B82F640" : "#BFDBFE",
               borderWidth: showPulseHint ? 1.5 : 1,
               opacity: isRegenerating && regenDirection !== "simpler" ? 0.4 : 1,
             },
@@ -951,7 +885,7 @@ function StageActions({
             <ActivityIndicator size="small" color="#3B82F6" />
           ) : (
             <>
-              <Text style={styles.stageActionIcon}>{"\u2728"}</Text>
+              <Text style={styles.stageActionIcon}>{"✨"}</Text>
               <Text style={[styles.stageActionText, { color: "#3B82F6" }]}>Explain Simpler</Text>
             </>
           )}
@@ -966,7 +900,6 @@ function StageActions({
         )}
       </Animated.View>
 
-      {/* Tell Me More — with depth indicator */}
       <TouchableOpacity
         onPress={onDeeper}
         disabled={isRegenerating || maxDepthReached}
@@ -976,9 +909,7 @@ function StageActions({
           {
             backgroundColor: isDark ? "#8B5CF620" : "#F5F3FF",
             borderColor: isDark ? "#8B5CF640" : "#C4B5FD",
-            opacity: maxDepthReached
-              ? 0.4
-              : isRegenerating && regenDirection !== "deeper" ? 0.4 : 1,
+            opacity: maxDepthReached ? 0.4 : isRegenerating && regenDirection !== "deeper" ? 0.4 : 1,
           },
         ]}
       >
@@ -986,7 +917,7 @@ function StageActions({
           <ActivityIndicator size="small" color="#8B5CF6" />
         ) : (
           <>
-            <Text style={styles.stageActionIcon}>{"\uD83D\uDD2D"}</Text>
+            <Text style={styles.stageActionIcon}>{"🔭"}</Text>
             <View style={{ flexDirection: "column", alignItems: "flex-start" }}>
               <Text style={[styles.stageActionText, { color: "#8B5CF6" }]}>
                 {maxDepthReached ? "Max Depth" : "Tell Me More"}
@@ -1011,6 +942,198 @@ function StageActions({
         )}
       </TouchableOpacity>
     </Animated.View>
+  );
+}
+
+// ─── Chat Sidebar (Bottom Sheet) ─────────────────────────────────────────────
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  emoji?: string;
+}
+
+function ChatSidebar({
+  visible,
+  onClose,
+  journeyQuestion,
+  currentStage,
+  isDark,
+  skillLevel,
+  learnerModel,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  journeyQuestion: string;
+  currentStage: JourneyStage | null;
+  isDark: boolean;
+  skillLevel: string;
+  learnerModel: { preferredDepth?: string; confusionPoints?: string[]; strengthAreas?: string[] };
+}) {
+  const colors = useColors();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const journeyChatMutation = trpc.chat.journeyChat.useMutation();
+
+  const handleSend = useCallback(async () => {
+    const text = inputText.trim();
+    if (!text || isSending) return;
+
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const userMsg: ChatMessage = { id: genId(), role: "user", text };
+    setMessages((prev) => [...prev, userMsg]);
+    setInputText("");
+    setIsSending(true);
+
+    try {
+      const result = await journeyChatMutation.mutateAsync({
+        question: text,
+        journeyQuestion,
+        currentStageType: currentStage?.type || "explanation",
+        currentStageContent: currentStage?.content || "",
+        currentStageTitle: currentStage?.title || "",
+        chatHistory: messages.slice(-6).map((m) => ({ role: m.role, text: m.text })),
+        skillLevel: skillLevel as "beginner" | "intermediate" | "advanced",
+        learnerModel: {
+          preferredDepth: learnerModel.preferredDepth as "overview" | "detailed" | "expert" | undefined,
+          confusionPoints: learnerModel.confusionPoints,
+          strengthAreas: learnerModel.strengthAreas,
+        },
+      });
+
+      const assistantMsg: ChatMessage = {
+        id: genId(),
+        role: "assistant",
+        text: result.response,
+        emoji: result.emoji,
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { id: genId(), role: "assistant", text: "Sorry, I couldn't process that. Try again!", emoji: "🤔" },
+      ]);
+    } finally {
+      setIsSending(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [inputText, isSending, messages, journeyQuestion, currentStage, skillLevel, learnerModel]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={[styles.chatOverlay]}>
+        <Animated.View
+          entering={SlideInDown.duration(300)}
+          style={[styles.chatSheet, { backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF" }]}
+        >
+          {/* Chat Header */}
+          <View style={[styles.chatHeader, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.chatHeaderTitle, { color: colors.foreground }]}>Ask a Question</Text>
+              <Text numberOfLines={1} style={[styles.chatHeaderSub, { color: colors.muted }]}>
+                About: {currentStage?.title || journeyQuestion}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={styles.chatCloseBtn}>
+              <Text style={[styles.chatCloseBtnText, { color: colors.muted }]}>Done</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Chat Messages */}
+          <ScrollView
+            ref={scrollRef}
+            style={styles.chatMessages}
+            contentContainerStyle={{ paddingVertical: 16, paddingHorizontal: 16 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {messages.length === 0 && (
+              <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                <Text style={{ fontSize: 32, marginBottom: 12 }}>💬</Text>
+                <Text style={[{ fontSize: 16, fontWeight: "600", textAlign: "center", color: colors.foreground }]}>
+                  Have a question?
+                </Text>
+                <Text style={[{ fontSize: 14, textAlign: "center", color: colors.muted, marginTop: 4, maxWidth: 260 }]}>
+                  Ask anything about what you're learning. I'll answer in context of this card.
+                </Text>
+              </View>
+            )}
+            {messages.map((msg) => (
+              <Animated.View
+                key={msg.id}
+                entering={FadeInUp.duration(200)}
+                style={[
+                  styles.chatBubble,
+                  msg.role === "user"
+                    ? [styles.chatBubbleUser, { backgroundColor: colors.primary }]
+                    : [styles.chatBubbleAssistant, { backgroundColor: isDark ? colors.surface : "#F3F4F6" }],
+                ]}
+              >
+                {msg.role === "assistant" && msg.emoji ? (
+                  <Text style={{ fontSize: 16, marginBottom: 4 }}>{msg.emoji}</Text>
+                ) : null}
+                <RichText
+                  text={msg.text}
+                  style={[
+                    styles.chatBubbleText,
+                    { color: msg.role === "user" ? "#FFFFFF" : colors.foreground },
+                  ]}
+                />
+              </Animated.View>
+            ))}
+            {isSending && (
+              <View style={[styles.chatBubble, styles.chatBubbleAssistant, { backgroundColor: isDark ? colors.surface : "#F3F4F6" }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Chat Input */}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={0}
+          >
+            <View style={[styles.chatInputBar, { borderTopColor: colors.border, backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF" }]}>
+              <TextInput
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Ask about this card..."
+                placeholderTextColor={colors.muted}
+                style={[styles.chatInput, { backgroundColor: isDark ? colors.surface : "#F3F4F6", color: colors.foreground }]}
+                multiline
+                maxLength={500}
+                returnKeyType="done"
+                onSubmitEditing={handleSend}
+                blurOnSubmit
+              />
+              <TouchableOpacity
+                onPress={handleSend}
+                disabled={!inputText.trim() || isSending}
+                activeOpacity={0.7}
+                style={[
+                  styles.chatSendBtn,
+                  { backgroundColor: inputText.trim() && !isSending ? colors.primary : colors.surface },
+                ]}
+              >
+                <Text style={[styles.chatSendIcon, { color: inputText.trim() && !isSending ? "#FFFFFF" : colors.muted }]}>
+                  {"↑"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
@@ -1044,7 +1167,7 @@ function RecentJourneys({
               </Text>
               <Text style={[styles.recentMeta, { color: colors.muted }]}>
                 {j.completed ? "Completed" : `${j.currentStageIndex + 1}/${j.stages.length} stages`}
-                {" \u00B7 "}
+                {" · "}
                 {j.mappedConcepts.slice(0, 2).join(", ")}
               </Text>
             </View>
@@ -1089,9 +1212,11 @@ export default function AskScreen() {
   const [journeyCheckCorrect, setJourneyCheckCorrect] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [videoWatched, setVideoWatched] = useState(false);
-  // Compute multiplier fresh each render (avoid stale closure)
   const currentMultiplierRef = useRef(getStreakMultiplier(state.profile.checkStreak ?? 0));
   currentMultiplierRef.current = getStreakMultiplier(state.profile.checkStreak ?? 0);
+
+  // Chat sidebar state
+  const [chatVisible, setChatVisible] = useState(false);
 
   const learnMutation = trpc.chat.learn.useMutation();
   const fetchContentMutation = trpc.chat.fetchStepContent.useMutation();
@@ -1109,14 +1234,27 @@ export default function AskScreen() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenDirection, setRegenDirection] = useState<"simpler" | "deeper" | null>(null);
 
-  // Pause hint state (auto-detect when learner pauses)
+  // Pause hint state
   const [showPulseHint, setShowPulseHint] = useState(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Depth chain state (Tell Me More progressive deepening)
+  // Depth chain state
   const [depthMap, setDepthMap] = useState<Record<number, number>>({});
   const currentDepth = depthMap[currentStageIdx] ?? 0;
   const maxDepthReached = currentDepth >= MAX_DEPTH;
+
+  // ─── Computed: visible stages (skip prior_knowledge for card queue) ────────
+
+  const visibleStages = useMemo(() => {
+    if (!activeJourney) return [];
+    return activeJourney.stages.filter((s) => s.type !== "prior_knowledge");
+  }, [activeJourney]);
+
+  const visibleStageIdx = useMemo(() => {
+    if (!activeJourney) return 0;
+    const hasPK = activeJourney.stages[0]?.type === "prior_knowledge";
+    return hasPK ? currentStageIdx - 1 : currentStageIdx;
+  }, [activeJourney, currentStageIdx]);
 
   // ─── XP Award Helper ─────────────────────────────────────────────────────────
 
@@ -1180,7 +1318,6 @@ export default function AskScreen() {
         setActiveJourney(j);
         setCurrentStageIdx(j.currentStageIndex);
         setShowWelcome(false);
-        // Pre-fetch video if current stage is video
         if (j.stages[j.currentStageIndex]?.type === "video") {
           fetchVideoForStage(j.stages[j.currentStageIndex]);
         }
@@ -1235,16 +1372,13 @@ export default function AskScreen() {
 
   // ─── Start a New Journey ────────────────────────────────────────────────────
 
-  // Check if we should skip prior knowledge (high confidence in related topics)
   const shouldSkipPriorKnowledge = useCallback(() => {
     const confidences = Object.values(state.learnerModel.conceptConfidence);
     if (confidences.length === 0) return false;
     const avgConfidence = confidences.reduce((a, b) => a + b, 0) / confidences.length;
-    // Skip if average confidence > 0.7 AND completed 3+ journeys
     return avgConfidence > 0.7 && (state.profile.totalJourneysCompleted ?? 0) >= 3;
   }, [state.learnerModel.conceptConfidence, state.profile.totalJourneysCompleted]);
 
-  // Phase 1: Fetch prior knowledge questions, then show them
   const startJourney = useCallback(
     async (question: string) => {
       if (!question.trim() || isLoading) return;
@@ -1254,7 +1388,6 @@ export default function AskScreen() {
       setIsLoading(true);
       setCheckAnswered(false);
       setStageVideos([]);
-      // Reset gamification state
       setJourneyXp(0);
       setShowCompletion(false);
       setJourneyCheckCorrect(false);
@@ -1266,23 +1399,21 @@ export default function AskScreen() {
       setPriorKnowledgeResult(null);
       setPriorKnowledgeQuestions([]);
       setPriorKnowledgeGreeting("");
+      setChatVisible(false);
 
       const trimmedQ = question.trim();
       setPendingQuestion(trimmedQ);
 
-      // Check if we should skip prior knowledge
       if (shouldSkipPriorKnowledge()) {
-        // Skip directly to journey generation
         await generateJourney(trimmedQ, "");
         return;
       }
 
       try {
-        // Fetch prior knowledge questions
         const pkResult = await priorKnowledgeMutation.mutateAsync({
           question: trimmedQ,
           difficultyLevel: computeDifficultyLevel(state.profile, state.learnerModel).level,
-          ageGroup: "unknown", // Could be set from profile in future
+          ageGroup: "unknown",
           existingConfidence: state.learnerModel.conceptConfidence,
           pastTopics: state.learnerModel.pastTopics,
         });
@@ -1290,10 +1421,9 @@ export default function AskScreen() {
         setPriorKnowledgeQuestions(pkResult.questions);
         setPriorKnowledgeGreeting(pkResult.warmGreeting);
 
-        // Create a temporary journey with just the prior_knowledge stage
         const pkStage: JourneyStage = {
           type: "prior_knowledge",
-          emoji: "\ud83d\udc4b",
+          emoji: "👋",
           title: "Before we start...",
           content: pkResult.warmGreeting,
           priorKnowledgeQuestions: pkResult.questions,
@@ -1307,7 +1437,7 @@ export default function AskScreen() {
           difficulty: state.profile.skillLevel as any,
           difficultyLevel: computeDifficultyLevel(state.profile, state.learnerModel).level,
           difficultyLabel: computeDifficultyLevel(state.profile, state.learnerModel).label,
-          emoji: "\ud83e\udde0",
+          emoji: "🧠",
           createdAt: new Date().toISOString(),
           currentStageIndex: 0,
           completed: false,
@@ -1321,14 +1451,12 @@ export default function AskScreen() {
         setCurrentStageIdx(0);
         setIsLoading(false);
       } catch {
-        // If prior knowledge fails, skip directly to journey
         await generateJourney(trimmedQ, "");
       }
     },
     [isLoading, state.profile, state.learnerModel, dispatch, priorKnowledgeMutation, shouldSkipPriorKnowledge]
   );
 
-  // Phase 2: Generate the full journey (called after prior knowledge check or directly)
   const generateJourney = useCallback(
     async (question: string, priorKnowledgeContext: string) => {
       setIsLoading(true);
@@ -1376,12 +1504,10 @@ export default function AskScreen() {
           },
         });
 
-        // Update concepts
         for (const concept of result.mappedConcepts) {
           dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.3 } });
         }
 
-        // Award XP for starting a journey (hook stage)
         awardStageXp("hook");
         dispatch({ type: "UPDATE_STREAK" });
       } catch {
@@ -1393,22 +1519,19 @@ export default function AskScreen() {
     [state.profile, state.learnerModel, dispatch, learnMutation, getLearnerSnapshot, getPastConversationSummaries, priorKnowledgeResult, awardStageXp]
   );
 
-  // Handle prior knowledge completion — generate the full journey with context
   const handlePriorKnowledgeComplete = useCallback(
     async (answers: number[], overallLevel: "none" | "low" | "medium" | "high") => {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
-      // Build prior knowledge context string for the LLM
       const pkContext = priorKnowledgeQuestions.map((q, i) => {
         const answer = answers[i];
         const level = q.knowledgeLevels[answer] || "low";
-        return `Q: ${q.question} \u2192 A: "${q.options[answer]}" (knowledge level: ${level})`;
+        return `Q: ${q.question} → A: "${q.options[answer]}" (knowledge level: ${level})`;
       }).join("\n");
       const contextStr = `Overall prior knowledge: ${overallLevel}\n${pkContext}`;
 
-      // Store the result
       const result: PriorKnowledgeResult = {
         questions: priorKnowledgeQuestions,
         answers,
@@ -1417,12 +1540,9 @@ export default function AskScreen() {
       };
       setPriorKnowledgeResult(result);
 
-      // Award XP for completing prior knowledge check
       awardStageXp("prior_knowledge");
 
-      // Update learner model based on answers
       const levelScores = { none: 0, low: 0.2, medium: 0.5, high: 0.8 };
-      const avgConfidence = levelScores[overallLevel];
       dispatch({
         type: "UPDATE_LEARNER_MODEL",
         payload: {
@@ -1430,13 +1550,12 @@ export default function AskScreen() {
         },
       });
 
-      // Generate the full journey with prior knowledge context
       await generateJourney(pendingQuestion, contextStr);
     },
     [priorKnowledgeQuestions, pendingQuestion, generateJourney, awardStageXp, dispatch]
   );
 
-  // ─── Navigate Stages ────────────────────────────────────────────────────────
+  // ─── Navigate Cards ────────────────────────────────────────────────────────
 
   const goToStage = useCallback(
     (idx: number) => {
@@ -1446,7 +1565,6 @@ export default function AskScreen() {
       // Award XP for the stage we're advancing FROM (only when moving forward)
       if (idx > currentStageIdx) {
         const prevStage = activeJourney.stages[currentStageIdx];
-        // prior_knowledge is awarded in handlePriorKnowledgeComplete, check is awarded on answer, video is awarded on watch
         if (prevStage && prevStage.type !== "prior_knowledge" && prevStage.type !== "check" && prevStage.type !== "video") {
           awardStageXp(prevStage.type);
         }
@@ -1458,30 +1576,25 @@ export default function AskScreen() {
       setChallengeTimerExpired(false);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
 
-      // Update journey progress
       dispatch({
         type: "UPDATE_JOURNEY",
         payload: {
           id: activeJourney.id,
-          updates: {
-            currentStageIndex: idx,
-          },
+          updates: { currentStageIndex: idx },
         },
       });
 
-      // Pre-fetch video if needed
       const stage = activeJourney.stages[idx];
       if (stage.type === "video") {
         fetchVideoForStage(stage);
       }
-      // Start challenge timer for check stages
       if (stage.type === "check") {
         setCheckStartTime(Date.now());
         setChallengeTimerActive(true);
         setChallengeTimerExpired(false);
       }
     },
-    [activeJourney, currentStageIdx, dispatch, fetchVideoForStage, awardStageXp, state.profile.checkStreak]
+    [activeJourney, currentStageIdx, dispatch, fetchVideoForStage, awardStageXp]
   );
 
   const goNext = useCallback(() => {
@@ -1490,12 +1603,10 @@ export default function AskScreen() {
     if (nextIdx < activeJourney.stages.length) {
       goToStage(nextIdx);
     }
-    // Journey completion is handled by handleCompleteJourney (via NextStepsCard)
   }, [activeJourney, currentStageIdx, goToStage]);
 
   const goPrev = useCallback(() => {
     if (currentStageIdx <= 0) return;
-    // Don't go back to prior_knowledge stage — it has its own internal flow
     const prevIdx = currentStageIdx - 1;
     const prevStage = activeJourney?.stages[prevIdx];
     if (prevStage?.type === "prior_knowledge") return;
@@ -1510,12 +1621,10 @@ export default function AskScreen() {
       setChallengeTimerActive(false);
       setJourneyCheckCorrect(correct);
 
-      // Calculate time bonus
       const timeMs = Date.now() - checkStartTime;
       const withinChallenge = timeMs < CHALLENGE_TIMER_SECONDS * 1000 && !challengeTimerExpired;
       const bonusXp = correct && withinChallenge ? CHALLENGE_BONUS_XP : 0;
 
-      // Award check XP
       const checkXp = correct ? JOURNEY_STAGE_XP.check : CHECK_INCORRECT_XP;
       const total = Math.round((checkXp + bonusXp) * currentMultiplierRef.current);
       setJourneyXp((prev) => prev + total);
@@ -1524,11 +1633,9 @@ export default function AskScreen() {
       addXp(total);
       setTimeout(() => setShowXpPopup(false), 1800);
 
-      // Update streak
       dispatch({ type: "RECORD_CHECK_RESULT", payload: { correct } });
       dispatch({ type: "RECORD_QUIZ", payload: { correct } });
 
-      // Haptic feedback
       if (Platform.OS !== "web") {
         if (correct) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1571,7 +1678,6 @@ export default function AskScreen() {
     });
     const isPerfect = journeyCheckCorrect && videoWatched;
 
-    // Award next_steps XP
     awardStageXp("next_steps");
 
     dispatch({
@@ -1584,14 +1690,10 @@ export default function AskScreen() {
       },
     });
 
-    // Post-journey adaptive model update:
-    // If mastery is high, boost concept confidence further (learner is advancing)
-    // If mastery is low, add concepts to confusion points (needs reinforcement)
     if (mastery >= 80) {
       for (const concept of activeJourney.mappedConcepts) {
         dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.95 } });
       }
-      // Promote strengths
       dispatch({
         type: "UPDATE_LEARNER_MODEL",
         payload: {
@@ -1601,7 +1703,6 @@ export default function AskScreen() {
         },
       });
     } else if (mastery < 50) {
-      // Add to confusion points for gentler treatment next time
       dispatch({
         type: "UPDATE_LEARNER_MODEL",
         payload: {
@@ -1619,7 +1720,6 @@ export default function AskScreen() {
 
   const handleNextStepSelect = useCallback(
     (question: string) => {
-      // Complete current journey first, then start new one
       if (activeJourney && !activeJourney.completed) {
         const mastery = calculateMasteryScore({
           stagesCompleted: activeJourney.stages.length,
@@ -1661,6 +1761,7 @@ export default function AskScreen() {
     setDepthMap({});
     setShowPulseHint(false);
     setChallengeTimerExpired(false);
+    setChatVisible(false);
     dispatch({ type: "SET_ACTIVE_JOURNEY", payload: null });
     loadSmartSuggestions();
   }, [dispatch, loadSmartSuggestions]);
@@ -1693,18 +1794,18 @@ export default function AskScreen() {
   const isLastStage = activeJourney ? currentStageIdx === activeJourney.stages.length - 1 : false;
   const isCheckStage = currentStage?.type === "check";
   const canAdvance = isCheckStage ? checkAnswered : true;
+  const isPriorKnowledgeStage = currentStage?.type === "prior_knowledge";
+  const isNextStepsStage = currentStage?.type === "next_steps";
 
   // ─── Pause Hint Timer ──────────────────────────────────────────────────────
 
   useEffect(() => {
-    // Clear previous timer
     if (pauseTimerRef.current) {
       clearTimeout(pauseTimerRef.current);
       pauseTimerRef.current = null;
     }
     setShowPulseHint(false);
 
-    // Only start timer on content stages where Explain Simpler is available
     if (currentStage && REGEN_STAGES.has(currentStage.type) && activeJourney && !showCompletion) {
       pauseTimerRef.current = setTimeout(() => {
         setShowPulseHint(true);
@@ -1719,7 +1820,7 @@ export default function AskScreen() {
     };
   }, [currentStageIdx, activeJourney?.id, showCompletion]);
 
-  // ─── Handle Stage Regeneration (Explain Simpler / Tell Me More) ────────
+  // ─── Handle Stage Regeneration ────────────────────────────────────────────
 
   const handleRegenStage = useCallback(
     async (direction: "simpler" | "deeper") => {
@@ -1751,7 +1852,6 @@ export default function AskScreen() {
           learnerContext: learnerCtx,
         });
 
-        // Update the stage in the journey
         const updatedStages = [...activeJourney.stages];
         updatedStages[currentStageIdx] = {
           ...updatedStages[currentStageIdx],
@@ -1768,13 +1868,10 @@ export default function AskScreen() {
           payload: { id: activeJourney.id, updates: { stages: updatedStages } },
         });
 
-        // Clear pulse hint since user interacted
         setShowPulseHint(false);
-        // Reset pause timer
         if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
         pauseTimerRef.current = setTimeout(() => setShowPulseHint(true), PAUSE_HINT_DELAY);
 
-        // Feed back into learner model
         if (direction === "simpler") {
           dispatch({
             type: "UPDATE_LEARNER_MODEL",
@@ -1786,7 +1883,6 @@ export default function AskScreen() {
             },
           });
         } else {
-          // Increment depth for Tell Me More
           setDepthMap((prev) => ({
             ...prev,
             [currentStageIdx]: (prev[currentStageIdx] ?? 0) + 1,
@@ -1805,9 +1901,7 @@ export default function AskScreen() {
           }
         }
 
-        // Small XP bonus for engaging with content
         awardStageXp("hook");
-
       } catch (e) {
         console.error("[RegenStage] Failed:", e);
       } finally {
@@ -1815,12 +1909,12 @@ export default function AskScreen() {
         setRegenDirection(null);
       }
     },
-    [activeJourney, currentStage, currentStageIdx, isRegenerating, state.learnerModel, dispatch, regenStageMutation, awardStageXp]
+    [activeJourney, currentStage, currentStageIdx, isRegenerating, state.learnerModel, dispatch, regenStageMutation, awardStageXp, depthMap]
   );
 
-  // ─── Render Stage ─────────────────────────────────────────────────────────
+  // ─── Render Card Content ─────────────────────────────────────────────────
 
-  const renderStage = () => {
+  const renderCardContent = () => {
     if (!currentStage) return null;
 
     switch (currentStage.type) {
@@ -1836,18 +1930,15 @@ export default function AskScreen() {
           />
         );
       case "hook":
-        return <HookCard stage={currentStage} isDark={isDark} />;
       case "foundation":
-        return <FoundationCard stage={currentStage} isDark={isDark} />;
       case "explanation":
-        return <ExplanationCard stage={currentStage} isDark={isDark} />;
       case "real_world":
-        return <RealWorldCard stage={currentStage} isDark={isDark} />;
+        return <InfoCardContent stage={currentStage} isDark={isDark} />;
       case "check":
-        return <CheckCard stage={currentStage} isDark={isDark} onAnswer={handleCheckAnswer} />;
+        return <CheckCardContent stage={currentStage} isDark={isDark} onAnswer={handleCheckAnswer} />;
       case "video":
         return (
-          <VideoCard
+          <VideoCardContent
             stage={currentStage}
             isDark={isDark}
             videos={stageVideos}
@@ -1856,9 +1947,9 @@ export default function AskScreen() {
           />
         );
       case "next_steps":
-        return <NextStepsCard stage={currentStage} isDark={isDark} onSelect={handleNextStepSelect} onComplete={handleCompleteJourney} />;
+        return <NextStepsCardContent stage={currentStage} isDark={isDark} onSelect={handleNextStepSelect} onComplete={handleCompleteJourney} />;
       default:
-        return <ExplanationCard stage={currentStage} isDark={isDark} />;
+        return <InfoCardContent stage={currentStage} isDark={isDark} />;
     }
   };
 
@@ -1875,9 +1966,9 @@ export default function AskScreen() {
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerLeft}>
             <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-              {activeJourney ? activeJourney.emoji + " Learning Journey" : "Learn Anything"}
+              {activeJourney && !showWelcome ? activeJourney.emoji + " Learning Journey" : "Learn Anything"}
             </Text>
-            {activeJourney ? (
+            {activeJourney && !showWelcome ? (
               <Text numberOfLines={1} style={[styles.headerSub, { color: colors.muted }]}>
                 {activeJourney.question}
               </Text>
@@ -1889,11 +1980,10 @@ export default function AskScreen() {
               </Text>
             )}
           </View>
-          {activeJourney && (
+          {activeJourney && !showWelcome && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              {/* XP Badge */}
               <View style={styles.xpHeaderBadge}>
-                <Text style={styles.xpHeaderIcon}>{"\u2B50"}</Text>
+                <Text style={styles.xpHeaderIcon}>{"⭐"}</Text>
                 <Text style={[styles.xpHeaderText, { color: "#22C55E" }]}>{journeyXp}</Text>
               </View>
               <TouchableOpacity
@@ -1963,25 +2053,25 @@ export default function AskScreen() {
             />
           </ScrollView>
         ) : activeJourney ? (
-          /* Journey View */
+          /* ─── Card Queue View ─────────────────────────────────────── */
           <View style={styles.flex1}>
-            {/* Progress Dots — skip prior_knowledge stage */}
-            <ProgressDots
-              total={activeJourney.stages.filter(s => s.type !== "prior_knowledge").length}
-              current={activeJourney.stages[0]?.type === "prior_knowledge" ? currentStageIdx - 1 : currentStageIdx}
-              onDotPress={(dotIdx) => {
-                const offset = activeJourney.stages[0]?.type === "prior_knowledge" ? 1 : 0;
-                goToStage(dotIdx + offset);
-              }}
-            />
+            {/* Card Progress Bar — skip prior_knowledge */}
+            {!isPriorKnowledgeStage && visibleStages.length > 0 && (
+              <CardProgressBar
+                total={visibleStages.length}
+                current={Math.max(0, visibleStageIdx)}
+              />
+            )}
 
             {/* Difficulty & Streak */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 4 }}>
-              <DifficultyBadge level={activeJourney.difficultyLevel || 1} label={activeJourney.difficultyLabel || "Curious Beginner"} />
-              <StreakBadge streak={state.profile.checkStreak ?? 0} multiplier={currentMultiplierRef.current} />
-            </View>
+            {!isPriorKnowledgeStage && (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, marginBottom: 4 }}>
+                <DifficultyBadge level={activeJourney.difficultyLevel || 1} label={activeJourney.difficultyLabel || "Curious Beginner"} />
+                <StreakBadge streak={state.profile.checkStreak ?? 0} multiplier={currentMultiplierRef.current} />
+              </View>
+            )}
 
-            {/* Challenge Timer (on check stages) */}
+            {/* Challenge Timer */}
             {currentStage?.type === "check" && !checkAnswered && (
               <ChallengeTimer
                 key={`timer-${currentStageIdx}`}
@@ -1991,19 +2081,20 @@ export default function AskScreen() {
               />
             )}
 
-            {/* Stage Content */}
+            {/* Card Content */}
             <ScrollView
               ref={scrollRef}
               style={styles.flex1}
-              contentContainerStyle={styles.stageScroll}
+              contentContainerStyle={styles.cardScroll}
               showsVerticalScrollIndicator={false}
             >
               <Animated.View
-                key={`stage-${currentStageIdx}`}
-                entering={FadeInDown.duration(300)}
+                key={`card-${currentStageIdx}`}
+                entering={SlideInRight.duration(250).easing(Easing.out(Easing.cubic))}
               >
-                {renderStage()}
+                {renderCardContent()}
               </Animated.View>
+
               {/* Explain Simpler / Tell Me More */}
               {currentStage && REGEN_STAGES.has(currentStage.type) && (
                 <StageActions
@@ -2020,15 +2111,16 @@ export default function AskScreen() {
               )}
             </ScrollView>
 
-            {/* Navigation — hide for prior_knowledge (has its own flow) and next_steps */}
-            {currentStage?.type !== "next_steps" && currentStage?.type !== "prior_knowledge" && (
-              <View style={[styles.navBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+            {/* Bottom Bar — Card Navigation + Ask Button */}
+            {!isPriorKnowledgeStage && !isNextStepsStage && (
+              <View style={[styles.cardNavBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+                {/* Back */}
                 <TouchableOpacity
                   onPress={goPrev}
                   disabled={currentStageIdx === 0 || activeJourney?.stages[currentStageIdx - 1]?.type === "prior_knowledge"}
                   activeOpacity={0.7}
                   style={[
-                    styles.navBtnBack,
+                    styles.cardNavBtn,
                     {
                       backgroundColor: (currentStageIdx === 0 || activeJourney?.stages[currentStageIdx - 1]?.type === "prior_knowledge") ? "transparent" : colors.surface,
                       borderColor: colors.border,
@@ -2036,15 +2128,29 @@ export default function AskScreen() {
                     },
                   ]}
                 >
-                  <Text style={[styles.navBtnBackText, { color: colors.foreground }]}>Back</Text>
+                  <Text style={[styles.cardNavBtnText, { color: colors.foreground }]}>{"‹"}</Text>
                 </TouchableOpacity>
 
+                {/* Ask a Question button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setChatVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                  style={[styles.askBtn, { backgroundColor: isDark ? colors.surface : "#F3F4F6", borderColor: colors.border }]}
+                >
+                  <Text style={{ fontSize: 16 }}>💬</Text>
+                  <Text style={[styles.askBtnText, { color: colors.muted }]}>Ask a question...</Text>
+                </TouchableOpacity>
+
+                {/* Next / Complete */}
                 <TouchableOpacity
                   onPress={isLastStage ? handleCompleteJourney : goNext}
                   disabled={!canAdvance}
                   activeOpacity={0.7}
                   style={[
-                    styles.navBtnNext,
+                    styles.cardNavBtnNext,
                     {
                       backgroundColor: canAdvance ? colors.primary : colors.surface,
                       opacity: canAdvance ? 1 : 0.4,
@@ -2053,15 +2159,15 @@ export default function AskScreen() {
                 >
                   <Text
                     style={[
-                      styles.navBtnNextText,
+                      styles.cardNavBtnNextText,
                       { color: canAdvance ? "#FFFFFF" : colors.muted },
                     ]}
                   >
                     {isCheckStage && !checkAnswered
-                      ? "Answer to continue"
+                      ? "Answer first"
                       : isLastStage
-                      ? "Complete Journey"
-                      : "Continue"}
+                      ? "Complete"
+                      : "Next"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -2110,6 +2216,21 @@ export default function AskScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Chat Sidebar */}
+        <ChatSidebar
+          visible={chatVisible}
+          onClose={() => setChatVisible(false)}
+          journeyQuestion={activeJourney?.question || ""}
+          currentStage={currentStage || null}
+          isDark={isDark}
+          skillLevel={state.profile.skillLevel}
+          learnerModel={{
+            preferredDepth: state.learnerModel.preferredDepth,
+            confusionPoints: state.learnerModel.confusionPoints,
+            strengthAreas: state.learnerModel.strengthAreas,
+          }}
+        />
       </KeyboardAvoidingView>
     </ScreenContainer>
   );
@@ -2166,36 +2287,44 @@ const styles = StyleSheet.create({
   recentQuestion: { fontSize: 15, fontWeight: "600" },
   recentMeta: { fontSize: 12, marginTop: 2 },
 
-  // Progress Dots
-  dotsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 12,
+  // Card Progress Bar
+  progressBarWrap: {
     paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  dot: {
-    height: 8,
-    borderRadius: 4,
+  progressBarRow: {
+    flexDirection: "row",
+    gap: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  progressSegment: {
+    height: 4,
+    borderRadius: 2,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 6,
   },
 
-  // Stage Cards
-  stageScroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
-  stageCard: {
+  // Card Body (shared across all card types)
+  cardBody: {
     borderRadius: 20,
     padding: 24,
   },
-  stageEmoji: { fontSize: 36, marginBottom: 12 },
-  stageLabel: {
+  cardLabel: {
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 8,
   },
-  stageTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: 16 },
-  stageContent: { fontSize: 16, lineHeight: 28 },
+  cardTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: 16 },
+  cardContent: { fontSize: 16, lineHeight: 28 },
+  cardScroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
 
   // Key Takeaway
   takeawayBox: {
@@ -2282,28 +2411,44 @@ const styles = StyleSheet.create({
   nextPathQuestion: { fontSize: 15, fontWeight: "600", lineHeight: 22 },
   nextPathReason: { fontSize: 13, marginTop: 4, lineHeight: 18 },
 
-  // Navigation Bar
-  navBar: {
+  // Card Navigation Bar
+  cardNavBar: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
     borderTopWidth: 0.5,
-  },
-  navBtnBack: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  navBtnBackText: { fontSize: 15, fontWeight: "600" },
-  navBtnNext: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
     alignItems: "center",
   },
-  navBtnNextText: { fontSize: 15, fontWeight: "700" },
+  cardNavBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardNavBtnText: { fontSize: 24, fontWeight: "300", marginTop: -2 },
+  cardNavBtnNext: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 22,
+    alignItems: "center",
+  },
+  cardNavBtnNextText: { fontSize: 15, fontWeight: "700" },
+
+  // Ask Button (in nav bar)
+  askBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+  },
+  askBtnText: { fontSize: 14, fontWeight: "500" },
 
   // Input Bar
   inputBar: {
@@ -2366,8 +2511,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
-    marginHorizontal: 20,
-    marginBottom: 8,
   },
   streakBadgeIcon: { fontSize: 20 },
   streakBadgeLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
@@ -2484,12 +2627,12 @@ const styles = StyleSheet.create({
   },
   xpHeaderText: { fontSize: 13, fontWeight: "700" },
   xpHeaderIcon: { fontSize: 14 },
-  // Stage Actions (Explain Simpler / Tell Me More)
+
+  // Stage Actions
   stageActionsRow: {
     flexDirection: "row",
     gap: 10,
     marginTop: 16,
-    paddingHorizontal: 20,
   },
   stageActionBtn: {
     flex: 1,
@@ -2535,6 +2678,7 @@ const styles = StyleSheet.create({
   },
   difficultyBadgeEmoji: { fontSize: 14 },
   difficultyBadgeText: { fontSize: 12, fontWeight: "600" },
+
   // Completion Difficulty
   completeDifficulty: {
     flexDirection: "row",
@@ -2548,4 +2692,78 @@ const styles = StyleSheet.create({
   completeDifficultyEmoji: { fontSize: 24 },
   completeDifficultyLabel: { fontSize: 14, fontWeight: "700" },
   completeDifficultyName: { fontSize: 12, marginTop: 1 },
+
+  // Chat Sidebar (Bottom Sheet)
+  chatOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  chatSheet: {
+    height: "75%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  chatHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+  },
+  chatHeaderTitle: { fontSize: 17, fontWeight: "700" },
+  chatHeaderSub: { fontSize: 13, marginTop: 2 },
+  chatCloseBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  chatCloseBtnText: { fontSize: 15, fontWeight: "600" },
+  chatMessages: { flex: 1 },
+  chatBubble: {
+    maxWidth: "85%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    marginBottom: 10,
+  },
+  chatBubbleUser: {
+    alignSelf: "flex-end",
+    borderBottomRightRadius: 4,
+  },
+  chatBubbleAssistant: {
+    alignSelf: "flex-start",
+    borderBottomLeftRadius: 4,
+  },
+  chatBubbleText: { fontSize: 15, lineHeight: 22 },
+  chatInputBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 0.5,
+    gap: 8,
+  },
+  chatInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+  },
+  chatSendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chatSendIcon: { fontSize: 20, fontWeight: "700" },
 });
