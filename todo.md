@@ -414,9 +414,9 @@
 - [x] Smooth SlideInRight transitions between cards
 - [x] Card queue generated from the same backend journey stages (prior_knowledge filtered from progress bar)
 
-## Swipe Gestures on Card Queue (Deferred — Future Enhancement)
-- [ ] Add horizontal swipe-to-advance on learning cards using react-native-gesture-handler
-- [ ] Swipe left = go to next card, swipe right = go to previous card
-- [ ] Animated card transition (slide out left/right with opacity)
-- [ ] Respect navigation constraints (can't swipe back to prior_knowledge, can't swipe forward past unanswered check)
-- [ ] Visual swipe hint on first card to teach the gesture
+## Swipe Gestures on Card Queue
+- [x] Add horizontal swipe-to-advance on learning cards using react-native-gesture-handler
+- [x] Swipe left = go to next card, swipe right = go to previous card
+- [x] Animated card transition with swipeTranslateX shared value
+- [x] Respect navigation constraints (goPrev/goNext already enforce prior_knowledge and check answer rules)
+- [x] Visual swipe hint on first card to teach the gesture ("← Swipe to navigate →")

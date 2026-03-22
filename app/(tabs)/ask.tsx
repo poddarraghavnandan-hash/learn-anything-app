@@ -29,7 +29,10 @@ import Animated, {
   withDelay,
   Easing,
   runOnJS,
+  interpolate,
+  Extrapolate,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -59,6 +62,7 @@ import type { DifficultyLevel } from "@/shared/types";
 import * as Haptics from "expo-haptics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SWIPE_THRESHOLD = 50; // minimum swipe distance in pixels
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1217,6 +1221,7 @@ export default function AskScreen() {
 
   // Chat sidebar state
   const [chatVisible, setChatVisible] = useState(false);
+  const journeyMutation = trpc.chat.journeyChat.useMutation();
 
   const learnMutation = trpc.chat.learn.useMutation();
   const fetchContentMutation = trpc.chat.fetchStepContent.useMutation();
@@ -1237,11 +1242,17 @@ export default function AskScreen() {
   // Pause hint state
   const [showPulseHint, setShowPulseHint] = useState(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Depth chain state
   const [depthMap, setDepthMap] = useState<Record<number, number>>({});
   const currentDepth = depthMap[currentStageIdx] ?? 0;
   const maxDepthReached = currentDepth >= MAX_DEPTH;
+
+  // Swipe gesture state
+  const swipeTranslateX = useSharedValue(0);
+  const swipeOpacity = useSharedValue(1);
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
 
   // ─── Computed: visible stages (skip prior_knowledge for card queue) ────────
 
@@ -1612,6 +1623,34 @@ export default function AskScreen() {
     if (prevStage?.type === "prior_knowledge") return;
     goToStage(prevIdx);
   }, [currentStageIdx, goToStage, activeJourney]);
+
+  // ─── Swipe Gesture Handler ────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (currentStageIdx > 0 && showSwipeHint) {
+      setShowSwipeHint(false);
+    }
+  }, [currentStageIdx, showSwipeHint]);
+
+  const swipeGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      swipeTranslateX.value = event.translationX;
+    })
+    .onEnd((event) => {
+      const shouldSwipe = Math.abs(event.velocityX) > 500 || Math.abs(event.translationX) > SWIPE_THRESHOLD;
+      if (shouldSwipe) {
+        if (event.translationX > 0) {
+          runOnJS(goPrev)();
+        } else {
+          runOnJS(goNext)();
+        }
+      }
+      swipeTranslateX.value = withTiming(0, { duration: 200 });
+    });
+
+  const swipeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: swipeTranslateX.value }],
+  }));
 
   // ─── Handle Check Answer ────────────────────────────────────────────────────
 
@@ -2081,35 +2120,57 @@ export default function AskScreen() {
               />
             )}
 
-            {/* Card Content */}
-            <ScrollView
-              ref={scrollRef}
-              style={styles.flex1}
-              contentContainerStyle={styles.cardScroll}
-              showsVerticalScrollIndicator={false}
-            >
+            {/* Swipe Hint */}
+            {showSwipeHint && currentStageIdx === 0 && !isPriorKnowledgeStage && (
               <Animated.View
-                key={`card-${currentStageIdx}`}
-                entering={SlideInRight.duration(250).easing(Easing.out(Easing.cubic))}
+                entering={FadeInDown.delay(500).duration(400)}
+                exiting={FadeOut.duration(300)}
+                style={{
+                  alignItems: "center",
+                  paddingVertical: 8,
+                  marginHorizontal: 16,
+                  marginBottom: 8,
+                }}
               >
-                {renderCardContent()}
+                <Text style={{ fontSize: 12, color: colors.muted, fontStyle: "italic" }}>
+                  ← Swipe to navigate →
+                </Text>
               </Animated.View>
+            )}
 
-              {/* Explain Simpler / Tell Me More */}
-              {currentStage && REGEN_STAGES.has(currentStage.type) && (
-                <StageActions
-                  stageType={currentStage.type}
-                  isRegenerating={isRegenerating}
-                  regenDirection={regenDirection}
-                  onSimpler={() => handleRegenStage("simpler")}
-                  onDeeper={() => handleRegenStage("deeper")}
-                  isDark={isDark}
-                  showPulseHint={showPulseHint}
-                  depthLevel={currentDepth}
-                  maxDepthReached={maxDepthReached}
-                />
-              )}
-            </ScrollView>
+            {/* Card Content */}
+            <GestureDetector gesture={swipeGesture}>
+              <Animated.View style={[styles.flex1, swipeAnimatedStyle]}>
+                <ScrollView
+                  ref={scrollRef}
+                  style={styles.flex1}
+                  contentContainerStyle={styles.cardScroll}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <Animated.View
+                    key={`card-${currentStageIdx}`}
+                    entering={SlideInRight.duration(250).easing(Easing.out(Easing.cubic))}
+                  >
+                    {renderCardContent()}
+                  </Animated.View>
+
+                  {/* Explain Simpler / Tell Me More */}
+                  {currentStage && REGEN_STAGES.has(currentStage.type) && (
+                    <StageActions
+                      stageType={currentStage.type}
+                      isRegenerating={isRegenerating}
+                      regenDirection={regenDirection}
+                      onSimpler={() => handleRegenStage("simpler")}
+                      onDeeper={() => handleRegenStage("deeper")}
+                      isDark={isDark}
+                      showPulseHint={showPulseHint}
+                      depthLevel={currentDepth}
+                      maxDepthReached={maxDepthReached}
+                    />
+                  )}
+                </ScrollView>
+              </Animated.View>
+            </GestureDetector>
 
             {/* Bottom Bar — Card Navigation + Ask Button */}
             {!isPriorKnowledgeStage && !isNextStepsStage && (
