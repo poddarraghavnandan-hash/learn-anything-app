@@ -44,6 +44,8 @@ export interface QuizData {
   options: string[];
   correctIndex: number;
   explanation: string;
+  thinkAbout?: string; // Hint to encourage reflection
+  wrongAnswerFeedback?: string; // Explain misconceptions
   relatedContentTitle: string;
   topicSlug: string;
   topicEmoji?: string;
@@ -58,8 +60,11 @@ export interface ReviewData {
   topicSlug: string;
   topicEmoji?: string;
   lastSeenDaysAgo: number;
-  memoryStrength: number;
+  memoryStrength: number; // 0-100: how well user remembers this concept
   keyTakeaway: string;
+  nextReviewDaysFromNow?: number; // Spaced repetition: when user should review this
+  reviewCount?: number; // How many times user has reviewed this
+  confidenceLevel?: "low" | "medium" | "high"; // User's self-assessed confidence
 }
 
 export interface InsightData {

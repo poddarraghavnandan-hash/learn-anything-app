@@ -420,3 +420,48 @@
 - [x] Animated card transition with swipeTranslateX shared value
 - [x] Respect navigation constraints (goPrev/goNext already enforce prior_knowledge and check answer rules)
 - [x] Visual swipe hint on first card to teach the gesture ("← Swipe to navigate →")
+
+## Learning Material & Experience Improvements
+
+### Content Generation Quality
+- [ ] Audit current journey generation — check depth, examples, real-world relevance
+- [ ] Enhance Foundation stage — add more concrete examples, real-world context
+- [ ] Enhance Explanation stage — add diagrams/analogies, break down complex concepts
+- [ ] Enhance Real World stage — add case studies, practical applications, code examples
+- [ ] Improve video selection — prioritize high-quality, well-explained videos from trusted sources
+- [ ] Add content validation — ensure all generated content is factually accurate and up-to-date
+
+### Prior Knowledge Assessment
+- [ ] Improve prior knowledge questions — make them more engaging, less test-like
+- [ ] Add adaptive difficulty to prior knowledge — adjust follow-up questions based on answers
+- [ ] Better prior knowledge result messaging — explain what it means for the learning path
+- [ ] Add confidence scoring — ask users how confident they are in their answers
+
+### Challenge & Check Stage
+- [ ] Vary question types — add multiple choice, fill-in-the-blank, matching, short answer
+- [ ] Improve challenge feedback — explain why answer is correct/incorrect, not just yes/no
+- [ ] Add hint system — let users request hints before answering
+- [ ] Progressive difficulty — make challenges harder as user gets more correct
+- [ ] Add explanation cards after wrong answers — teach the concept before retrying
+
+### Spaced Repetition & Retention
+- [ ] Track which concepts user struggled with
+- [ ] Suggest review journeys for previously learned topics
+- [ ] Add flashcard mode for quick review of key concepts
+- [ ] Implement forgetting curve — remind users to review at optimal intervals
+- [ ] Add retention score — show how well user remembers past learnings
+
+### Learning Experience
+- [ ] Add learning goals — let user set what they want to achieve
+- [ ] Better progress tracking — show mastery level for each concept
+- [ ] Add learning notes — let users save key takeaways from each journey
+- [ ] Peer learning — show what others learned from same topic
+- [ ] Content feedback loop — let users suggest improvements to generated content
+
+
+## Critical Fixes (300 Credits Sprint)
+- [x] Fix 1: Remove disruptive XP popup, show XP summary at journey completion instead
+- [x] Fix 2: Fix scrolling bug on check/explanation card — ensure full explanation is readable with nested ScrollView
+- [x] Fix 3: Update app.config.ts to use app bundle instead of APK for builds (added usesCleartextTraffic: false)
+- [x] Fix 4: Make onboarding clickable on start page — wrapped welcome content in Pressable to advance on tap
+- [ ] Fix 5: Clean up UI — improve typography, spacing, visual hierarchy, hide non-essential info (deferred to next iteration)

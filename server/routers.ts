@@ -497,9 +497,11 @@ You are generating a quiz question. ${difficultyGuide}
 
 CRITICAL RULES:
 - The question MUST be directly about the content title and description
-- The explanation MUST teach — explain WHY the answer is correct and what the learner should remember
-- Include a "thinkAbout" prompt that encourages the learner to reflect before answering
+- The explanation MUST teach — explain WHY the answer is correct, what the learner should remember, and why wrong answers are tempting
+- Include a "thinkAbout" prompt that encourages reflection before answering
 - Make wrong options plausible but clearly wrong if you understand the concept
+- Vary question types: multiple choice, application scenarios, "what would happen if", comparison questions
+- For wrong answers, provide brief educational feedback explaining the misconception
 
 Return JSON:
 {
@@ -507,8 +509,9 @@ Return JSON:
   "thinkAbout": "A hint that encourages the learner to think before answering",
   "options": ["option A", "option B", "option C", "option D"],
   "correctIndex": 0,
-  "explanation": "2-3 sentence explanation of WHY this is correct. Teach the concept.",
-  "encouragement": "A brief encouraging message regardless of whether they got it right or wrong"
+    "explanation": "2-3 sentence explanation of the quiz question. Teach the concept.",
+  "encouragement": "A brief encouraging message regardless of whether they got it right or wrong",
+  "wrongAnswerFeedback": "Brief explanation of why the wrong answers are tempting misconceptions"
 }`,
               },
               {
@@ -749,9 +752,9 @@ You must create a sequence of STAGES that build understanding progressively. Eac
 
 3. EXPLANATION (required) — The core answer to their question. Break it into digestible pieces. Use **bold** for key terms. Keep each paragraph short (2-3 sentences). This is the meat — make it clear, vivid, and memorable. Include a keyTakeaway: one sentence that captures the essential insight.
 
-4. REAL_WORLD (required) — "See it in action." Give a concrete, tangible example from everyday life. Something they can observe or experience themselves. Make it vivid and specific, not abstract.
+4. REAL_WORLD (required) — "See it in action." Give a concrete, tangible example from everyday life. Something they can observe or experience themselves. Make it vivid and specific, not abstract. Include 2-3 concrete details that make it memorable and relatable.
 
-5. CHECK (required) — A quick understanding check. NOT a quiz — more like "here's a thought experiment." Ask a question that tests whether the core concept clicked. Provide 3 options. Include a brief explanation for the correct answer. The question should make them THINK, not just recall.
+5. CHECK (required) — A quick understanding check. NOT a quiz — more like "here's a thought experiment." Ask a question that tests whether the core concept clicked. Provide 4 options (multiple choice). Include a detailed explanation for the correct answer that reinforces the concept. The question should make them THINK, not just recall. Avoid trivial or purely factual questions — test application or reasoning.
 
 6. VIDEO (required) — The culmination. By now they have context to appreciate a deeper explanation. Provide a specific YouTube search query that would find the best video for this topic at their level. Include videoContext: 1-2 sentences explaining what they'll see and why it matters NOW that they understand the basics.
 
@@ -760,13 +763,15 @@ You must create a sequence of STAGES that build understanding progressively. Eac
 CRITICAL RULES:
 - Every stage must have an emoji that matches its mood
 - Keep language warm, conversational, and encouraging
-- The hook should be genuinely surprising or intriguing
-- The explanation should build on the foundation — don't repeat
-- The check question should be thought-provoking, not trivial
-- The video search query should be specific enough to find great content
-- Next steps should branch in different directions (deeper, related, tangential)
+- The hook should be genuinely surprising or intriguing — avoid clickbait, but make them curious
+- The explanation should build on the foundation — don't repeat. Include analogies, metaphors, or vivid examples
+- The check question should be thought-provoking, not trivial. Test understanding, not memorization
+- The video search query should be specific enough to find great content. Include creator name or channel if known
+- Next steps should branch in different directions (deeper into this topic, related concepts, practical applications)
 - Total reading time for all stages: 2-3 minutes (not a textbook)
 - Use markdown for emphasis but keep it readable
+- EXPLANATION DEPTH: For intermediate/advanced learners, include nuance, edge cases, and connections to related fields
+- REAL_WORLD EXAMPLES: Make them specific and memorable. Use numbers, names, or vivid details when possible
 
 Return JSON:
 {
@@ -787,8 +792,9 @@ Return JSON:
       "type": "explanation",
       "emoji": "emoji",
       "title": "Here's the answer",
-      "content": "The core explanation with **bold** key terms",
-      "keyTakeaway": "One sentence summary of the key insight"
+      "content": "The core explanation with **bold** key terms. Include vivid examples, analogies, or metaphors. For advanced learners, include nuance and edge cases.",
+      "keyTakeaway": "One sentence summary of the key insight",
+      "deeperInsight": "Optional: A second-order insight or connection to related concepts for curious learners"
     },
     {
       "type": "real_world",
@@ -801,18 +807,20 @@ Return JSON:
       "emoji": "emoji",
       "title": "Quick check",
       "content": "Brief context for the question",
-      "question": "A thought-provoking question",
-      "options": ["Option A", "Option B", "Option C"],
+      "question": "A thought-provoking question that tests understanding",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
       "correctIndex": 0,
-      "explanation": "Why that's the answer — reinforces the concept"
+      "explanation": "2-3 sentence explanation of why that's correct and what to remember. Teach, don't just confirm.",
+      "thinkAbout": "A hint that encourages reflection before answering"
     },
     {
       "type": "video",
       "emoji": "emoji",
       "title": "Now watch this",
       "content": "",
-      "searchQuery": "specific youtube search query",
-      "videoContext": "What you'll see and why it matters"
+      "searchQuery": "specific youtube search query (include creator name if known)",
+      "videoContext": "What you'll see and why it matters now that you understand the basics",
+      "videoTip": "A specific thing to watch for or think about while watching"
     },
     {
       "type": "next_steps",
@@ -820,9 +828,9 @@ Return JSON:
       "title": "Keep exploring",
       "content": "",
       "paths": [
-        { "question": "Follow-up question 1", "reason": "Why it's interesting" },
-        { "question": "Follow-up question 2", "reason": "Why it's interesting" },
-        { "question": "Follow-up question 3", "reason": "Why it's interesting" }
+        { "question": "Follow-up question 1 (go deeper into this topic)", "reason": "Why it's interesting" },
+        { "question": "Follow-up question 2 (related concept)", "reason": "Why it's interesting" },
+        { "question": "Follow-up question 3 (practical application)", "reason": "Why it's interesting" }
       ]
     }
   ],
@@ -848,10 +856,12 @@ Return JSON:
             keyTakeaway: s.keyTakeaway || undefined,
             question: s.question || undefined,
             options: s.options || undefined,
+            thinkAbout: s.thinkAbout || undefined,
             correctIndex: s.correctIndex ?? undefined,
             explanation: s.explanation || undefined,
-            searchQuery: s.searchQuery || undefined,
-            videoContext: s.videoContext || undefined,
+            searchQuery: s.searchQuery || "",
+            videoContext: s.videoContext || "",
+            videoTip: s.videoTip || "Pay attention to how the concepts connect to what you just learned.",
             paths: s.paths || undefined,
           }));
 
@@ -926,6 +936,7 @@ Generate exactly 3 prior knowledge questions about the topic. Each question shou
 2. Have exactly 4 options that map to knowledge levels (none, low, medium, high)
 3. Be non-judgmental — every answer is valid
 4. Cover different aspects: familiarity with the term, real-world experience, and intuitive understanding
+5. Be adaptive: answers will calibrate the learning journey. High knowledge = skip Foundation. Low knowledge = expand Foundation.
 
 Question types to use:
 - "familiarity": How familiar are you with the concept? ("Never heard of it" → "Pretty comfortable")

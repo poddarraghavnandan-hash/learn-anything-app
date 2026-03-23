@@ -666,10 +666,12 @@ function CheckCardContent({
       })}
 
       {answered && stage.explanation ? (
-        <Animated.View entering={FadeIn.duration(250)} style={[styles.checkExplanation, { backgroundColor: isDark ? colors.surface : "#FFFFFF80" }]}>
-          <Text style={[styles.checkExplanationText, { color: isDark ? colors.foreground + "DD" : "#374151" }]}>
-            {stage.explanation}
-          </Text>
+        <Animated.View entering={FadeIn.duration(250)} style={[styles.checkExplanation, { backgroundColor: isDark ? colors.surface : "#FFFFFF80", maxHeight: 200 }]}>
+          <ScrollView scrollEnabled={true} nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
+            <Text style={[styles.checkExplanationText, { color: isDark ? colors.foreground + "DD" : "#374151" }]}>
+              {stage.explanation}
+            </Text>
+          </ScrollView>
         </Animated.View>
       ) : null}
 
@@ -1208,8 +1210,7 @@ export default function AskScreen() {
 
   // Gamification state
   const [journeyXp, setJourneyXp] = useState(0);
-  const [showXpPopup, setShowXpPopup] = useState(false);
-  const [lastXpGain, setLastXpGain] = useState(0);
+  const [totalXpGained, setTotalXpGained] = useState(0); // Track total XP for journey end summary
   const [challengeTimerActive, setChallengeTimerActive] = useState(false);
   const [challengeTimerExpired, setChallengeTimerExpired] = useState(false);
   const [checkStartTime, setCheckStartTime] = useState(0);
@@ -1275,10 +1276,9 @@ export default function AskScreen() {
       const baseXp = JOURNEY_STAGE_XP[stageType as keyof typeof JOURNEY_STAGE_XP] ?? 5;
       const total = Math.round((baseXp + bonusXp) * mult);
       setJourneyXp((prev) => prev + total);
-      setLastXpGain(total);
-      setShowXpPopup(true);
+
+      setTotalXpGained(prev => prev + total);
       addXp(total);
-      setTimeout(() => setShowXpPopup(false), 1800);
     },
     [addXp]
   );
@@ -1667,10 +1667,9 @@ export default function AskScreen() {
       const checkXp = correct ? JOURNEY_STAGE_XP.check : CHECK_INCORRECT_XP;
       const total = Math.round((checkXp + bonusXp) * currentMultiplierRef.current);
       setJourneyXp((prev) => prev + total);
-      setLastXpGain(total);
-      setShowXpPopup(true);
+
+      setTotalXpGained(prev => prev + total);
       addXp(total);
-      setTimeout(() => setShowXpPopup(false), 1800);
 
       dispatch({ type: "RECORD_CHECK_RESULT", payload: { correct } });
       dispatch({ type: "RECORD_QUIZ", payload: { correct } });
@@ -2037,7 +2036,7 @@ export default function AskScreen() {
         </View>
 
         {/* XP Popup */}
-        {showXpPopup && <XpPopup amount={lastXpGain} multiplier={currentMultiplierRef.current} />}
+        {/* XP popup removed — shown at journey completion instead */}
 
         {/* Loading State */}
         {isLoading ? (

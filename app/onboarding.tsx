@@ -262,6 +262,7 @@ export default function OnboardingScreen() {
               <FloatingParticle delay={3000} x={SCREEN_WIDTH * 0.85} size={5} color={`${colors.primary}25`} />
             </View>
 
+            <Pressable onPress={goNext} style={{ flex: 1, justifyContent: "center" }}>
             <View style={styles.welcomeContent}>
               <Animated.View entering={FadeIn.duration(800)} style={styles.brandMark}>
                 <Text style={styles.brandEmoji}>✨</Text>
@@ -287,6 +288,7 @@ export default function OnboardingScreen() {
                 </View>
               </Animated.View>
             </View>
+            </Pressable>
 
             <Animated.View entering={FadeInUp.delay(1200).duration(600)} style={styles.welcomeBottom}>
               <Pressable
