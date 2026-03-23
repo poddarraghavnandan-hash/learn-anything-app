@@ -550,12 +550,30 @@ function PriorKnowledgeCard({
 
       {allDone && (
         <Animated.View entering={FadeIn.duration(400)} style={{ alignItems: "center", paddingVertical: 24 }}>
+          {/* Personalized Result Message */}
+          <View style={{ marginBottom: 20, alignItems: "center" }}>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>
+              {answers.length === 0 ? "👋" : answers.some((a) => a >= 2) ? "🌟" : "💡"}
+            </Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? "#E0E7FF" : "#3730A3", marginBottom: 8, textAlign: "center" }}>
+              {answers.length === 0
+                ? "Let's get started!"
+                : answers.some((a) => a >= 2)
+                  ? "You've got a solid foundation!"
+                  : "Great — let's build your knowledge!"}
+            </Text>
+            <Text style={{ fontSize: 14, color: isDark ? "#C7D2FE" : "#4338CA", marginBottom: 16, textAlign: "center", lineHeight: 20 }}>
+              {answers.length === 0
+                ? "We'll start from the beginning to build a strong foundation."
+                : answers.some((a) => a >= 2)
+                  ? "We'll skip the basics and focus on deeper concepts to challenge you."
+                  : "We'll start with fundamentals and gradually build up your expertise."}
+            </Text>
+          </View>
+
           <ActivityIndicator size="small" color={isDark ? "#818CF8" : "#6366F1"} style={{ marginBottom: 12 }} />
-          <Text style={{ fontSize: 16, fontWeight: "600", color: isDark ? "#C7D2FE" : "#4338CA" }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? "#94A3B8" : "#64748B" }}>
             Tailoring your journey...
-          </Text>
-          <Text style={{ fontSize: 14, color: isDark ? "#94A3B8" : "#64748B", marginTop: 4 }}>
-            Personalizing content just for you
           </Text>
         </Animated.View>
       )}

@@ -465,3 +465,7 @@
 - [x] Fix 3: Update app.config.ts to use app bundle instead of APK for builds (added usesCleartextTraffic: false)
 - [x] Fix 4: Make onboarding clickable on start page — wrapped welcome content in Pressable to advance on tap
 - [ ] Fix 5: Clean up UI — improve typography, spacing, visual hierarchy, hide non-essential info (deferred to next iteration)
+
+
+## Quick Wins (Remaining Budget)
+- [x] Improve prior knowledge result messaging — show personalized interpretation (solid foundation/building knowledge/starting fresh) with emoji and learning path guidance
