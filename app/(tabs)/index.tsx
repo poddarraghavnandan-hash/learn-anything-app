@@ -19,6 +19,14 @@ import { useLearning } from "@/lib/learning-store";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
+import {
+  getResponsiveFontSize,
+  getResponsiveSpacing,
+  isSmallScreen,
+  isMediumScreen,
+  isLargeScreen,
+  getResponsiveContainerWidth,
+} from "@/lib/responsive";
 
 // ─── Category filter data ────────────────────────────────────────────────────
 
@@ -512,26 +520,26 @@ const styles = StyleSheet.create({
   listContent: { paddingBottom: 30 },
 
   // Header Section
-  headerSection: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
-  greeting: { fontSize: 28, fontWeight: "800", lineHeight: 34 },
+  headerSection: { paddingHorizontal: getResponsiveSpacing(20), paddingTop: getResponsiveSpacing(12), paddingBottom: getResponsiveSpacing(4) },
+  greeting: { fontSize: getResponsiveFontSize(28), fontWeight: "800", lineHeight: getResponsiveFontSize(34) },
 
   // Ask Section
   askPrompt: {
-    fontSize: 16,
+    fontSize: getResponsiveFontSize(16),
     fontWeight: "500",
-    marginTop: 6,
-    marginBottom: 14,
-    lineHeight: 22,
+    marginTop: getResponsiveSpacing(6),
+    marginBottom: getResponsiveSpacing(14),
+    lineHeight: getResponsiveFontSize(22),
   },
   askBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: getResponsiveSpacing(16),
+    paddingVertical: getResponsiveSpacing(14),
     borderRadius: 16,
     borderWidth: 1.5,
-    marginBottom: 14,
-    gap: 10,
+    marginBottom: getResponsiveSpacing(14),
+    gap: getResponsiveSpacing(10),
   },
   askInput: {
     flex: 1,
@@ -586,8 +594,8 @@ const styles = StyleSheet.create({
 
   // Journey Topic Cards
   journeyCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
+    marginHorizontal: getResponsiveSpacing(20),
+    marginBottom: getResponsiveSpacing(16),
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
@@ -595,7 +603,7 @@ const styles = StyleSheet.create({
   journeyThumbWrap: { position: "relative" },
   journeyThumb: {
     width: "100%",
-    height: 160,
+    height: isSmallScreen() ? 120 : 160,
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
   },
@@ -635,8 +643,8 @@ const styles = StyleSheet.create({
   },
   categoryBadgeText: { color: "#FFF", fontSize: 11, fontWeight: "600" },
   journeyBody: { padding: 14 },
-  journeyTitle: { fontSize: 17, fontWeight: "700", lineHeight: 23 },
-  journeyHook: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  journeyTitle: { fontSize: getResponsiveFontSize(17), fontWeight: "700", lineHeight: getResponsiveFontSize(23) },
+  journeyHook: { fontSize: getResponsiveFontSize(14), lineHeight: getResponsiveFontSize(20), marginTop: getResponsiveSpacing(4) },
   journeyFooter: { flexDirection: "row", alignItems: "center", marginTop: 10 },
   learnBadge: {
     paddingHorizontal: 14,

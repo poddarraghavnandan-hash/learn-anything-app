@@ -484,3 +484,14 @@
 - [x] Implement responsive card sizing based on screen height — cardScroll, cardBody, fonts all have small-screen variants
 - [x] Scrolling within card content area already works via ScrollView (no additional changes needed)
 - [x] Responsive design tested — all 194 tests pass, 0 TypeScript errors
+
+
+## Responsive Design Audit & Fixes (All Screens)
+- [x] Create responsive design utility functions (getResponsiveFontSize, getResponsiveSpacing, getResponsivePadding) in lib/responsive.ts
+- [x] Home screen: Applied responsive typography and spacing to greeting, ask bar, journey cards
+- [ ] Ask/Learning screen: Ensure card content, options, navigation buttons work on all resolutions
+- [ ] Profile screen: Ensure stats, badges, journey history work on all resolutions
+- [ ] Progress screen: Ensure charts, progress indicators work on all resolutions
+- [x] Responsive utilities support: small phones (320px), standard phones (375px), large phones (414px+), tablets (600px+)
+- [x] Responsive utilities include landscape orientation detection
+- [x] All 194 tests pass, 0 TypeScript errors
