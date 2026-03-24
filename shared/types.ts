@@ -477,6 +477,11 @@ export interface JourneyStage {
   options?: string[];
   correctIndex?: number;
   explanation?: string;        // Shown after answering the check
+  // For fill-in-the-blank challenges
+  challengeType?: "multipleChoice" | "fillInTheBlank";  // Type of check challenge
+  sentence?: string;           // Sentence with [BLANK] placeholder
+  correctAnswers?: string[];   // Multiple acceptable answers (synonyms, variations)
+  hints?: string[];            // Optional hints (word category, length, etc)
   // For video stages
   searchQuery?: string;
   videoContext?: string;       // Why this video matters now

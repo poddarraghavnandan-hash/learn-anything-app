@@ -469,3 +469,18 @@
 
 ## Quick Wins (Remaining Budget)
 - [x] Improve prior knowledge result messaging — show personalized interpretation (solid foundation/building knowledge/starting fresh) with emoji and learning path guidance
+
+
+## TODAY (70 Credits) — Fill-in-the-Blank Questions
+- [ ] Update shared types to add FillInTheBlank challenge type
+- [ ] Enhance backend check stage to generate fill-in-the-blank questions
+- [ ] Build FillInTheBlankCard component with text input and validation
+- [ ] Integrate FillInTheBlankCard into ask.tsx card rendering
+- [ ] Test fill-in-the-blank with multiple correct answers (synonyms)
+
+
+## CRITICAL BUG — Screen Resizing on Pixel Devices
+- [x] Fix: Options not showing up on smaller screens (Pixel devices) — reduced padding/margins/fonts on screens < 700px height
+- [x] Implement responsive card sizing based on screen height — cardScroll, cardBody, fonts all have small-screen variants
+- [x] Scrolling within card content area already works via ScrollView (no additional changes needed)
+- [x] Responsive design tested — all 194 tests pass, 0 TypeScript errors

@@ -2161,7 +2161,7 @@ export default function AskScreen() {
                 <ScrollView
                   ref={scrollRef}
                   style={styles.flex1}
-                  contentContainerStyle={styles.cardScroll}
+                  contentContainerStyle={Dimensions.get('window').height < 700 ? styles.cardScrollSmall : styles.cardScroll}
                   showsVerticalScrollIndicator={false}
                 >
                   <Animated.View
@@ -2393,6 +2393,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
   },
+  cardBodySmall: {
+    borderRadius: 20,
+    padding: 16, // Reduced padding for small screens
+  },
   cardLabel: {
     fontSize: 12,
     fontWeight: "700",
@@ -2401,8 +2405,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   cardTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: 16 },
+  cardTitleSmall: { fontSize: 18, fontWeight: "700", lineHeight: 26, marginBottom: 12 }, // Smaller on small screens
   cardContent: { fontSize: 16, lineHeight: 28 },
+  cardContentSmall: { fontSize: 14, lineHeight: 24 }, // Smaller on small screens
   cardScroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
+  cardScrollSmall: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 80 }, // Reduced padding for small screens
 
   // Key Takeaway
   takeawayBox: {
