@@ -848,22 +848,40 @@ Return JSON:
           });
 
           const parsed = JSON.parse((response.choices[0].message.content as string) || "{}");
-          const stages = (parsed.stages || []).map((s: any) => ({
-            type: s.type || "explanation",
-            emoji: s.emoji || "💡",
-            title: s.title || "",
-            content: s.content || "",
-            keyTakeaway: s.keyTakeaway || undefined,
-            question: s.question || undefined,
-            options: s.options || undefined,
-            thinkAbout: s.thinkAbout || undefined,
-            correctIndex: s.correctIndex ?? undefined,
-            explanation: s.explanation || undefined,
-            searchQuery: s.searchQuery || "",
-            videoContext: s.videoContext || "",
-            videoTip: s.videoTip || "Pay attention to how the concepts connect to what you just learned.",
-            paths: s.paths || undefined,
-          }));
+          const stages = (parsed.stages || []).map((s: any) => {
+            // Randomize check stage type: 60% multiple choice, 40% fill-in-the-blank
+            let stageData: any = {
+              type: s.type || "explanation",
+              emoji: s.emoji || "💡",
+              title: s.title || "",
+              content: s.content || "",
+              keyTakeaway: s.keyTakeaway || undefined,
+              question: s.question || undefined,
+              thinkAbout: s.thinkAbout || undefined,
+              explanation: s.explanation || undefined,
+              searchQuery: s.searchQuery || "",
+              videoContext: s.videoContext || "",
+              videoTip: s.videoTip || "Pay attention to how the concepts connect to what you just learned.",
+              paths: s.paths || undefined,
+            };
+            
+            // For check stages, randomize between multiple choice and fill-in-the-blank
+            if (s.type === "check" && Math.random() < 0.4) {
+              stageData.questionType = "fillInTheBlank";
+              stageData.correctAnswer = s.correctAnswer || s.options?.[s.correctIndex] || "correct answer";
+              stageData.hint = s.hint || `Think about: ${s.keyTakeaway || ""}`;
+              delete stageData.options;
+              delete stageData.correctIndex;
+            } else if (s.type === "check") {
+              stageData.questionType = "multipleChoice";
+              stageData.options = s.options || undefined;
+              stageData.correctIndex = s.correctIndex ?? undefined;
+              delete stageData.correctAnswer;
+              delete stageData.hint;
+            }
+            
+            return stageData;
+          });
 
           return {
             stages,

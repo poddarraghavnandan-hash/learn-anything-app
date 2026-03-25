@@ -495,3 +495,24 @@
 - [x] Responsive utilities support: small phones (320px), standard phones (375px), large phones (414px+), tablets (600px+)
 - [x] Responsive utilities include landscape orientation detection
 - [x] All 194 tests pass, 0 TypeScript errors
+
+
+## Step 1: Backend Fill-in-the-Blank Generation
+- [x] Update server check stage generation to randomize between multiple choice and fill-in-the-blank (40% fill-in-the-blank, 60% multiple choice)
+- [x] Add logic to choose question type based on random selection
+- [x] Test backend generates both question types — all 194 tests pass, 0 TypeScript errors
+- [ ] Publish checkpoint after Step 1
+
+## Step 2: Matching & Sequencing Games
+- [ ] Add MatchingGame type to shared types
+- [ ] Add SequencingGame type to shared types
+- [ ] Build MatchingGameCard component with drag-to-match UI
+- [ ] Build SequencingGameCard component with arrange-in-order UI
+- [ ] Integrate both game types into ask.tsx rendering
+- [ ] Publish checkpoint after Step 2
+
+## Step 3: Profile & Progress Responsive Design
+- [ ] Apply responsive design to Profile screen (stats, badges, journey history)
+- [ ] Apply responsive design to Progress screen (charts, progress indicators)
+- [ ] Test on multiple screen sizes
+- [ ] Publish checkpoint after Step 3
