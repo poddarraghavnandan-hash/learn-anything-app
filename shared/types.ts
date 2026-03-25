@@ -441,7 +441,8 @@ export type JourneyStageType =
   | "foundation"     // Prerequisite context
   | "explanation"    // Core concept explanation (can have multiple parts)
   | "real_world"     // Concrete real-world example
-  | "check"          // Understanding check (interactive)
+  | "check"          // Understanding check (multiple choice)
+  | "fill-in-the-blank" // Fill-in-the-blank challenge
   | "video"          // Video as culmination
   | "next_steps";    // Follow-up learning paths
 
@@ -522,6 +523,7 @@ export const JOURNEY_STAGE_XP: Record<JourneyStageType, number> = {
   explanation: 15,
   real_world: 10,
   check: 25,       // correct answer; incorrect = 10
+  "fill-in-the-blank": 25,  // same as check
   video: 15,
   next_steps: 5,
 };

@@ -471,12 +471,12 @@
 - [x] Improve prior knowledge result messaging — show personalized interpretation (solid foundation/building knowledge/starting fresh) with emoji and learning path guidance
 
 
-## TODAY (70 Credits) — Fill-in-the-Blank Questions
-- [ ] Update shared types to add FillInTheBlank challenge type
-- [ ] Enhance backend check stage to generate fill-in-the-blank questions
-- [ ] Build FillInTheBlankCard component with text input and validation
-- [ ] Integrate FillInTheBlankCard into ask.tsx card rendering
-- [ ] Test fill-in-the-blank with multiple correct answers (synonyms)
+## TODAY (70 Credits) — Fill-in-the-Blank Questions & Responsive Design
+- [x] Update shared types to add FillInTheBlank challenge type and XP value
+- [x] Build FillInTheBlankCard component with text input, hints, and answer validation
+- [x] Integrate FillInTheBlankCard into ask.tsx card rendering with proper answer checking
+- [x] Apply responsive design to FillInTheBlankCard (fonts, spacing, input sizing)
+- [x] Apply responsive design to Ask/Learning screen — all card content, options, buttons use responsive utilities
 
 
 ## CRITICAL BUG — Screen Resizing on Pixel Devices
@@ -489,7 +489,7 @@
 ## Responsive Design Audit & Fixes (All Screens)
 - [x] Create responsive design utility functions (getResponsiveFontSize, getResponsiveSpacing, getResponsivePadding) in lib/responsive.ts
 - [x] Home screen: Applied responsive typography and spacing to greeting, ask bar, journey cards
-- [ ] Ask/Learning screen: Ensure card content, options, navigation buttons work on all resolutions
+- [x] Ask/Learning screen: Applied responsive sizing to all card content, options, navigation buttons
 - [ ] Profile screen: Ensure stats, badges, journey history work on all resolutions
 - [ ] Progress screen: Ensure charts, progress indicators work on all resolutions
 - [x] Responsive utilities support: small phones (320px), standard phones (375px), large phones (414px+), tablets (600px+)

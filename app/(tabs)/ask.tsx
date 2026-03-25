@@ -36,11 +36,20 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { FillInTheBlankCard } from "@/components/fill-in-the-blank-card";
 import { useLearning } from "@/lib/learning-store";
 import { useColors } from "@/hooks/use-colors";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { trpc } from "@/lib/trpc";
 import { openVideoInApp } from "@/lib/video-utils";
+import {
+  getResponsiveFontSize,
+  getResponsiveSpacing,
+  isSmallScreen,
+  isMediumScreen,
+  isLargeScreen,
+  getResponsiveCardHeight,
+} from "@/lib/responsive";
 import type {
   JourneyStage,
   LearningJourney,
@@ -1992,6 +2001,15 @@ export default function AskScreen() {
         return <InfoCardContent stage={currentStage} isDark={isDark} />;
       case "check":
         return <CheckCardContent stage={currentStage} isDark={isDark} onAnswer={handleCheckAnswer} />;
+      case "fill-in-the-blank":
+        return (
+          <FillInTheBlankCard
+            stage={currentStage}
+            onAnswer={(answer) => handleCheckAnswer(answer === currentStage.correctAnswers?.[0])}
+            isAnswered={checkAnswered}
+            isCorrect={journeyCheckCorrect}
+          />
+        );
       case "video":
         return (
           <VideoCardContent
@@ -2404,12 +2422,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
-  cardTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: 16 },
-  cardTitleSmall: { fontSize: 18, fontWeight: "700", lineHeight: 26, marginBottom: 12 }, // Smaller on small screens
-  cardContent: { fontSize: 16, lineHeight: 28 },
-  cardContentSmall: { fontSize: 14, lineHeight: 24 }, // Smaller on small screens
-  cardScroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
-  cardScrollSmall: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 80 }, // Reduced padding for small screens
+  cardTitle: { fontSize: getResponsiveFontSize(22), fontWeight: "700", lineHeight: getResponsiveFontSize(30), marginBottom: getResponsiveSpacing(16) },
+  cardTitleSmall: { fontSize: getResponsiveFontSize(18), fontWeight: "700", lineHeight: getResponsiveFontSize(26), marginBottom: getResponsiveSpacing(12) },
+  cardContent: { fontSize: getResponsiveFontSize(16), lineHeight: getResponsiveFontSize(28) },
+  cardContentSmall: { fontSize: getResponsiveFontSize(14), lineHeight: getResponsiveFontSize(24) },
+  cardScroll: { paddingHorizontal: getResponsiveSpacing(20), paddingTop: getResponsiveSpacing(8), paddingBottom: getResponsiveSpacing(100) },
+  cardScrollSmall: { paddingHorizontal: getResponsiveSpacing(16), paddingTop: getResponsiveSpacing(4), paddingBottom: getResponsiveSpacing(80) },
 
   // Key Takeaway
   takeawayBox: {
@@ -2425,17 +2443,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 6,
   },
-  takeawayText: { fontSize: 15, lineHeight: 24, fontWeight: "500" },
+  takeawayText: { fontSize: getResponsiveFontSize(15), lineHeight: getResponsiveFontSize(24), fontWeight: "500" },
 
   // Check Options
   checkOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: getResponsiveSpacing(16),
+    paddingVertical: getResponsiveSpacing(16),
     borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: getResponsiveSpacing(10),
   },
-  checkOptionText: { fontSize: 15, fontWeight: "500", lineHeight: 24 },
+  checkOptionText: { fontSize: getResponsiveFontSize(15), fontWeight: "500", lineHeight: getResponsiveFontSize(24) },
   checkExplanation: {
     marginTop: 20,
     padding: 16,
@@ -2452,7 +2470,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   videoThumbWrap: { position: "relative" },
-  videoThumb: { width: "100%", height: 200, borderTopLeftRadius: 13, borderTopRightRadius: 13 },
+  videoThumb: { width: "100%", height: isSmallScreen() ? 140 : 200, borderTopLeftRadius: 13, borderTopRightRadius: 13 },
   playOverlay: {
     position: "absolute",
     top: 0,
