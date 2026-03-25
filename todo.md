@@ -504,8 +504,11 @@
 - [ ] Publish checkpoint after Step 1
 
 ## Step 2: Matching & Sequencing Games
-- [ ] Add MatchingGame type to shared types
-- [ ] Add SequencingGame type to shared types
+- [x] Add matching and sequencing types to JourneyStageType in shared types
+- [x] Build MatchingGameCard component with left/right column layout and pair matching
+- [x] Build SequencingGameCard component with item ordering and undo functionality
+- [x] Add matching (30 XP) and sequencing (30 XP) to JOURNEY_STAGE_XP constant
+- [x] All 194 tests pass, 0 TypeScript errors
 - [ ] Build MatchingGameCard component with drag-to-match UI
 - [ ] Build SequencingGameCard component with arrange-in-order UI
 - [ ] Integrate both game types into ask.tsx rendering

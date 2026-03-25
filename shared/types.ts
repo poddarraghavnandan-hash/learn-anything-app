@@ -443,6 +443,8 @@ export type JourneyStageType =
   | "real_world"     // Concrete real-world example
   | "check"          // Understanding check (multiple choice)
   | "fill-in-the-blank" // Fill-in-the-blank challenge
+  | "matching"       // Match items to definitions/examples
+  | "sequencing"     // Arrange items in correct order
   | "video"          // Video as culmination
   | "next_steps";    // Follow-up learning paths
 
@@ -479,10 +481,17 @@ export interface JourneyStage {
   correctIndex?: number;
   explanation?: string;        // Shown after answering the check
   // For fill-in-the-blank challenges
-  challengeType?: "multipleChoice" | "fillInTheBlank";  // Type of check challenge
+  challengeType?: "multipleChoice" | "fillInTheBlank" | "matching" | "sequencing";  // Type of check challenge
   sentence?: string;           // Sentence with [BLANK] placeholder
   correctAnswers?: string[];   // Multiple acceptable answers (synonyms, variations)
   hints?: string[];            // Optional hints (word category, length, etc)
+  // For matching game challenges
+  matchingPairs?: { left: string; right: string }[];  // Items to match
+  matchingInstructions?: string;  // "Match concepts to their definitions"
+  // For sequencing game challenges
+  sequenceItems?: string[];    // Items to arrange in order
+  sequenceInstructions?: string;  // "Arrange these steps in the correct order"
+  correctSequence?: number[];  // Indices of correct order
   // For video stages
   searchQuery?: string;
   videoContext?: string;       // Why this video matters now
@@ -524,6 +533,8 @@ export const JOURNEY_STAGE_XP: Record<JourneyStageType, number> = {
   real_world: 10,
   check: 25,       // correct answer; incorrect = 10
   "fill-in-the-blank": 25,  // same as check
+  matching: 30,    // Interactive game — higher reward
+  sequencing: 30,  // Interactive game — higher reward
   video: 15,
   next_steps: 5,
 };
