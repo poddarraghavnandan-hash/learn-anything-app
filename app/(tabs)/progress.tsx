@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, StyleSheet, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { getResponsiveFontSize, getResponsiveSpacing } from "@/lib/responsive";
 import { useLearning } from "@/lib/learning-store";
 import { getLevel, BADGE_DEFINITIONS } from "@/shared/types";
 import type { BadgeId } from "@/shared/types";
@@ -94,7 +95,7 @@ export default function ProgressScreen() {
         {/* Daily Goal */}
         <Animated.View entering={FadeInDown.duration(300).delay(100)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20 }}>{"\u{1F3AF}"}</Text>
+            <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F3AF}"}</Text>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>Daily Goal</Text>
           </View>
           <View style={styles.dailyGoalContent}>
@@ -118,7 +119,7 @@ export default function ProgressScreen() {
         {/* Streak */}
         <Animated.View entering={FadeInDown.duration(300).delay(200)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20 }}>{"\u{1F525}"}</Text>
+            <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F525}"}</Text>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>
               {profile.currentStreak} Day Streak
             </Text>
@@ -174,7 +175,7 @@ export default function ProgressScreen() {
         {/* Journey Stats */}
         <Animated.View entering={FadeInDown.duration(300).delay(350)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20 }}>{"\u{1F680}"}</Text>
+            <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F680}"}</Text>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>Learning Journeys</Text>
           </View>
           <View style={[styles.statsGrid, { marginTop: 8 }]}>
@@ -205,7 +206,7 @@ export default function ProgressScreen() {
         {state.topicDifficulties.length > 0 && (
           <Animated.View entering={FadeInDown.duration(300).delay(350)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.cardHeader}>
-              <Text style={{ fontSize: 20 }}>{"\u{1F4CA}"}</Text>
+              <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F4CA}"}</Text>
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>Topic Mastery</Text>
             </View>
             {state.topicDifficulties.map((td) => (
@@ -238,7 +239,7 @@ export default function ProgressScreen() {
         {state.spacedRep.length > 0 && (
           <Animated.View entering={FadeInDown.duration(300).delay(400)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.cardHeader}>
-              <Text style={{ fontSize: 20 }}>{"\u{1F504}"}</Text>
+              <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F504}"}</Text>
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>Review Queue</Text>
             </View>
             <Text style={[styles.reviewCount, { color: colors.muted }]}>
@@ -274,7 +275,7 @@ export default function ProgressScreen() {
         {/* Achievement Badges */}
         <Animated.View entering={FadeInDown.duration(300).delay(450)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20 }}>{"\u{1F3C6}"}</Text>
+            <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F3C6}"}</Text>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>
               Achievements ({unlockedBadges.length}/{BADGE_DEFINITIONS.length})
             </Text>
@@ -319,7 +320,7 @@ export default function ProgressScreen() {
         {/* Daily Digest */}
         <Animated.View entering={FadeInDown.duration(300).delay(500)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20 }}>{"\u{1F4CB}"}</Text>
+            <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F4CB}"}</Text>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>Today's Summary</Text>
           </View>
           <View style={styles.digestGrid}>
@@ -376,59 +377,59 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
   header: { paddingTop: 8, paddingBottom: 4, paddingHorizontal: 4 },
   headerTitle: { fontSize: 26, fontWeight: "800" },
-  headerSubtitle: { fontSize: 14, marginTop: 4 },
+  headerSubtitle: { fontSize: getResponsiveFontSize(14), marginTop: 4 },
   levelCard: { borderRadius: 20, padding: 20, marginTop: 12 },
-  levelTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  levelTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: getResponsiveSpacing(16) },
   levelLabel: { color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: "600" },
-  levelName: { color: "#FFF", fontSize: 24, fontWeight: "800", marginTop: 2 },
+  levelName: { color: "#FFF", fontSize: getResponsiveFontSize(24), fontWeight: "800", marginTop: 2 },
   xpCircle: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.2)", width: 64, height: 64, borderRadius: 32, justifyContent: "center" },
-  xpNumber: { color: "#FFF", fontSize: 18, fontWeight: "800" },
+  xpNumber: { color: "#FFF", fontSize: getResponsiveFontSize(18), fontWeight: "800" },
   xpUnit: { color: "rgba(255,255,255,0.8)", fontSize: 10, fontWeight: "600" },
   progressBarBg: { height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)" },
   progressBarFill: { height: 8, borderRadius: 4, backgroundColor: "#FFF" },
-  progressText: { color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 8, textAlign: "center" },
-  card: { borderRadius: 16, borderWidth: 1, padding: 16, marginTop: 12 },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  progressText: { color: "rgba(255,255,255,0.8)", fontSize: getResponsiveFontSize(12), marginTop: 8, textAlign: "center" },
+  card: { borderRadius: 16, borderWidth: 1, padding: getResponsiveSpacing(16), marginTop: 12 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: getResponsiveSpacing(8), marginBottom: getResponsiveSpacing(12) },
   cardTitle: { fontSize: 17, fontWeight: "700" },
-  dailyGoalContent: { gap: 8 },
+  dailyGoalContent: { gap: getResponsiveSpacing(8) },
   dailyProgressBg: { height: 10, borderRadius: 5 },
   dailyProgressFill: { height: 10, borderRadius: 5 },
-  dailyGoalText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
+  dailyGoalText: { fontSize: getResponsiveFontSize(14), fontWeight: "600", textAlign: "center" },
   goalComplete: { fontSize: 13, fontWeight: "600", textAlign: "center" },
-  weekRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 12 },
+  weekRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: getResponsiveSpacing(12) },
   dayCol: { alignItems: "center", gap: 6 },
   dayDot: { width: 28, height: 28, borderRadius: 14 },
   dayLabel: { fontSize: 11, fontWeight: "500" },
-  streakRecord: { fontSize: 12, textAlign: "center" },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 12 },
-  statCard: { width: "47%", flexGrow: 1, borderRadius: 14, borderWidth: 1, padding: 16, alignItems: "center" },
-  statEmoji: { fontSize: 24, marginBottom: 6 },
-  statNumber: { fontSize: 24, fontWeight: "800" },
-  statLabel: { fontSize: 12, marginTop: 2 },
+  streakRecord: { fontSize: getResponsiveFontSize(12), textAlign: "center" },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: getResponsiveSpacing(12), marginTop: 12 },
+  statCard: { width: "47%", flexGrow: 1, borderRadius: 14, borderWidth: 1, padding: getResponsiveSpacing(16), alignItems: "center" },
+  statEmoji: { fontSize: getResponsiveFontSize(24), marginBottom: 6 },
+  statNumber: { fontSize: getResponsiveFontSize(24), fontWeight: "800" },
+  statLabel: { fontSize: getResponsiveFontSize(12), marginTop: 2 },
   topicRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 0.5 },
-  topicName: { fontSize: 14, fontWeight: "600", textTransform: "capitalize" },
-  topicMeta: { fontSize: 12, marginTop: 2 },
+  topicName: { fontSize: getResponsiveFontSize(14), fontWeight: "600", textTransform: "capitalize" },
+  topicMeta: { fontSize: getResponsiveFontSize(12), marginTop: 2 },
   topicLevelBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   topicLevelText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
-  reviewCount: { fontSize: 13, marginBottom: 8 },
+  reviewCount: { fontSize: 13, marginBottom: getResponsiveSpacing(8) },
   reviewItem: { paddingTop: 10, marginTop: 8, borderTopWidth: 0.5 },
   reviewInfo: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  reviewTitle: { fontSize: 14, fontWeight: "600", flex: 1 },
-  reviewMeta: { fontSize: 12, marginLeft: 8 },
+  reviewTitle: { fontSize: getResponsiveFontSize(14), fontWeight: "600", flex: 1 },
+  reviewMeta: { fontSize: getResponsiveFontSize(12), marginLeft: 8 },
   memoryBar: { height: 4, borderRadius: 2 },
   memoryFill: { height: 4, borderRadius: 2 },
   badgeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  badgeCard: { width: "30%", flexGrow: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: "center" },
+  badgeCard: { width: "30%", flexGrow: 1, padding: getResponsiveSpacing(12), borderRadius: 12, borderWidth: 1, alignItems: "center" },
   badgeEmoji: { fontSize: 28, marginBottom: 6 },
-  badgeName: { fontSize: 12, fontWeight: "700", textAlign: "center" },
+  badgeName: { fontSize: getResponsiveFontSize(12), fontWeight: "700", textAlign: "center" },
   badgeDesc: { fontSize: 10, textAlign: "center", marginTop: 2 },
   badgeReq: { fontSize: 10, textAlign: "center", marginTop: 2, fontStyle: "italic" },
-  lockedLabel: { fontSize: 13, marginTop: 12, marginBottom: 8 },
+  lockedLabel: { fontSize: 13, marginTop: 12, marginBottom: getResponsiveSpacing(8) },
   footer: { paddingVertical: 20, alignItems: "center" },
-  footerText: { fontSize: 14, textAlign: "center", lineHeight: 22, fontStyle: "italic" },
-  digestGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
+  footerText: { fontSize: getResponsiveFontSize(14), textAlign: "center", lineHeight: 22, fontStyle: "italic" },
+  digestGrid: { flexDirection: "row", flexWrap: "wrap", gap: getResponsiveSpacing(12), marginTop: 8 },
   digestItem: { width: "45%", alignItems: "center", paddingVertical: 8 },
-  digestValue: { fontSize: 24, fontWeight: "800" },
-  digestLabel: { fontSize: 12, marginTop: 2 },
+  digestValue: { fontSize: getResponsiveFontSize(24), fontWeight: "800" },
+  digestLabel: { fontSize: getResponsiveFontSize(12), marginTop: 2 },
   digestEncouragement: { fontSize: 13, fontStyle: "italic", textAlign: "center", marginTop: 12, lineHeight: 20 },
 });

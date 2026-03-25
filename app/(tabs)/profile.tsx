@@ -13,6 +13,7 @@ import Constants from "expo-constants";
 import { trpc } from "@/lib/trpc";
 import { useThemeContext, type ThemePreference } from "@/lib/theme-provider";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { getResponsiveFontSize, getResponsiveSpacing } from "@/lib/responsive";
 
 const APP_VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
@@ -226,7 +227,7 @@ export default function ProfileScreen() {
                   },
                 ]}
               >
-                <Text style={{ fontSize: 20 }}>{sl.emoji}</Text>
+                <Text style={{ fontSize: getResponsiveFontSize(20) }}>{sl.emoji}</Text>
                 <Text style={[styles.skillLabel, {
                   color: profile.skillLevel === sl.value ? colors.primary : colors.foreground,
                 }]}>
@@ -381,7 +382,7 @@ export default function ProfileScreen() {
                   },
                 ]}
               >
-                <Text style={{ fontSize: 20, opacity: i < (profile.streakFreezes || 0) ? 1 : 0.3 }}>
+                <Text style={{ fontSize: getResponsiveFontSize(20), opacity: i < (profile.streakFreezes || 0) ? 1 : 0.3 }}>
                   {"\u2744\uFE0F"}
                 </Text>
               </View>
@@ -460,7 +461,7 @@ export default function ProfileScreen() {
 
           {updateStatus === "latest" && (
             <View style={styles.updateStatusRow}>
-              <Text style={{ fontSize: 18 }}>{"\u2705"}</Text>
+              <Text style={{ fontSize: getResponsiveFontSize(18) }}>{"\u2705"}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.updateStatusText, { color: colors.success }]}>
                   You're on the latest version!
@@ -478,7 +479,7 @@ export default function ProfileScreen() {
           {updateStatus === "available" && updateInfo && (
             <View style={[styles.updateCard, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
               <View style={styles.updateCardHeader}>
-                <Text style={{ fontSize: 20 }}>{"\u{1F389}"}</Text>
+                <Text style={{ fontSize: getResponsiveFontSize(20) }}>{"\u{1F389}"}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.updateCardTitle, { color: colors.foreground }]}>
                     Version {updateInfo.latestVersion} Available
@@ -508,7 +509,7 @@ export default function ProfileScreen() {
 
           {updateStatus === "error" && (
             <View style={styles.updateStatusRow}>
-              <Text style={{ fontSize: 18 }}>{"\u26A0\uFE0F"}</Text>
+              <Text style={{ fontSize: getResponsiveFontSize(18) }}>{"\u26A0\uFE0F"}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.updateStatusText, { color: colors.warning }]}>
                   Could not check for updates. Please try again later.
@@ -604,7 +605,7 @@ export default function ProfileScreen() {
               { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.85 : 1 },
             ]}
           >
-            <Text style={{ fontSize: 16 }}>{"\u{1F9E0}"}</Text>
+            <Text style={{ fontSize: getResponsiveFontSize(16) }}>{"\u{1F9E0}"}</Text>
             <View style={{ flex: 1 }}>
               <Text style={[styles.smartTimingLabel, { color: colors.foreground }]}>Smart Timing</Text>
               <Text style={[styles.smartTimingDesc, { color: colors.muted }]}>Send reminders when you're most likely to learn</Text>
@@ -647,38 +648,38 @@ const styles = StyleSheet.create({
   header: { paddingTop: 8, paddingBottom: 4, paddingHorizontal: 4 },
   headerTitle: { fontSize: 26, fontWeight: "800" },
   avatarSection: { alignItems: "center", paddingVertical: 20 },
-  avatar: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center", marginBottom: 12 },
+  avatar: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center", marginBottom: getResponsiveSpacing(12) },
   avatarEmoji: { fontSize: 36 },
-  levelText: { fontSize: 18, fontWeight: "700" },
+  levelText: { fontSize: getResponsiveFontSize(18), fontWeight: "700" },
   xpText: { fontSize: 13, marginTop: 4 },
-  section: { borderRadius: 14, borderWidth: 1, padding: 16, marginTop: 12 },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: "700" },
+  section: { borderRadius: 14, borderWidth: 1, padding: getResponsiveSpacing(16), marginTop: 12 },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: getResponsiveSpacing(8) },
+  sectionTitle: { fontSize: getResponsiveFontSize(16), fontWeight: "700" },
   sectionDesc: { fontSize: 13, marginTop: 2, marginBottom: 10 },
-  editLink: { fontSize: 14, fontWeight: "600" },
-  skillRow: { flexDirection: "row", gap: 8 },
-  skillCard: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1.5, alignItems: "center", gap: 4 },
+  editLink: { fontSize: getResponsiveFontSize(14), fontWeight: "600" },
+  skillRow: { flexDirection: "row", gap: getResponsiveSpacing(8) },
+  skillCard: { flex: 1, padding: getResponsiveSpacing(12), borderRadius: 12, borderWidth: 1.5, alignItems: "center", gap: 4 },
   skillLabel: { fontSize: 13, fontWeight: "700" },
   skillDesc: { fontSize: 10, textAlign: "center" },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: getResponsiveSpacing(8) },
   interestChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1 },
   interestText: { fontSize: 13, fontWeight: "600", textTransform: "capitalize" },
   emptyText: { fontSize: 13 },
-  goalRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  goalRow: { flexDirection: "row", gap: getResponsiveSpacing(8), marginTop: 8 },
   goalPill: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: "center" },
-  goalPillText: { fontSize: 14, fontWeight: "600" },
-  formatRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  goalPillText: { fontSize: getResponsiveFontSize(14), fontWeight: "600" },
+  formatRow: { flexDirection: "row", gap: getResponsiveSpacing(8), marginTop: 8 },
   formatPill: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: "center" },
-  formatPillText: { fontSize: 12, fontWeight: "600" },
+  formatPillText: { fontSize: getResponsiveFontSize(12), fontWeight: "600" },
   savedCount: { fontSize: 13 },
-  versionText: { fontSize: 13, marginTop: 4, marginBottom: 12 },
+  versionText: { fontSize: 13, marginTop: 4, marginBottom: getResponsiveSpacing(12) },
   updateBtn: { paddingVertical: 12, borderRadius: 12, alignItems: "center" },
   updateBtnText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   updateStatusRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 4 },
-  updateStatusText: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  updateStatusText: { fontSize: getResponsiveFontSize(14), fontWeight: "600", lineHeight: 20 },
   checkAgainText: { fontSize: 13, fontWeight: "600" },
   updateCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginTop: 4 },
-  updateCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
+  updateCardHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: getResponsiveSpacing(12) },
   updateCardTitle: { fontSize: 15, fontWeight: "700" },
   updateCardNotes: { fontSize: 13, marginTop: 2, lineHeight: 18 },
   downloadBtn: { paddingVertical: 12, borderRadius: 10, alignItems: "center" },
@@ -688,21 +689,21 @@ const styles = StyleSheet.create({
   signInBtn: { paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", marginTop: 4 },
   signInText: { fontSize: 15, fontWeight: "700" },
   resetBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5 },
-  resetText: { fontSize: 14, fontWeight: "600" },
-  themeRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  resetText: { fontSize: getResponsiveFontSize(14), fontWeight: "600" },
+  themeRow: { flexDirection: "row", gap: getResponsiveSpacing(8), marginTop: 8 },
   themePill: { flex: 1, flexDirection: "row", paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center", gap: 6 },
   themePillText: { fontSize: 13, fontWeight: "600" },
   freezeRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   freezeIcon: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, justifyContent: "center", alignItems: "center" },
   freezeCount: { fontSize: 15, fontWeight: "700" },
-  freezeHint: { fontSize: 12, marginTop: 2 },
+  freezeHint: { fontSize: getResponsiveFontSize(12), marginTop: 2 },
   repairBtn: { paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: "center", marginTop: 12 },
-  repairBtnText: { fontSize: 14, fontWeight: "700" },
-  reminderToggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  repairBtnText: { fontSize: getResponsiveFontSize(14), fontWeight: "700" },
+  reminderToggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: getResponsiveSpacing(12) },
   reminderLabel: { fontSize: 15, fontWeight: "600" },
   reminderToggle: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
   reminderToggleText: { fontSize: 13, fontWeight: "700" },
-  smartTimingBtn: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 12, borderWidth: 1 },
-  smartTimingLabel: { fontSize: 14, fontWeight: "600" },
+  smartTimingBtn: { flexDirection: "row", alignItems: "center", gap: 10, padding: getResponsiveSpacing(12), borderRadius: 12, borderWidth: 1 },
+  smartTimingLabel: { fontSize: getResponsiveFontSize(14), fontWeight: "600" },
   smartTimingDesc: { fontSize: 11, marginTop: 2 },
 });
