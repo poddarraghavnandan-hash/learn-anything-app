@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE userConceptMetrics ADD COLUMN conceptName VARCHAR(255);\nALTER TABLE userConceptMetrics ADD COLUMN easeFactor FLOAT DEFAULT 2.5 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN `interval` INT DEFAULT 1 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN repetitions INT DEFAULT 0 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN nextReviewDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN lastReviewDate TIMESTAMP;\nALTER TABLE userConceptMetrics ADD COLUMN reviewCount INT DEFAULT 0 NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user ZqaBG5Utvzhs97x.root --database RJwKt8GokBWw2FCEnRDvWX --execute ALTER TABLE userConceptMetrics ADD COLUMN conceptName VARCHAR(255);\nALTER TABLE userConceptMetrics ADD COLUMN easeFactor FLOAT DEFAULT 2.5 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN `interval` INT DEFAULT 1 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN repetitions INT DEFAULT 0 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN nextReviewDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN lastReviewDate TIMESTAMP;\nALTER TABLE userConceptMetrics ADD COLUMN reviewCount INT DEFAULT 0 NOT NULL;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1060 (42S21) at line 1: Duplicate column name 'conceptName'"
+  ]
+}

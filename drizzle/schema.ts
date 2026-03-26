@@ -116,14 +116,21 @@ export const conceptContent = mysqlTable("conceptContent", {
 export type ConceptContentRecord = typeof conceptContent.$inferSelect;
 export type InsertConceptContent = typeof conceptContent.$inferInsert;
 
-// ─── User Concept Metrics (adaptive assessment) ──────────────────────────────
+// ─── User Concept Metrics (adaptive assessment + spaced repetition) ──────────
 export const userConceptMetrics = mysqlTable("userConceptMetrics", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   conceptId: int("conceptId").notNull(),
-  quizAccuracy: float("quizAccuracy").default(0).notNull(), // 0-1 accuracy from quizzes
+  conceptName: varchar("conceptName", { length: 255 }),
+  quizAccuracy: float("quizAccuracy").default(0).notNull(),
   timeSpentSeconds: int("timeSpentSeconds").default(0).notNull(),
-  confidenceInferred: float("confidenceInferred").default(0).notNull(), // 0-1 inferred confidence
+  confidenceInferred: float("confidenceInferred").default(0).notNull(),
+  easeFactor: float("easeFactor").default(2.5).notNull(),
+  interval: int("interval").default(1).notNull(),
+  repetitions: int("repetitions").default(0).notNull(),
+  nextReviewDate: timestamp("nextReviewDate").defaultNow().notNull(),
+  lastReviewDate: timestamp("lastReviewDate"),
+  reviewCount: int("reviewCount").default(0).notNull(),
   lastInteractionAt: timestamp("lastInteractionAt").defaultNow().onUpdateNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

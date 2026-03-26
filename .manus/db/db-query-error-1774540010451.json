@@ -1,0 +1,8 @@
+{
+  "query": "-- Migration: Add spaced repetition fields to userConceptMetrics\nALTER TABLE userConceptMetrics ADD COLUMN conceptName VARCHAR(255);\nALTER TABLE userConceptMetrics ADD COLUMN easeFactor FLOAT DEFAULT 2.5 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN interval INT DEFAULT 1 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN repetitions INT DEFAULT 0 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN nextReviewDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN lastReviewDate TIMESTAMP;\nALTER TABLE userConceptMetrics ADD COLUMN reviewCount INT DEFAULT 0 NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user ZqaBG5Utvzhs97x.root --database RJwKt8GokBWw2FCEnRDvWX --execute -- Migration: Add spaced repetition fields to userConceptMetrics\nALTER TABLE userConceptMetrics ADD COLUMN conceptName VARCHAR(255);\nALTER TABLE userConceptMetrics ADD COLUMN easeFactor FLOAT DEFAULT 2.5 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN interval INT DEFAULT 1 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN repetitions INT DEFAULT 0 NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN nextReviewDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL;\nALTER TABLE userConceptMetrics ADD COLUMN lastReviewDate TIMESTAMP;\nALTER TABLE userConceptMetrics ADD COLUMN reviewCount INT DEFAULT 0 NOT NULL;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 4: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 1 column 50 near \"interval INT DEFAULT 1 NOT NULL\""
+  ]
+}
