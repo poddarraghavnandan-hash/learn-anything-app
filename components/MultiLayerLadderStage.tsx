@@ -106,13 +106,14 @@ export function MultiLayerLadderStage({
         {/* Header */}
         <View
         className="bg-surface border-b border-border"
-            style={{ paddingVertical: getResponsiveSpacing(16) }}
+            style={{ paddingVertical: getResponsiveSpacing(12) }}
         >
-          <View className="px-4">
+          <View className="px-3">
             {/* Stage Title */}
             <Text
               className="font-bold text-foreground"
-              style={{ fontSize: getResponsiveFontSize(24) }}
+              style={{ fontSize: getResponsiveFontSize(20) }}
+              numberOfLines={2}
             >
               {stage.stageName}
             </Text>
@@ -120,8 +121,9 @@ export function MultiLayerLadderStage({
             {/* Stage Description */}
             {stage.stageDescription && (
               <Text
-                className="text-muted mt-2"
-                style={{ fontSize: getResponsiveFontSize(14) }}
+                className="text-muted mt-1"
+                style={{ fontSize: getResponsiveFontSize(12) }}
+                numberOfLines={2}
               >
                 {stage.stageDescription}
               </Text>
@@ -163,14 +165,14 @@ export function MultiLayerLadderStage({
         )}
 
         {/* Content */}
-        <View className="flex-1 px-4 py-4">
+        <View className="flex-1 px-3 py-3">
           {stage.foundation || stage.deepDive || stage.expert ? (
             <>
               {/* Layer Tabs */}
-              <View className="flex-row gap-2 mb-4">
+              <View className="flex-row gap-1 mb-3">
                 {[
-                  { layer: "foundation" as const, emoji: "🌱", label: "Foundation" },
-                  { layer: "deepDive" as const, emoji: "🔍", label: "Deep Dive" },
+                  { layer: "foundation" as const, emoji: "🌱", label: "Found" },
+                  { layer: "deepDive" as const, emoji: "🔍", label: "Deep" },
                   { layer: "expert" as const, emoji: "🚀", label: "Expert" },
                 ].map(({ layer, emoji, label }) => {
                   const hasContent = stage[layer];
@@ -183,7 +185,7 @@ export function MultiLayerLadderStage({
                       onPress={() => hasContent && setSelectedLayer(layer)}
                       disabled={!hasContent}
                       className={cn(
-                        "flex-1 py-2 px-2 rounded-lg border",
+                        "flex-1 py-1.5 px-1 rounded-lg border",
                         isSelected
                           ? "bg-primary border-primary"
                           : hasContent
@@ -201,10 +203,20 @@ export function MultiLayerLadderStage({
                           "text-center font-semibold",
                           isSelected ? "text-background" : "text-foreground"
                         )}
-                        style={{ fontSize: getResponsiveFontSize(12) }}
+                        style={{ fontSize: getResponsiveFontSize(10) }}
+                        numberOfLines={1}
                       >
-                        {emoji} {label}
-                        {isCompleted && " ✓"}
+                        {emoji}
+                      </Text>
+                      <Text
+                        className={cn(
+                          "text-center font-semibold text-xs",
+                          isSelected ? "text-background" : "text-foreground"
+                        )}
+                        style={{ fontSize: getResponsiveFontSize(9) }}
+                        numberOfLines={1}
+                      >
+                        {label}{isCompleted && "✓"}
                       </Text>
                     </Pressable>
                   );
@@ -303,7 +315,7 @@ export function MultiLayerLadderStage({
         </View>
 
         {/* Footer: Next Stage Button */}
-        <View className="px-4 py-4 border-t border-border">
+        <View className="px-3 py-3 border-t border-border">
           <Pressable
             onPress={handleNextStage}
             disabled={stageNumber >= totalStages || loading}

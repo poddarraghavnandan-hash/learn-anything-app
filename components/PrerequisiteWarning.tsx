@@ -73,35 +73,35 @@ export function PrerequisiteWarning({
       contentContainerStyle={{ flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
     >
-      <View className="flex-1 px-4 py-6">
+      <View className="flex-1 px-3 py-4">
         {/* Header */}
-        <View className="mb-6">
+        <View className="mb-4">
           <Text
-            className="text-4xl mb-3"
-            style={{ fontSize: getResponsiveFontSize(32) }}
+            className="text-3xl mb-2"
+            style={{ fontSize: getResponsiveFontSize(28) }}
           >
             ⚠️
           </Text>
           <Text
-            className="font-bold text-foreground mb-2"
-            style={{ fontSize: getResponsiveFontSize(20) }}
+            className="font-bold text-foreground mb-1"
+            style={{ fontSize: getResponsiveFontSize(18) }}
           >
-            Prerequisites Needed
+            Prerequisites
           </Text>
           <Text
-            className="text-muted"
-            style={{ fontSize: getResponsiveFontSize(14) }}
+            className="text-muted text-sm"
+            style={{ fontSize: getResponsiveFontSize(12) }}
           >
-            We recommend learning these concepts before diving into {conceptName}.
+            Learn these before {conceptName}.
           </Text>
         </View>
 
         {/* High Severity */}
         {highSeverityGaps.length > 0 && (
-          <View className="mb-6">
+          <View className="mb-4">
             <Text
-              className="font-bold text-error mb-3"
-              style={{ fontSize: getResponsiveFontSize(15) }}
+              className="font-bold text-error mb-2"
+              style={{ fontSize: getResponsiveFontSize(13) }}
             >
               🔴 Essential ({highSeverityGaps.length})
             </Text>
@@ -143,10 +143,10 @@ export function PrerequisiteWarning({
 
         {/* Medium Severity */}
         {mediumSeverityGaps.length > 0 && (
-          <View className="mb-6">
+          <View className="mb-4">
             <Text
-              className="font-bold text-warning mb-3"
-              style={{ fontSize: getResponsiveFontSize(15) }}
+              className="font-bold text-warning mb-2"
+              style={{ fontSize: getResponsiveFontSize(13) }}
             >
               🟡 Recommended ({mediumSeverityGaps.length})
             </Text>
@@ -187,24 +187,23 @@ export function PrerequisiteWarning({
         )}
 
         {/* Info Box */}
-        <View className="mb-6 p-4 bg-surface rounded-lg border border-border">
+        <View className="mb-4 p-2 bg-surface rounded-lg border border-border">
           <Text
-            className="text-foreground font-semibold mb-2"
-            style={{ fontSize: getResponsiveFontSize(13) }}
+            className="text-foreground font-semibold mb-1 text-xs"
+            style={{ fontSize: getResponsiveFontSize(11) }}
           >
-            💡 Why These Prerequisites?
+            💡 Why?
           </Text>
           <Text
-            className="text-muted"
-            style={{ fontSize: getResponsiveFontSize(12) }}
+            className="text-muted text-xs"
+            style={{ fontSize: getResponsiveFontSize(10) }}
           >
-            Learning these concepts first will help you understand {conceptName} much better and
-            avoid confusion.
+            These help you understand {conceptName} better.
           </Text>
         </View>
 
         {/* Buttons */}
-        <View className="gap-3 mt-auto">
+        <View className="gap-2 mt-auto">
           {/* Learn Prerequisites Button */}
           <Pressable
             onPress={() => {
@@ -217,7 +216,7 @@ export function PrerequisiteWarning({
             }}
             disabled={selectedPrerequisite === null || loading}
             className={cn(
-              "py-3 px-4 rounded-lg items-center justify-center",
+              "py-2 px-3 rounded-lg items-center justify-center",
               selectedPrerequisite === null || loading
                 ? "bg-muted opacity-50"
                 : "bg-primary"
@@ -236,9 +235,9 @@ export function PrerequisiteWarning({
                   "font-semibold",
                   selectedPrerequisite === null ? "text-muted" : "text-background"
                 )}
-                style={{ fontSize: getResponsiveFontSize(14) }}
+                style={{ fontSize: getResponsiveFontSize(12) }}
               >
-                📚 Learn Selected
+                Learn
               </Text>
             )}
           </Pressable>
@@ -256,19 +255,19 @@ export function PrerequisiteWarning({
           >
             <Text
               className="font-semibold text-primary"
-              style={{ fontSize: getResponsiveFontSize(14) }}
+              style={{ fontSize: getResponsiveFontSize(12) }}
             >
-              ⏭️ Continue Anyway
+              Skip
             </Text>
           </Pressable>
         </View>
 
         {/* Warning Note */}
         <Text
-          className="text-muted text-center mt-4 text-xs"
-          style={{ fontSize: getResponsiveFontSize(11) }}
+          className="text-muted text-center mt-2 text-xs"
+          style={{ fontSize: getResponsiveFontSize(9) }}
         >
-          Note: Skipping prerequisites may make the content harder to understand.
+          Skipping may make content harder.
         </Text>
       </View>
     </ScrollView>

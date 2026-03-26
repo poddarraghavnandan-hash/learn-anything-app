@@ -88,7 +88,7 @@ export function PersonalizedContentFeed({
     return (
       <Pressable
         onPress={() => onSelectContent?.(item.contentId)}
-        className="mx-4 mb-3 p-4 bg-surface rounded-lg border border-border active:opacity-70"
+        className="mx-3 mb-2 p-3 bg-surface rounded-lg border border-border active:opacity-70"
         style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
       >
         {/* Header: Title + Layer */}
@@ -233,7 +233,7 @@ export function PersonalizedContentFeed({
       renderItem={renderContentCard}
       keyExtractor={(item) => item.contentId.toString()}
       contentContainerStyle={{
-        paddingVertical: getResponsiveSpacing(8),
+        paddingVertical: getResponsiveSpacing(6),
         flexGrow: 1,
       }}
       refreshControl={
@@ -246,31 +246,31 @@ export function PersonalizedContentFeed({
         ) : undefined
       }
       ListHeaderComponent={
-        <View className="mx-4 mb-4">
-          <Text
-            className="font-bold text-foreground"
-            style={{ fontSize: getResponsiveFontSize(18) }}
-          >
-            📚 For You
-          </Text>
-          <Text
-            className="text-muted mt-1"
-            style={{ fontSize: getResponsiveFontSize(13) }}
-          >
-            Content tailored to your learning gaps
-          </Text>
-        </View>
+      <View className="mx-3 mb-3">
+        <Text
+          className="font-bold text-foreground"
+          style={{ fontSize: getResponsiveFontSize(16) }}
+        >
+          📚 For You
+        </Text>
+        <Text
+          className="text-muted mt-0.5"
+          style={{ fontSize: getResponsiveFontSize(12) }}
+        >
+          Content tailored to your gaps
+        </Text>
+      </View>
       }
       ListFooterComponent={
         items.length > 0 ? (
-          <View className="mx-4 mb-4 p-4 bg-surface rounded-lg border border-border">
-            <Text
-              className="text-muted text-center"
-              style={{ fontSize: getResponsiveFontSize(12) }}
-            >
-              💡 Tip: Start with content marked with 🌱 (Foundation) if you're new to the topic.
-            </Text>
-          </View>
+      <View className="mx-3 mb-3 p-2 bg-surface rounded-lg border border-border">
+        <Text
+          className="text-muted text-center text-xs"
+          style={{ fontSize: getResponsiveFontSize(11) }}
+        >
+          💡 Start with 🌱 (Foundation) if new
+        </Text>
+      </View>
         ) : null
       }
     />
