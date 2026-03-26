@@ -528,3 +528,11 @@
 - [x] Responsive design tested on multiple screen sizes (320px–768px+)
 - [x] All 194 tests pass, 0 TypeScript errors
 - [ ] Publish checkpoint after Step 3
+
+
+## Critical Bug Fix: Prior Knowledge Card Rendering on Small Screens
+- [x] Fixed prior knowledge card cutoff on Pixel devices (small screens)
+- [x] Applied responsive sizing to all text, spacing, and padding in PriorKnowledgeCard
+- [x] Card uses cardBodySmall (12px padding) on small screens vs cardBody (24px) on normal screens
+- [x] All emoji, titles, questions, options, and buttons now scale responsively
+- [x] Verified all 194 tests pass, 0 TypeScript errors

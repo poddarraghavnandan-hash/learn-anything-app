@@ -443,6 +443,7 @@ function PriorKnowledgeCard({
   const [showEncouragement, setShowEncouragement] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [allDone, setAllDone] = useState(false);
+  const isSmall = isSmallScreen();
 
   const handleAnswer = useCallback((optionIndex: number) => {
     if (isTransitioning) return;
@@ -486,24 +487,24 @@ function PriorKnowledgeCard({
   const q = questions[currentQ];
 
   return (
-    <View style={[styles.cardBody, { backgroundColor: isDark ? "#1a2332" : "#EEF2FF" }]}>
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji || "👋"}</Text>
-        <Text style={[styles.cardTitle, { color: isDark ? "#E0E7FF" : "#3730A3" }]}>
+    <View style={[isSmall ? styles.cardBodySmall : styles.cardBody, { backgroundColor: isDark ? "#1a2332" : "#EEF2FF" }]}>
+      <View style={{ marginBottom: isSmall ? 12 : 20 }}>
+        <Text style={{ fontSize: isSmall ? 28 : 36, marginBottom: isSmall ? 8 : 12 }}>{stage.emoji || "👋"}</Text>
+        <Text style={[styles.cardTitle, { color: isDark ? "#E0E7FF" : "#3730A3", fontSize: isSmall ? 18 : 22, marginBottom: isSmall ? 8 : 12 }]}>
           {stage.title || "Before we start..."}
         </Text>
-        <Text style={[styles.cardContent, { color: isDark ? "#C7D2FE" : "#4338CA", fontStyle: "italic" }]}>
+        <Text style={[styles.cardContent, { color: isDark ? "#C7D2FE" : "#4338CA", fontStyle: "italic", fontSize: isSmall ? 13 : 15, lineHeight: isSmall ? 20 : 24 }]}>
           {warmGreeting}
         </Text>
       </View>
 
       {/* Progress dots */}
-      <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+      <View style={{ flexDirection: "row", justifyContent: "center", gap: isSmall ? 6 : 8, marginBottom: isSmall ? 12 : 16 }}>
         {questions.map((_, i) => (
           <View
             key={i}
             style={{
-              width: i === currentQ ? 24 : 8,
+              width: i === currentQ ? (isSmall ? 20 : 24) : 8,
               height: 8,
               borderRadius: 4,
               backgroundColor: i < currentQ
@@ -518,14 +519,14 @@ function PriorKnowledgeCard({
 
       {!allDone && q && (
         <Animated.View key={`pkq-${currentQ}`} entering={FadeInDown.duration(300)}>
-          <View style={{ marginBottom: 12 }}>
-            <Text style={{ fontSize: 20, marginBottom: 4 }}>{q.emoji}</Text>
-            <Text style={[styles.cardContent, { color: isDark ? "#E2E8F0" : "#1E293B", fontWeight: "600", fontSize: 16 }]}>
+          <View style={{ marginBottom: isSmall ? 8 : 12 }}>
+            <Text style={{ fontSize: isSmall ? 18 : 20, marginBottom: isSmall ? 3 : 4 }}>{q.emoji}</Text>
+            <Text style={[styles.cardContent, { color: isDark ? "#E2E8F0" : "#1E293B", fontWeight: "600", fontSize: isSmall ? 14 : 16, lineHeight: isSmall ? 20 : 24 }]}>
               {q.question}
             </Text>
           </View>
 
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: isSmall ? 8 : 10 }}>
             {q.options.map((option, oi) => (
               <TouchableOpacity
                 key={oi}
@@ -534,13 +535,13 @@ function PriorKnowledgeCard({
                 style={{
                   backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
                   borderRadius: 12,
-                  padding: 14,
+                  padding: isSmall ? 10 : 14,
                   borderWidth: 1.5,
                   borderColor: isDark ? "#475569" : "#C7D2FE",
                   opacity: isTransitioning ? 0.5 : 1,
                 }}
               >
-                <Text style={{ color: isDark ? "#E2E8F0" : "#1E293B", fontSize: 15, lineHeight: 22 }}>
+                <Text style={{ color: isDark ? "#E2E8F0" : "#1E293B", fontSize: isSmall ? 13 : 15, lineHeight: isSmall ? 18 : 22 }}>
                   {option}
                 </Text>
               </TouchableOpacity>
@@ -548,8 +549,8 @@ function PriorKnowledgeCard({
           </View>
 
           {showEncouragement !== "" && (
-            <Animated.View entering={FadeIn.duration(200)} style={{ alignItems: "center", marginTop: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? "#818CF8" : "#6366F1" }}>
+            <Animated.View entering={FadeIn.duration(200)} style={{ alignItems: "center", marginTop: isSmall ? 12 : 16 }}>
+              <Text style={{ fontSize: isSmall ? 16 : 18, fontWeight: "700", color: isDark ? "#818CF8" : "#6366F1" }}>
                 {showEncouragement}
               </Text>
             </Animated.View>
@@ -558,20 +559,20 @@ function PriorKnowledgeCard({
       )}
 
       {allDone && (
-        <Animated.View entering={FadeIn.duration(400)} style={{ alignItems: "center", paddingVertical: 24 }}>
+        <Animated.View entering={FadeIn.duration(400)} style={{ alignItems: "center", paddingVertical: isSmall ? 16 : 24 }}>
           {/* Personalized Result Message */}
-          <View style={{ marginBottom: 20, alignItems: "center" }}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>
+          <View style={{ marginBottom: isSmall ? 12 : 20, alignItems: "center" }}>
+            <Text style={{ fontSize: isSmall ? 32 : 40, marginBottom: isSmall ? 8 : 12 }}>
               {answers.length === 0 ? "👋" : answers.some((a) => a >= 2) ? "🌟" : "💡"}
             </Text>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? "#E0E7FF" : "#3730A3", marginBottom: 8, textAlign: "center" }}>
+            <Text style={{ fontSize: isSmall ? 16 : 18, fontWeight: "700", color: isDark ? "#E0E7FF" : "#3730A3", marginBottom: isSmall ? 6 : 8, textAlign: "center" }}>
               {answers.length === 0
                 ? "Let's get started!"
                 : answers.some((a) => a >= 2)
                   ? "You've got a solid foundation!"
                   : "Great — let's build your knowledge!"}
             </Text>
-            <Text style={{ fontSize: 14, color: isDark ? "#C7D2FE" : "#4338CA", marginBottom: 16, textAlign: "center", lineHeight: 20 }}>
+            <Text style={{ fontSize: isSmall ? 12 : 14, color: isDark ? "#C7D2FE" : "#4338CA", marginBottom: isSmall ? 12 : 16, textAlign: "center", lineHeight: isSmall ? 18 : 20 }}>
               {answers.length === 0
                 ? "We'll start from the beginning to build a strong foundation."
                 : answers.some((a) => a >= 2)
@@ -580,8 +581,8 @@ function PriorKnowledgeCard({
             </Text>
           </View>
 
-          <ActivityIndicator size="small" color={isDark ? "#818CF8" : "#6366F1"} style={{ marginBottom: 12 }} />
-          <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? "#94A3B8" : "#64748B" }}>
+          <ActivityIndicator size="small" color={isDark ? "#818CF8" : "#6366F1"} style={{ marginBottom: isSmall ? 8 : 12 }} />
+          <Text style={{ fontSize: isSmall ? 12 : 14, fontWeight: "600", color: isDark ? "#94A3B8" : "#64748B" }}>
             Tailoring your journey...
           </Text>
         </Animated.View>
@@ -593,9 +594,9 @@ function PriorKnowledgeCard({
             const defaultAnswers = questions.map(() => 1);
             onComplete(defaultAnswers, "low");
           }}
-          style={{ alignItems: "center", marginTop: 20, paddingVertical: 8 }}
+          style={{ alignItems: "center", marginTop: isSmall ? 12 : 20, paddingVertical: isSmall ? 6 : 8 }}
         >
-          <Text style={{ fontSize: 13, color: isDark ? "#64748B" : "#94A3B8" }}>
+          <Text style={{ fontSize: isSmall ? 11 : 13, color: isDark ? "#64748B" : "#94A3B8" }}>
             Skip — I'm ready to learn
           </Text>
         </TouchableOpacity>
@@ -2413,7 +2414,7 @@ const styles = StyleSheet.create({
   },
   cardBodySmall: {
     borderRadius: 20,
-    padding: 16, // Reduced padding for small screens
+    padding: 12,
   },
   cardLabel: {
     fontSize: 12,
