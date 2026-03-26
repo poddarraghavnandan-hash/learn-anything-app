@@ -536,3 +536,110 @@
 - [x] Card uses cardBodySmall (12px padding) on small screens vs cardBody (24px) on normal screens
 - [x] All emoji, titles, questions, options, and buttons now scale responsively
 - [x] Verified all 194 tests pass, 0 TypeScript errors
+
+
+## Content Depth System — Foundation/Deep Dive/Expert (BUILD_PLAN_DEPTH.md)
+
+### Phase 1: Knowledge Graph & Prerequisite Generation (~300 units)
+- [ ] Backend API: Prerequisite generation endpoint (POST /api/learn/prerequisites)
+- [ ] Database schema: ConceptPrerequisites + ConceptRelationships tables
+- [ ] Prerequisite caching system (30-day TTL)
+- [ ] Knowledge graph traversal logic (BFS/DFS for dependency chains)
+- [ ] Unit tests: Prerequisite generation for 10 sample concepts
+- [ ] Integration tests: Database schema + caching layer
+
+### Phase 2: Adaptive Assessment Engine (~300 units)
+- [ ] Assessment signals collector (quiz accuracy, time spent, reactions, chat patterns)
+- [ ] Knowledge gap detection algorithm (identify missing prerequisites)
+- [ ] Confidence scoring system (per-concept + prerequisite confidence)
+- [ ] Backend API: Knowledge assessment endpoint (GET /api/learn/user/:userId/knowledge-gaps)
+- [ ] Adaptive triggering logic (rules for showing Deep Dive/Expert layers)
+- [ ] Unit tests: Gap detection algorithm with mock data
+- [ ] Scenario tests: User learns Calculus without Algebra → system detects gap
+
+### Phase 3: Multi-Layer Content Generation (~300 units)
+- [ ] Content generation prompts (Foundation/Deep Dive/Expert)
+- [ ] Backend API: Multi-layer content generation (POST /api/learn/content/generate-layers)
+- [ ] Content enrichment: Foundation (intuition + example), Deep Dive (mechanisms + connections), Expert (theory + frontiers)
+- [ ] Database: ConceptContent table with layer columns + version tracking
+- [ ] Batch generation job (generate for all 500+ concepts, nightly)
+- [ ] Unit tests: Content generation for 20 sample concepts
+- [ ] Quality tests: Human review of Foundation/Deep Dive/Expert samples
+
+### Phase 4: Parallel Presentation UI (~300 units)
+- [ ] Expandable content card component (Foundation → tap to expand Deep Dive/Expert)
+- [ ] Prerequisite badge component (color-coded: Green/Yellow/Red)
+- [ ] Knowledge gap alert modal (Learn prerequisites first? / Continue anyway?)
+- [ ] Content summary enhancement (Foundation/Deep Dive/Expert tabs)
+- [ ] Learning ladder step enhancement (show all three layers + prerequisites)
+- [ ] Component tests: Expandable card, badge, alert
+- [ ] Responsive tests: UI works on 320px–768px+ screens
+
+### Phase 5: Ask/Chat Integration (~300 units)
+- [ ] Conversational depth progression (Foundation → Deep Dive → Expert in chat)
+- [ ] Adaptive follow-up generation (contextual suggestions based on knowledge gaps)
+- [ ] Prerequisite handling in chat (inline primers or full learning paths)
+- [ ] Chat message enhancement (layer_type metadata + Expand buttons)
+- [ ] Backend API: Conversational content (POST /api/learn/chat/response)
+- [ ] Knowledge profile tracking (build from chat interactions)
+- [ ] Chat flow tests: Foundation → Deep Dive → Expert progression
+
+### Phase 6: Learning Ladder Enhancement (~300 units)
+- [ ] Ladder step content expansion (Foundation/Deep Dive/Expert descriptions)
+- [ ] Database migration: Generate Deep Dive/Expert for existing steps
+- [ ] Prerequisite suggestions in ladder (display below step title)
+- [ ] Step unlock logic enhancement (consider prerequisite mastery)
+- [ ] Adaptive step depth (unlock Deep Dive after quiz, Expert after 2+ related steps)
+- [ ] Ladder visualization updates (layer indicators + prerequisite chains)
+- [ ] Backend API: Enhanced ladder generation (GET /api/learn/ladder/:topicId/full)
+- [ ] Ladder generation tests: All steps have three layers
+
+### Phase 7: Content Summary Enrichment (~300 units)
+- [ ] Content summary redesign (Foundation/Deep Dive/Expert tabs)
+- [ ] Context enrichment (Why This Matters, How It Connects, Go Deeper sections)
+- [ ] Prerequisite display (badges with color coding)
+- [ ] Interactive elements (Explain Simpler, Tell Me More, Advanced, Learn Prerequisites buttons)
+- [ ] Backend API: Enriched content summary (GET /api/learn/content/:contentId/summary)
+- [ ] Content caching (7-day TTL with invalidation)
+- [ ] Summary generation tests: All content has enriched summaries
+
+### Phase 8: Testing, Refinement & Delivery (~300+ units)
+- [ ] End-to-end testing (all three integration points: Ask/Chat, Ladder, Summaries)
+- [ ] Performance testing (LLM calls -90%, content load <500ms, chat response <2-3s)
+- [ ] Quality assurance (human review of 50+ concepts, prerequisite accuracy validation)
+- [ ] Bug fixes & refinement (based on QA and user testing)
+- [ ] Documentation (API docs, user guide, developer guide)
+- [ ] Deployment & monitoring (phased rollout: 10% → 50% → 100%)
+- [ ] Success metrics tracking (content depth, learning outcomes, engagement)
+
+
+## Phase 1: Knowledge Graph & Prerequisite Generation ✓ COMPLETE (~300 units)
+
+**Deliverables Completed:**
+- [x] Database schema: 5 new tables created (concepts, conceptPrerequisites, conceptRelationships, conceptContent, userConceptMetrics)
+- [x] Database migration applied successfully (drizzle migration 0002)
+- [x] Database helper functions: upsertConcept, getConceptBySlug, getConceptById, getAllConcepts
+- [x] Database helper functions: upsertConceptPrerequisite, getPrerequisitesForConcept, getPrerequisitesByConceptIds
+- [x] Database helper functions: upsertConceptRelationship, getRelationshipsForConcept
+- [x] Database helper functions: upsertConceptContent, getConceptContent, getConceptContentByIds
+- [x] Database helper functions: upsertUserConceptMetric, getUserConceptMetric, getUserConceptMetrics
+- [x] Knowledge graph service (server/knowledge-graph.ts): generatePrerequisites (LLM-powered with 30-day caching)
+- [x] Knowledge graph service: generateConceptRelationships (bidirectional graph generation)
+- [x] Knowledge graph service: getPrerequisiteChain (BFS traversal for dependency chains)
+- [x] Knowledge graph service: getRelatedConcepts (concept relationship lookup)
+- [x] All 194+ tests pass, 0 TypeScript errors
+
+**Architecture:**
+- Concepts table: stores concept metadata (slug, name, description, topicSlug)
+- ConceptPrerequisites table: stores prerequisite relationships with confidence scores (0-1) and TTL caching
+- ConceptRelationships table: stores bidirectional concept relationships (related, extends, opposite, etc.)
+- ConceptContent table: stores multi-layer content (foundation, deepDive, expert) with version tracking
+- UserConceptMetrics table: stores user's interaction data (quiz accuracy, time spent, inferred confidence)
+
+**LLM Integration:**
+- generatePrerequisites: Generates 3-5 prerequisites for any concept using LLM
+- generateConceptRelationships: Analyzes relationships between two concepts
+- Both functions cache results for 30 days to minimize API calls
+- Automatic concept creation for prerequisites and relationships
+
+**Next Phase:** Phase 2 - Adaptive Assessment Engine (knowledge gap detection)

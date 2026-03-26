@@ -15,6 +15,13 @@
       "when": 1773553900771,
       "tag": "0001_silent_lockjaw",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1774534210094,
+      "tag": "0002_productive_black_tom",
+      "breakpoints": true
     }
   ]
 }

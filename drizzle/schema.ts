@@ -60,3 +60,73 @@ export const contentItems = mysqlTable("contentItems", {
 
 export type ContentItem = typeof contentItems.$inferSelect;
 export type InsertContentItem = typeof contentItems.$inferInsert;
+
+// ─── Concepts (for knowledge graph) ──────────────────────────────────────────
+export const concepts = mysqlTable("concepts", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  topicSlug: varchar("topicSlug", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Concept = typeof concepts.$inferSelect;
+export type InsertConcept = typeof concepts.$inferInsert;
+
+// ─── Concept Prerequisites (implicit knowledge graph) ─────────────────────────
+export const conceptPrerequisites = mysqlTable("conceptPrerequisites", {
+  id: int("id").autoincrement().primaryKey(),
+  conceptId: int("conceptId").notNull(),
+  prerequisiteId: int("prerequisiteId").notNull(),
+  confidence: float("confidence").default(0.5).notNull(), // 0-1 confidence score
+  relationshipType: varchar("relationshipType", { length: 50 }).default("prerequisite").notNull(), // prerequisite, related, extends, etc.
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+  cachedUntil: timestamp("cachedUntil").notNull(), // TTL for cache invalidation
+});
+
+export type ConceptPrerequisite = typeof conceptPrerequisites.$inferSelect;
+export type InsertConceptPrerequisite = typeof conceptPrerequisites.$inferInsert;
+
+// ─── Concept Relationships (bidirectional graph) ──────────────────────────────
+export const conceptRelationships = mysqlTable("conceptRelationships", {
+  id: int("id").autoincrement().primaryKey(),
+  conceptAId: int("conceptAId").notNull(),
+  conceptBId: int("conceptBId").notNull(),
+  relationshipType: varchar("relationshipType", { length: 50 }).notNull(), // prerequisite, related, extends, opposite, etc.
+  strength: float("strength").default(0.5).notNull(), // 0-1 strength of relationship
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+  cachedUntil: timestamp("cachedUntil").notNull(),
+});
+
+export type ConceptRelationship = typeof conceptRelationships.$inferSelect;
+export type InsertConceptRelationship = typeof conceptRelationships.$inferInsert;
+
+// ─── Concept Content (multi-layer content: Foundation/Deep Dive/Expert) ──────
+export const conceptContent = mysqlTable("conceptContent", {
+  id: int("id").autoincrement().primaryKey(),
+  conceptId: int("conceptId").notNull(),
+  layer: mysqlEnum("layer", ["foundation", "deepDive", "expert"]).notNull(),
+  content: text("content").notNull(),
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+  version: int("version").default(1).notNull(),
+});
+
+export type ConceptContentRecord = typeof conceptContent.$inferSelect;
+export type InsertConceptContent = typeof conceptContent.$inferInsert;
+
+// ─── User Concept Metrics (adaptive assessment) ──────────────────────────────
+export const userConceptMetrics = mysqlTable("userConceptMetrics", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  conceptId: int("conceptId").notNull(),
+  quizAccuracy: float("quizAccuracy").default(0).notNull(), // 0-1 accuracy from quizzes
+  timeSpentSeconds: int("timeSpentSeconds").default(0).notNull(),
+  confidenceInferred: float("confidenceInferred").default(0).notNull(), // 0-1 inferred confidence
+  lastInteractionAt: timestamp("lastInteractionAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserConceptMetric = typeof userConceptMetrics.$inferSelect;
+export type InsertUserConceptMetric = typeof userConceptMetrics.$inferInsert;
