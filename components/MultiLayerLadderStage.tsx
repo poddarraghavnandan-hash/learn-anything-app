@@ -2,7 +2,7 @@
  * MultiLayerLadderStage Component
  * 
  * Displays a single learning ladder stage with Foundation/DeepDive/Expert layers.
- * Shows prerequisite badges, recommended layer, and progress tracking.
+ * Fetches data from backend via useLearningLadder hook.
  */
 
 import React, { useState, useEffect } from "react";
@@ -10,91 +10,77 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-nati
 import { cn } from "@/lib/utils";
 import { useColors } from "@/hooks/use-colors";
 import { getResponsiveFontSize, getResponsiveSpacing } from "@/lib/responsive";
+import { useLearningLadder } from "@/hooks/use-learning-ladder-api";
 import { MultiLayerContentCard } from "./MultiLayerContentCard";
 import { PrerequisiteDependencyMarker } from "./PrerequisiteDependencyMarker";
 
-interface Stage {
-  stageId: number;
-  stageName: string;
-  stageDescription: string;
-  conceptId: number;
-  conceptName: string;
-  foundation?: {
-    content: string;
-    keyPoints: string[];
-    estimatedReadTime: number;
-  };
-  deepDive?: {
-    content: string;
-    keyPoints: string[];
-    estimatedReadTime: number;
-  };
-  expert?: {
-    content: string;
-    keyPoints: string[];
-    estimatedReadTime: number;
-  };
-  userConfidence: number;
-  recommendedLayer: "foundation" | "deepDive" | "expert";
-  prerequisites: Array<{
-    conceptId: number;
-    conceptName: string;
-    userKnows: boolean;
-    severity: "low" | "medium" | "high";
-  }>;
-}
-
 interface MultiLayerLadderStageProps {
-  stage: Stage;
-  stageNumber: number;
-  totalStages: number;
-  onLayerComplete?: (layer: "foundation" | "deepDive" | "expert") => void;
+  topicSlug: string;
+  stageNumber?: number;
   onNextStage?: () => void;
+  onStageComplete?: (stageNumber: number, layer: "foundation" | "deepDive" | "expert") => void;
 }
 
 export function MultiLayerLadderStage({
-  stage,
-  stageNumber,
-  totalStages,
-  onLayerComplete,
+  topicSlug,
+  stageNumber = 1,
   onNextStage,
+  onStageComplete,
 }: MultiLayerLadderStageProps) {
   const colors = useColors();
-  const [selectedLayer, setSelectedLayer] = useState<"foundation" | "deepDive" | "expert">(
-    stage.recommendedLayer
-  );
-  const [completedLayers, setCompletedLayers] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+  const { stages, isLoadingLadder, progress, recordCompletion, isRecordingCompletion } = useLearningLadder({
+    topicSlug,
+    enabled: true,
+  });
 
-  // Check for high-severity prerequisites
-  const highSeverityGaps = stage.prerequisites.filter((p) => !p.userKnows && p.severity === "high");
-  const shouldWarnPrerequisites = highSeverityGaps.length > 0;
+  const [selectedLayer, setSelectedLayer] = useState<"foundation" | "deepDive" | "expert">("foundation");
+  const [completedLayers, setCompletedLayers] = useState<Set<"foundation" | "deepDive" | "expert">>(new Set());
 
-  // Calculate progress
-  const progressPercentage = Math.round(((stageNumber - 1) / totalStages) * 100);
+  const currentStage = stages?.stages?.[stageNumber - 1];
 
-  const handleLayerComplete = async (layer: "foundation" | "deepDive" | "expert") => {
-    setLoading(true);
-    try {
-      // Mark layer as completed
-      setCompletedLayers((prev) => new Set([...prev, layer]));
-
-      // Call callback if provided
-      if (onLayerComplete) {
-        onLayerComplete(layer);
-      }
-    } catch (error) {
-      console.error("[MultiLayerLadderStage] Failed to complete layer:", error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    // Initialize completed layers from current stage if available
+    if (currentStage) {
+      setCompletedLayers(new Set());
     }
+  }, [currentStage]);
+
+  const handleMarkComplete = () => {
+    const newCompleted = new Set([...completedLayers, selectedLayer]);
+    setCompletedLayers(newCompleted);
+    recordCompletion({ topicSlug, stageNumber, layerCompleted: selectedLayer });
+    onStageComplete?.(stageNumber, selectedLayer);
   };
 
   const handleNextStage = () => {
-    if (onNextStage) {
-      onNextStage();
-    }
+    onNextStage?.();
   };
+
+  if (isLoadingLadder) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text className="text-muted mt-4" style={{ fontSize: getResponsiveFontSize(14) }}>
+          Loading learning ladder...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!currentStage) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background px-4">
+        <Text className="text-2xl font-bold text-foreground mb-2" style={{ fontSize: getResponsiveFontSize(20) }}>
+          🎉 Complete!
+        </Text>
+        <Text className="text-muted text-center" style={{ fontSize: getResponsiveFontSize(14) }}>
+          You've completed all stages of this learning journey.
+        </Text>
+      </View>
+    );
+  }
+
+  const stage = currentStage;
 
   return (
     <ScrollView
@@ -104,10 +90,7 @@ export function MultiLayerLadderStage({
     >
       <View className="flex-1">
         {/* Header */}
-        <View
-        className="bg-surface border-b border-border"
-            style={{ paddingVertical: getResponsiveSpacing(12) }}
-        >
+        <View className="bg-surface border-b border-border" style={{ paddingVertical: getResponsiveSpacing(12) }}>
           <View className="px-3">
             {/* Stage Title */}
             <Text
@@ -115,7 +98,7 @@ export function MultiLayerLadderStage({
               style={{ fontSize: getResponsiveFontSize(20) }}
               numberOfLines={2}
             >
-              {stage.stageName}
+              Stage {stageNumber}: {stage.stageName}
             </Text>
 
             {/* Stage Description */}
@@ -132,41 +115,18 @@ export function MultiLayerLadderStage({
             {/* Progress Bar */}
             <View className="mt-4 h-2 bg-border rounded-full overflow-hidden">
               <View
-                className="h-full bg-primary"
-                style={{ width: `${Math.round(progressPercentage)}%` }}
+                className="bg-primary h-full rounded-full"
+                style={{
+                  width: `${progress ? (progress.currentStage / progress.totalStages) * 100 : (stageNumber / 5) * 100}%`,
+                }}
               />
             </View>
-
-            <Text
-              className="text-muted text-center mt-2"
-              style={{ fontSize: getResponsiveFontSize(12) }}
-            >
-              Stage {stageNumber} of {totalStages} ({progressPercentage}%)
-            </Text>
           </View>
         </View>
 
-        {/* Prerequisite Warning */}
-        {shouldWarnPrerequisites && (
-          <View className="mx-4 mt-4 p-3 bg-error/10 border border-error rounded-lg">
-            <Text
-              className="text-error font-semibold"
-              style={{ fontSize: getResponsiveFontSize(13) }}
-            >
-              ⚠️ Prerequisites Needed
-            </Text>
-            <Text
-              className="text-error mt-1"
-              style={{ fontSize: getResponsiveFontSize(12) }}
-            >
-              We recommend learning {highSeverityGaps.map((p) => p.conceptName).join(", ")} first.
-            </Text>
-          </View>
-        )}
-
         {/* Content */}
         <View className="flex-1 px-3 py-3">
-          {stage.foundation || stage.deepDive || stage.expert ? (
+              {currentStage && (stage.foundation || stage.deepDive || stage.expert) ? (
             <>
               {/* Layer Tabs */}
               <View className="flex-row gap-1 mb-3">
@@ -224,91 +184,72 @@ export function MultiLayerLadderStage({
               </View>
 
               {/* Content Card */}
-              {stage[selectedLayer] && (
-                <View>
+              <MultiLayerContentCard
+                conceptName={stage.stageName}
+                foundation={stage.foundation ? { layer: "foundation" as const, ...stage.foundation } : undefined}
+                deepDive={stage.deepDive ? { layer: "deepDive" as const, ...stage.deepDive } : undefined}
+                expert={stage.expert ? { layer: "expert" as const, ...stage.expert } : undefined}
+                prerequisites={stage.prerequisites}
+                userConfidence={stage.userConfidence}
+                onLayerChange={setSelectedLayer}
+              />
+
+              {/* Mark Complete Button */}
+              <Pressable
+                onPress={handleMarkComplete}
+                disabled={completedLayers.has(selectedLayer) || isRecordingCompletion}
+                className={cn(
+                  "py-2 px-3 rounded-lg items-center justify-center mb-4",
+                  completedLayers.has(selectedLayer) ? "bg-success" : "bg-primary"
+                )}
+                style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
+              >
+                {isRecordingCompletion ? (
+                  <ActivityIndicator size="small" color={colors.background} />
+                ) : (
                   <Text
-                    className="font-semibold text-foreground mb-2"
-                    style={{ fontSize: getResponsiveFontSize(14) }}
-                  >
-                    {stage[selectedLayer]!.content}
-                  </Text>
-                  {stage[selectedLayer]!.keyPoints.length > 0 && (
-                    <View className="mt-3">
-                      <Text
-                        className="font-semibold text-foreground mb-2"
-                        style={{ fontSize: getResponsiveFontSize(13) }}
-                      >
-                        Key Points:
-                      </Text>
-                      {stage[selectedLayer]!.keyPoints.map((point, idx) => (
-                        <Text
-                          key={idx}
-                          className="text-muted ml-2 mb-1"
-                          style={{ fontSize: getResponsiveFontSize(12) }}
-                        >
-                          • {point}
-                        </Text>
-                      ))}
-                    </View>
-                  )}
-                  <Text
-                    className="text-muted mt-3"
+                    className={cn(
+                      "font-semibold text-xs",
+                      completedLayers.has(selectedLayer) ? "text-background" : "text-background"
+                    )}
                     style={{ fontSize: getResponsiveFontSize(12) }}
                   >
-                    Time: {stage[selectedLayer]!.estimatedReadTime} min
+                    {completedLayers.has(selectedLayer) ? "✓ Completed" : "Mark Complete"}
                   </Text>
-                  <Pressable
-                    onPress={() => handleLayerComplete(selectedLayer)}
-                    className="mt-4 py-2 px-4 bg-primary rounded-lg items-center"
-                    style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
-                  >
-                    <Text
-                      className="font-semibold text-background"
-                      style={{ fontSize: getResponsiveFontSize(13) }}
-                    >
-                      Mark as Complete
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
+                )}
+              </Pressable>
 
               {/* Recommended Layer Badge */}
               {selectedLayer !== stage.recommendedLayer && (
-                <View className="mt-4 p-3 bg-warning/10 border border-warning rounded-lg">
+                <View className="mt-2 p-2 bg-warning/10 border border-warning rounded-lg">
                   <Text
-                    className="text-warning font-semibold"
-                    style={{ fontSize: getResponsiveFontSize(12) }}
+                    className="text-warning font-semibold text-xs"
+                    style={{ fontSize: getResponsiveFontSize(11) }}
                   >
-                    💡 Recommended: {stage.recommendedLayer.charAt(0).toUpperCase() +
-                      stage.recommendedLayer.slice(1)}
+                    💡 Try: {stage.recommendedLayer.charAt(0).toUpperCase() + stage.recommendedLayer.slice(1)}
                   </Text>
                 </View>
               )}
 
               {/* Prerequisites */}
-              {stage.prerequisites.length > 0 && (
-                <View className="mt-4">
+              {stage.prerequisites && stage.prerequisites.length > 0 && (
+                <View className="mt-2">
                   <Text
-                    className="font-semibold text-foreground mb-2"
-                    style={{ fontSize: getResponsiveFontSize(13) }}
+                    className="font-semibold text-foreground mb-1"
+                    style={{ fontSize: getResponsiveFontSize(12) }}
                   >
                     Prerequisites
                   </Text>
                   <PrerequisiteDependencyMarker
                     prerequisites={stage.prerequisites}
-                    compact={false}
                   />
                 </View>
               )}
             </>
           ) : (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text
-                className="text-muted mt-4"
-                style={{ fontSize: getResponsiveFontSize(14) }}
-              >
-                Loading content...
+              <Text className="text-muted" style={{ fontSize: getResponsiveFontSize(14) }}>
+                No content available for this stage yet.
               </Text>
             </View>
           )}
@@ -318,40 +259,34 @@ export function MultiLayerLadderStage({
         <View className="px-3 py-3 border-t border-border">
           <Pressable
             onPress={handleNextStage}
-            disabled={stageNumber >= totalStages || loading}
+            disabled={!progress || stageNumber >= progress.totalStages}
             className={cn(
-              "py-3 px-4 rounded-lg items-center justify-center",
-              stageNumber >= totalStages
-                ? "bg-muted opacity-50"
-                : "bg-primary"
+              "py-2 px-3 rounded-lg items-center justify-center",
+              !progress || stageNumber >= progress.totalStages ? "bg-muted opacity-50" : "bg-primary"
             )}
             style={({ pressed }) => [
               {
-                opacity: pressed && stageNumber < totalStages ? 0.8 : 1,
+                opacity: pressed && progress && stageNumber < progress.totalStages ? 0.8 : 1,
               },
             ]}
           >
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.background} />
-            ) : (
-              <Text
-                className={cn(
-                  "font-semibold",
-                  stageNumber >= totalStages ? "text-muted" : "text-background"
-                )}
-                style={{ fontSize: getResponsiveFontSize(14) }}
-              >
-                {stageNumber >= totalStages ? "🎉 Complete!" : `Next Stage →`}
-              </Text>
-            )}
-          </Pressable>
-
-          {stageNumber >= totalStages && (
             <Text
-              className="text-center text-muted mt-2"
+              className={cn(
+                "font-semibold",
+                !progress || stageNumber >= progress.totalStages ? "text-muted" : "text-background"
+              )}
               style={{ fontSize: getResponsiveFontSize(12) }}
             >
-              You've completed all stages! 🚀
+              {!progress || stageNumber >= progress.totalStages ? "🎉 Done!" : `Next →`}
+            </Text>
+          </Pressable>
+
+          {progress && stageNumber >= progress.totalStages && (
+            <Text
+              className="text-center text-muted mt-1 text-xs"
+              style={{ fontSize: getResponsiveFontSize(10) }}
+            >
+              All stages complete! 🚀
             </Text>
           )}
         </View>
