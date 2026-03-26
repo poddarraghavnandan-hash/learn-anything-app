@@ -677,3 +677,38 @@
 - lastInteractionAt: Timestamp of most recent interaction
 
 **Next Phase:** Phase 3 - Multi-Layer Content Generation (Foundation/DeepDive/Expert)
+
+
+## Phase 3: Multi-Layer Content Generation ✓ COMPLETE (~300 units)
+
+**Deliverables Completed:**
+- [x] Content generation service (server/content-generator.ts): 6 core functions
+- [x] generateFoundationContent: ELI5 style (150-200 words, 3 key points, 2-3 min read)
+- [x] generateDeepDiveContent: Intermediate (300-400 words, 5 insights, 5 min read)
+- [x] generateExpertContent: Advanced (400-500 words, 5-7 insights, 8-9 min read)
+- [x] generateAllLayers: Generates all three layers in parallel with caching
+- [x] generateLayerContent: Generate single layer on-demand
+- [x] generateBatchContent: Batch generate for multiple concepts
+- [x] regenerateContent: Bust cache and regenerate (admin only)
+- [x] tRPC router (server/routers-content.ts): 6 public + 2 admin endpoints
+- [x] generateAllLayers, generateLayer, generateBatch mutations
+- [x] getContent, getLayer queries
+- [x] regenerate, getStats admin endpoints
+- [x] Integrated content router into main appRouter (as "concepts" namespace)
+- [x] All 194+ tests pass, 0 TypeScript errors
+
+**Architecture:**
+- Three-layer content model: Foundation (ELI5) → DeepDive (mechanisms) → Expert (nuance)
+- LLM prompts optimized for each layer with specific word counts and key point targets
+- JSON response format: content, keyPoints array, estimatedReadTime (minutes)
+- 30-day caching: Reduces API calls by storing generated content in conceptContent table
+- Parallel generation: All three layers generated concurrently for performance
+- Batch operations: Support generating content for multiple concepts in one request
+- Admin regeneration: Ability to bust cache and regenerate outdated content
+
+**Content Specifications:**
+- Foundation: 150-200 words, 2-3 analogies, 3 key takeaways, 2 min read
+- DeepDive: 300-400 words, 2-3 real-world applications, 5 insights, 5 min read
+- Expert: 400-500 words, research/developments, 5-7 advanced insights, 8-9 min read
+
+**Next Phase:** Phase 4 - Parallel Presentation UI (expandable content cards)
