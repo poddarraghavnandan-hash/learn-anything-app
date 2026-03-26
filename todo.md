@@ -780,3 +780,56 @@
 - Key points extraction: Up to 5 key takeaways from response
 
 **Next Phase:** Phase 6 - Learning Ladder Enhancement (integrate multi-layer content)
+
+
+## Phase 6 & 7: Learning Ladder Enhancement + Content Summary Enrichment ✓ COMPLETE (~600 units)
+
+**Phase 6: Learning Ladder Integration (~300 units)**
+- [x] Learning Ladder integration service (server/learning-ladder-integration.ts): 5 core functions
+- [x] getLearningLadderWithContent: Fetch ladder stages with Foundation/DeepDive/Expert layers
+- [x] getStageWithContent: Get specific stage with multi-layer content and prerequisites
+- [x] suggestNextStage: Intelligent stage progression with prerequisite awareness
+- [x] recordStageCompletion: Track stage completion by layer for adaptive feedback
+- [x] getLadderProgress: Calculate progress metrics and next milestones
+- [x] Multi-layer content integration: Each stage shows all three layers with recommended layer badge
+- [x] Prerequisite detection: Identifies high-severity gaps before advancing stages
+- [x] Progress tracking: Completion percentage, current stage, and next milestone
+
+**Phase 7: Content Summary Enrichment (~300 units)**
+- [x] Content summary enrichment service (server/content-summary-enrichment.ts): 6 core functions
+- [x] enrichContentSummary: Enrich individual content with adaptive recommendations
+- [x] enrichBatchSummaries: Batch enrich multiple content items
+- [x] getContentRecommendations: Suggest content based on detected knowledge gaps
+- [x] getContentByLayer: Fetch content for specific layer (Foundation/DeepDive/Expert)
+- [x] getPersonalizedContentFeed: Curated feed sorted by relevance to user's gaps
+- [x] extractKeyTakeaways: Parse content for bullet points or key insights
+- [x] tRPC router (server/routers-integration.ts): 10 protected endpoints
+- [x] ladder.getWithContent: Full ladder with multi-layer content
+- [x] ladder.getStage: Specific stage with content and prerequisites
+- [x] ladder.suggestNext: Next stage recommendation
+- [x] ladder.recordCompletion: Record stage completion
+- [x] ladder.getProgress: Progress metrics
+- [x] summary.enrich: Enrich single content summary
+- [x] summary.enrichBatch: Batch enrich summaries
+- [x] summary.getRecommendations: Content recommendations
+- [x] summary.getByLayer: Content by layer
+- [x] summary.getPersonalizedFeed: Personalized content feed
+- [x] Integrated integration router into main appRouter (as "integration" namespace)
+- [x] All 194+ tests pass, 0 TypeScript errors
+
+**Architecture:**
+- Ladder stages: Each stage displays Foundation/DeepDive/Expert layers in tabs
+- Recommended layer: Auto-selected based on user confidence (0-1)
+- Prerequisite awareness: Suggests learning prerequisites before advancing
+- Progress tracking: Completion percentage, current stage, next milestone
+- Content enrichment: Adds adaptive recommendations to all content
+- Personalized feed: Sorted by relevance to user's knowledge gaps
+- Key takeaway extraction: Parses content for insights or extracts first 3 sentences
+
+**Integration Points:**
+- Learning Ladder: Stages now show multi-layer content with prerequisite badges
+- Content Summaries: All content enriched with adaptive recommendations
+- Ask/Chat: Can suggest content layers based on user's knowledge level
+- Adaptive Assessment: Drives layer selection and prerequisite detection
+
+**Next Phase:** Phase 8 - Testing, Refinement & Delivery (comprehensive testing and optimization)

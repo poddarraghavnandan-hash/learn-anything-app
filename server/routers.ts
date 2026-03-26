@@ -9,6 +9,7 @@ import * as db from "./db";
 import { adaptiveRouter } from "./routers-adaptive";
 import { contentRouter } from "./routers-content";
 import { chatRouter } from "./routers-chat";
+import { integrationRouter } from "./routers-integration";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1854,6 +1855,9 @@ Return JSON: {
 
   // ─── Adaptive Chat ─────────────────────────────────────────────────────────────
   adaptiveChat: chatRouter,
+
+  // ─── Learning Ladder & Content Integration ─────────────────────────────────────────────────────────────
+  integration: integrationRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({
