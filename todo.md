@@ -643,3 +643,37 @@
 - Automatic concept creation for prerequisites and relationships
 
 **Next Phase:** Phase 2 - Adaptive Assessment Engine (knowledge gap detection)
+
+
+## Phase 2: Adaptive Assessment Engine ✓ COMPLETE (~300 units)
+
+**Deliverables Completed:**
+- [x] Adaptive assessment service (server/adaptive-assessment.ts): 8 core functions
+- [x] recordQuizPerformance: Updates user metrics with exponential moving average for accuracy
+- [x] recordContentEngagement: Tracks time spent + reactions (mindBlown, knew, save, skip)
+- [x] detectKnowledgeGaps: Analyzes prerequisites to identify missing foundational knowledge
+- [x] getUserKnowledgeProfile: Aggregates user statistics and generates adaptive recommendations
+- [x] selectContentLayer: Determines Foundation/DeepDive/Expert based on user confidence (0-1)
+- [x] shouldOfferPrimer: Checks if user needs prerequisite primer before learning concept
+- [x] getUserConceptConfidence: Returns confidence score for any concept (0-1)
+- [x] recordBatchQuizResults: Batch updates for multiple quiz results
+- [x] tRPC router (server/routers-adaptive.ts): 8 protected endpoints
+- [x] recordQuizResult, recordEngagement, recordBatchResults mutations
+- [x] getProfile, detectGaps, selectLayer, checkPrimer, getConfidence queries
+- [x] Integrated adaptive router into main appRouter
+- [x] All 194+ tests pass, 0 TypeScript errors
+
+**Architecture:**
+- Knowledge gap detection via prerequisite analysis: If user struggles with concept C, flag prerequisites of C as gaps
+- Confidence inference: Combines quiz accuracy + time spent + user reactions into 0-1 confidence score
+- Exponential moving average: New quiz results weighted 30%, historical 70% for stable confidence tracking
+- Content layer selection: Foundation (confidence <0.4), DeepDive (0.4-0.7), Expert (>0.7)
+- Primer offering: Suggests prerequisite primers for high-confidence prerequisites user hasn't learned
+
+**Metrics Tracked:**
+- quizAccuracy: Exponential moving average of quiz correctness
+- timeSpentSeconds: Cumulative time spent on concept
+- confidenceInferred: 0-1 score combining accuracy, time, and reactions
+- lastInteractionAt: Timestamp of most recent interaction
+
+**Next Phase:** Phase 3 - Multi-Layer Content Generation (Foundation/DeepDive/Expert)

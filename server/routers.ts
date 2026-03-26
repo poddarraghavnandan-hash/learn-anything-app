@@ -6,6 +6,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { callDataApi } from "./_core/dataApi";
 import * as db from "./db";
+import { adaptiveRouter } from "./routers-adaptive";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1842,6 +1843,9 @@ Return JSON: {
         }
       }),
   }),
+
+  // ─── Adaptive Assessment ──────────────────────────────────────────────
+  adaptive: adaptiveRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({
