@@ -8,6 +8,7 @@ import { callDataApi } from "./_core/dataApi";
 import * as db from "./db";
 import { adaptiveRouter } from "./routers-adaptive";
 import { contentRouter } from "./routers-content";
+import { chatRouter } from "./routers-chat";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1850,6 +1851,9 @@ Return JSON: {
 
   // ─── Concept Content Generation ────────────────────────────────────────────────
   concepts: contentRouter,
+
+  // ─── Adaptive Chat ─────────────────────────────────────────────────────────────
+  adaptiveChat: chatRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({
