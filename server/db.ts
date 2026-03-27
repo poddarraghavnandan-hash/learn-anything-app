@@ -1,5 +1,5 @@
-import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { eq, inArray, and, desc, sql } from "drizzle-orm";
 import {
   InsertUser,
   users,
@@ -16,6 +16,12 @@ import {
   InsertConceptContent,
   userConceptMetrics,
   InsertUserConceptMetric,
+  learnerProfiles,
+  learnerSignals,
+  understandingProgression,
+  conceptCulturalHooks,
+  stuckPointBaselines,
+  googleSignInData,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 

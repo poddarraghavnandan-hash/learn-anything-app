@@ -1020,3 +1020,106 @@
 - [x] PrerequisiteWarning
 - [x] MultiLayerContentCard
 - [x] KnowledgeGraphVisualization
+
+
+## Phase 3: Signal Observer (Learner Epistemology) ✓ COMPLETE (~300 units)
+
+**Deliverables Completed:**
+- [x] Signal Observer core service (server/signal-observer.ts): 10 core functions
+- [x] captureSignal: Record learning signals (question, connection, application, teaching, breakthrough, stuck, feedback)
+- [x] getUserSignals: Retrieve all signals for a user with optional filtering
+- [x] getConceptSignals: Get signals for a specific concept
+- [x] getRecentSignals: Get signals from the last N hours
+- [x] analyzeSignals: Analyze signal distribution, patterns, and trends
+- [x] getUniqueSignals: Get deduplicated signals by content hash
+- [x] archiveOldSignals: Archive signals older than N days for storage optimization
+- [x] extractMetadataFromContent: Extract depth, confidence, emotional tone from signal content
+- [x] extractSummary: Generate brief summaries from signal content
+- [x] hashContent: Generate consistent hashes for content deduplication
+- [x] Comprehensive test suite (48 tests) covering all signal types and operations
+- [x] tRPC router (server/routes/signal-observer.ts): 11 protected endpoints
+- [x] captureSignal mutation: Record new signals
+- [x] getUserSignals query: Retrieve user signals with filtering
+- [x] getConceptSignals query: Get signals for specific concept
+- [x] getRecentSignals query: Get signals from last N hours
+- [x] analyzeSignals query: Analyze signal patterns
+- [x] getUniqueSignals query: Get deduplicated signals
+- [x] archiveOldSignals mutation: Archive old signals
+- [x] getSignalStats query: Get comprehensive signal statistics
+- [x] getSignalsByType query: Get signals filtered by type
+- [x] getConceptTimeline query: Get timeline of signals for concept learning
+- [x] getLearningInsights query: Get AI-powered learning insights
+- [x] React hooks (hooks/use-signal-observer.ts): 11 custom hooks for client-side signal capture
+- [x] useCaptureSignal: Capture signals from user interactions
+- [x] useGetUserSignals: Retrieve user signals
+- [x] useGetConceptSignals: Get concept-specific signals
+- [x] useGetRecentSignals: Get recent signals
+- [x] useAnalyzeSignals: Analyze signal patterns
+- [x] useGetUniqueSignals: Get deduplicated signals
+- [x] useArchiveOldSignals: Archive old signals
+- [x] useGetSignalStats: Get signal statistics
+- [x] useGetSignalsByType: Get signals by type
+- [x] useGetConceptTimeline: Get concept timeline
+- [x] useGetLearningInsights: Get learning insights
+- [x] useSignalCapture: Utility hook for capturing different signal types
+- [x] Integrated signal observer router into main appRouter (as "signals" namespace)
+- [x] All 48 tests passing (100% pass rate)
+- [x] 0 TypeScript errors
+
+**Architecture:**
+- Signal taxonomy: 7 signal types capturing different learning moments
+  - Question: User asks about a concept (indicates curiosity/confusion)
+  - Connection: User relates concept to prior knowledge (indicates understanding)
+  - Application: User applies concept to real-world problem (indicates mastery)
+  - Teaching: User explains concept to others (indicates deep understanding)
+  - Breakthrough: User has aha moment (indicates conceptual shift)
+  - Stuck: User is confused or blocked (indicates knowledge gap)
+  - Feedback: User provides feedback on content (indicates engagement)
+- Metadata extraction: Automatically infers depth (surface/intermediate/deep), confidence (0-1), emotional tone
+- Content deduplication: Uses SHA-256 hashing to identify and deduplicate similar signals
+- Signal analysis: Calculates distribution, trends, and patterns across all signal types
+- Storage optimization: Archives old signals to reduce database size
+
+**Signal Metadata:**
+- depth: "surface" | "intermediate" | "deep" (inferred from content length and complexity)
+- confidence: 0-1 score (inferred from signal type and content indicators)
+- emotionalTone: "positive" | "neutral" | "negative" (detected from language patterns)
+- contentLength: Word count of signal content
+- contentHash: SHA-256 hash for deduplication
+- contentSummary: Brief summary of signal content
+
+**Learning Insights Generated:**
+- learningStyle: "analytical" | "relational" | "practical" | "progressive" | "balanced"
+- learningVelocity: Signals per hour (engagement rate)
+- confidenceTrajectory: "improving" | "stable" | "struggling"
+- averageConfidence: Overall confidence level (0-1)
+- averageDepth: Average depth of learning (surface/intermediate/deep)
+- breakthroughsThisWeek: Count of breakthrough signals
+- stuckPointsThisWeek: Count of stuck signals
+- signalDistribution: Breakdown by signal type
+
+**Test Coverage:**
+- Content hashing: Hash consistency, uniqueness, large content handling
+- Metadata extraction: Depth detection, confidence estimation, emotional tone, signal type handling
+- Signal capture: All 7 signal types, optional conceptId, timestamp handling
+- Signal retrieval: User signals, concept signals, recent signals with filtering
+- Signal analysis: Distribution analysis, type counting, confidence/depth averaging
+- Deduplication: Unique signal identification, content hash deduplication
+- Storage optimization: Signal archiving, space savings calculation
+- Edge cases: Long content, special characters, unicode, rapid capture
+
+**Integration Points:**
+- Ask/Chat: Capture signals from user questions and responses
+- Learning Journeys: Capture signals from stage completion and check answers
+- Content Engagement: Capture signals from content interactions (watch, read, reactions)
+- Adaptive Learning: Use signal analysis to drive adaptive recommendations
+- Learner Model: Feed signal insights into learner profile for personalization
+
+**Performance Optimizations:**
+- Content hashing: Fast SHA-256 computation for deduplication
+- Batch operations: Support bulk signal capture and analysis
+- Caching: Signal analysis results cached for 1 hour
+- Indexing: Database indexes on userId, conceptId, signalType, timestamp
+- Archiving: Old signals moved to archive table to keep active table lean
+
+**Next Phase:** Integration with Ask/Chat and Learning Journeys for real-time signal capture
