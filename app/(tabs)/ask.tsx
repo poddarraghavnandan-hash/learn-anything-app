@@ -2340,16 +2340,16 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 0.5,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   headerLeft: { flex: 1, marginRight: 12 },
-  headerTitle: { fontSize: 20, fontWeight: "700" },
-  headerSub: { fontSize: 13, marginTop: 2 },
+  headerTitle: { fontSize: 18, fontWeight: "700" },
+  headerSub: { fontSize: 12, marginTop: 1 },
   newBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
   newBtnText: { fontSize: 14, fontWeight: "600" },
 
@@ -2360,35 +2360,35 @@ const styles = StyleSheet.create({
   loadingDesc: { fontSize: 14, textAlign: "center", lineHeight: 20 },
 
   // Welcome
-  welcomeContent: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 20 },
-  welcomeInner: { alignItems: "center", marginBottom: 32 },
-  welcomeEmoji: { fontSize: 48, marginBottom: 16 },
-  welcomeTitle: { fontSize: 24, fontWeight: "700", textAlign: "center", marginBottom: 8 },
-  welcomeDesc: { fontSize: 15, textAlign: "center", lineHeight: 22, maxWidth: 320 },
+  welcomeContent: { paddingHorizontal: 12, paddingTop: 30, paddingBottom: 12 },
+  welcomeInner: { alignItems: "center", marginBottom: 20 },
+  welcomeEmoji: { fontSize: 36, marginBottom: 12 },
+  welcomeTitle: { fontSize: 20, fontWeight: "700", textAlign: "center", marginBottom: 6 },
+  welcomeDesc: { fontSize: 13, textAlign: "center", lineHeight: 19, maxWidth: 280 },
 
   // Suggestions
   suggestionsWrap: { gap: 8, marginBottom: 24 },
   suggestionsLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12 },
   suggestionsLoadingText: { fontSize: 13 },
-  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1 },
-  chipText: { fontSize: 14, fontWeight: "500", lineHeight: 20 },
-  chipReason: { fontSize: 11, marginTop: 4, lineHeight: 15 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  chipText: { fontSize: 12, fontWeight: "500", lineHeight: 18 },
+  chipReason: { fontSize: 10, marginTop: 2, lineHeight: 14 },
 
   // Recent Journeys
   recentWrap: { marginTop: 8 },
   recentTitle: { fontSize: 13, fontWeight: "600", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
-  recentItem: { paddingVertical: 12, borderBottomWidth: 0.5 },
+  recentItem: { paddingVertical: 10, borderBottomWidth: 0.5, paddingHorizontal: 12 },
   recentItemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   recentEmoji: { fontSize: 24 },
   recentItemContent: { flex: 1 },
-  recentQuestion: { fontSize: 15, fontWeight: "600" },
-  recentMeta: { fontSize: 12, marginTop: 2 },
+  recentQuestion: { fontSize: 13, fontWeight: "600" },
+  recentMeta: { fontSize: 11, marginTop: 1 },
 
   // Card Progress Bar
   progressBarWrap: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
   },
   progressBarRow: {
     flexDirection: "row",
@@ -2409,12 +2409,12 @@ const styles = StyleSheet.create({
 
   // Card Body (shared across all card types)
   cardBody: {
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 16,
+    padding: 16,
   },
   cardBodySmall: {
-    borderRadius: 20,
-    padding: 12,
+    borderRadius: 14,
+    padding: 10,
   },
   cardLabel: {
     fontSize: 12,
@@ -2432,9 +2432,9 @@ const styles = StyleSheet.create({
 
   // Key Takeaway
   takeawayBox: {
-    marginTop: 24,
-    padding: 18,
-    borderRadius: 14,
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
   },
   takeawayLabel: {
@@ -2448,17 +2448,17 @@ const styles = StyleSheet.create({
 
   // Check Options
   checkOption: {
-    paddingHorizontal: getResponsiveSpacing(16),
-    paddingVertical: getResponsiveSpacing(16),
-    borderRadius: 14,
+    paddingHorizontal: getResponsiveSpacing(12),
+    paddingVertical: getResponsiveSpacing(12),
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: getResponsiveSpacing(10),
+    marginBottom: getResponsiveSpacing(8),
   },
   checkOptionText: { fontSize: getResponsiveFontSize(15), fontWeight: "500", lineHeight: getResponsiveFontSize(24) },
   checkExplanation: {
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 14,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
   },
   checkExplanationText: { fontSize: 14, lineHeight: 24 },
 
@@ -2483,9 +2483,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.2)",
   },
   playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
@@ -2501,45 +2501,45 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   durationText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
-  videoMeta: { padding: 16 },
-  videoMetaTitle: { fontSize: 16, fontWeight: "600", lineHeight: 24 },
-  videoMetaChannel: { fontSize: 13, marginTop: 6 },
+  videoMeta: { padding: 12 },
+  videoMetaTitle: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  videoMetaChannel: { fontSize: 12, marginTop: 4 },
 
   // Next Steps
   nextPath: {
-    padding: 16,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  nextPathQuestion: { fontSize: 15, fontWeight: "600", lineHeight: 22 },
-  nextPathReason: { fontSize: 13, marginTop: 4, lineHeight: 18 },
+  nextPathQuestion: { fontSize: 13, fontWeight: "600", lineHeight: 19 },
+  nextPathReason: { fontSize: 11, marginTop: 2, lineHeight: 16 },
 
   // Card Navigation Bar
   cardNavBar: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
     borderTopWidth: 0.5,
     alignItems: "center",
   },
   cardNavBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   cardNavBtnText: { fontSize: 24, fontWeight: "300", marginTop: -2 },
   cardNavBtnNext: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     alignItems: "center",
   },
-  cardNavBtnNextText: { fontSize: 15, fontWeight: "700" },
+  cardNavBtnNextText: { fontSize: 13, fontWeight: "700" },
 
   // Ask Button (in nav bar)
   askBtn: {
