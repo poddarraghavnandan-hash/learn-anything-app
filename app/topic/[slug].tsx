@@ -208,7 +208,7 @@ export default function TopicDetailScreen() {
         {/* Topic Hero */}
         <Animated.View entering={FadeIn.duration(300)} style={styles.heroSection}>
           <Text className="text-sm text-muted text-center uppercase tracking-wider">Your Learning Path</Text>
-          <Text className="text-2xl font-bold text-foreground text-center mt-1">{topicName}</Text>
+          <Text className="text-lg font-bold text-foreground text-center mt-1" numberOfLines={2}>{topicName}</Text>
 
           {/* Progress bar */}
           <View style={[styles.overallProgressBar, { backgroundColor: colors.border }]}>
@@ -333,10 +333,10 @@ export default function TopicDetailScreen() {
                   {/* Expanded content */}
                   {isExpanded && (
                     <View style={styles.expandedContent}>
-                      <Text className="text-sm text-foreground leading-relaxed mb-2">
+                      <Text className="text-xs text-foreground leading-relaxed mb-2" numberOfLines={3}>
                         {step.description}
                       </Text>
-                      <Text className="text-xs text-primary italic mb-3">
+                      <Text className="text-xs text-primary italic mb-3" numberOfLines={2}>
                         {step.whyItMatters}
                       </Text>
 
@@ -450,24 +450,25 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 0.5,
   },
   backText: { fontSize: 16, fontWeight: "600" },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", textAlign: "center" },
   loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center" },
-  heroSection: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
+  heroSection: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
   overallProgressBar: { height: 6, borderRadius: 3, marginTop: 12, overflow: "hidden" },
   overallProgressFill: { height: "100%", borderRadius: 3 },
-  ladderContainer: { paddingHorizontal: 20, paddingTop: 8 },
+  ladderContainer: { paddingHorizontal: 12, paddingTop: 8 },
   connectorContainer: { alignItems: "center", height: 24 },
   connectorLine: { width: 2, height: 24 },
   stepCard: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1.5,
-    padding: 16,
+    padding: 12,
     overflow: "hidden",
+    marginBottom: 8,
   },
   stepHeader: {
     flexDirection: "row",
@@ -487,11 +488,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   stepInfo: { flex: 1 },
-  stepTitle: { fontSize: 15, fontWeight: "700", lineHeight: 22 },
+  stepTitle: { fontSize: 13, fontWeight: "700", lineHeight: 18 },
   stepMeta: { fontSize: 12, marginTop: 2 },
-  expandedContent: { marginTop: 14, paddingTop: 14, borderTopWidth: 0.5, borderTopColor: "#E5E7EB30" },
-  stepProgressRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
-  stepProgressChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  expandedContent: { marginTop: 10, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: "#E5E7EB30" },
+  stepProgressRow: { flexDirection: "row", gap: 6, marginBottom: 8, flexWrap: "wrap" },
+  stepProgressChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
   prereqRow: { marginBottom: 10 },
   contentLoading: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 16 },
   contentList: { marginTop: 4 },
@@ -502,26 +503,27 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 8,
   },
-  contentThumb: { width: 100, height: 64 },
-  contentInfo: { flex: 1, padding: 8, justifyContent: "center" },
-  contentTitle: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
-  contentMeta: { fontSize: 11, marginTop: 2 },
+  contentThumb: { width: 80, height: 50 },
+  contentInfo: { flex: 1, padding: 6, justifyContent: "center" },
+  contentTitle: { fontSize: 11, fontWeight: "600", lineHeight: 16 },
+  contentMeta: { fontSize: 10, marginTop: 1 },
   completeButton: {
-    marginTop: 12,
-    paddingVertical: 12,
-    borderRadius: 12,
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     alignItems: "center",
   },
   completeButtonText: {
     color: "#FFF",
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
   },
   completionCard: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    padding: 24,
-    borderRadius: 16,
+    marginHorizontal: 12,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1.5,
   },
 });

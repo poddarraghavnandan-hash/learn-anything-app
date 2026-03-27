@@ -992,3 +992,31 @@
 - [x] Included confidence progress bars and node selection details
 - [x] All 226+ tests passing, 0 TypeScript errors
 - [x] Ready for Ask screen integration and final deployment
+
+
+## CORE REQUIREMENT: Multi-Device Responsive Design (Enforced on All Features)
+
+**Standard:** All screens must work on all device types. Small screens (320px) are CRITICAL, not optional.
+
+**Testing Checklist (Before Every Checkpoint):**
+- [x] Component renders without cutoff on 320px (Pixel 3)
+- [x] Component renders on 375px (iPhone SE)
+- [x] Component renders on 414px (iPhone 11)
+- [x] Component renders on 768px+ (Tablets)
+- [x] All text is readable (font sizes ≥ 11px minimum)
+- [x] Buttons/interactive elements are easily tappable (≥ 44px height)
+- [x] Spacing is proportional to screen size
+- [x] No horizontal scrolling required
+- [x] Dark/light mode works on all sizes
+- [x] Use getResponsiveFontSize() and getResponsiveSpacing() utilities
+- [x] Apply numberOfLines constraints to prevent overflow
+- [x] Reduce padding/margins on small screens (12px vs 24px pattern)
+- [x] Shorten labels and button text for small screens
+
+**Applied to All Components:**
+- [x] PriorKnowledgeCard
+- [x] MultiLayerLadderStage
+- [x] PersonalizedContentFeed
+- [x] PrerequisiteWarning
+- [x] MultiLayerContentCard
+- [x] KnowledgeGraphVisualization
