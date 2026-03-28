@@ -13,6 +13,8 @@ import { integrationRouter } from "./routers-integration";
 import { spacedRepetitionRouter } from "./routers-spaced-repetition";
 import { signalObserverRouter } from "./routes/signal-observer";
 import { learnerProfileRouter } from "./routes/learner-profile";
+import { recommendationsRouter } from "./routers-recommendations";
+import { notificationsRouter } from "./routers-notifications";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1866,6 +1868,12 @@ Return JSON: {
   // ─── Signal Observer (Learner Epistemology) ────────────────────────────────────────────────────────────────
   signals: signalObserverRouter,
   learnerProfile: learnerProfileRouter,
+
+  // ─── Real-Time Recommendations ────────────────────────────────────────────────────────────────
+  recommendations: recommendationsRouter,
+
+  // ─── Signal-Based Notifications ────────────────────────────────────────────────────────────────
+  notifications: notificationsRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({
