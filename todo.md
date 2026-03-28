@@ -1123,3 +1123,50 @@
 - Archiving: Old signals moved to archive table to keep active table lean
 
 **Next Phase:** Integration with Ask/Chat and Learning Journeys for real-time signal capture
+
+
+## Phase 4: Signal-Driven Adaptive Learning (IN PROGRESS)
+
+### Phase 4.1: Signal Capture Integration
+- [ ] Integrate signal capture into Ask/Chat flow (captureSignal on question submission)
+- [ ] Integrate signal capture into learning journeys (capture on stage completion)
+- [ ] Integrate signal capture into content engagement (capture on watch/read/reaction)
+- [ ] Add signal capture hooks to adaptive chat responses
+- [ ] Test signal capture end-to-end in all interaction points
+
+### Phase 4.2: Learner Profile Service
+- [x] Build learner profile service (server/learner-profile.ts)
+- [x] Implement getUserLearnerProfile function (aggregates all signals)
+- [x] Implement updateLearnerModel function (updates based on new signals)
+- [x] Implement detectLearningStyle function (analyzes signal patterns)
+- [x] Implement calculateConfidenceTrajectory function (tracks confidence over time)
+- [x] Add tRPC endpoints for learner profile queries
+- [x] Test learner profile updates with mock signals (31 tests passing)
+
+### Phase 4.3: Signal-Driven Recommendations
+- [x] Build recommendation engine (server/signal-recommendations.ts)
+- [x] Implement recommendContent function (based on signal analysis)
+- [x] Implement suggestNextConcept function (based on breakthroughs/stuck points)
+- [x] Implement detectKnowledgeGaps function (from stuck signals)
+- [x] Implement suggestReviewTopics function (from confidence trajectory)
+- [x] Add tRPC endpoints for recommendations (via learnerProfileRouter)
+- [x] Comprehensive test suite (42 tests passing)
+
+### Phase 4.4: Learner Dashboard UI
+- [ ] Build LearnerSignalDashboard component (main dashboard)
+- [ ] Build SignalTimeline component (visualize signals over time)
+- [ ] Build LearningStyleCard component (show detected learning style)
+- [ ] Build ConfidenceTrajectoryChart component (confidence over time)
+- [ ] Build ConceptMasteryMap component (concept mastery visualization)
+- [ ] Build InsightCards component (key insights from signals)
+- [ ] Add dashboard to Profile tab
+- [ ] Test dashboard on multiple screen sizes
+
+### Phase 4.5: Testing & Deployment
+- [ ] Write comprehensive tests for signal integration
+- [ ] Write tests for learner profile service
+- [ ] Write tests for recommendation engine
+- [ ] Write tests for dashboard components
+- [ ] End-to-end testing of full signal flow
+- [ ] Performance testing (signal capture latency)
+- [ ] Create checkpoint for Phase 4
