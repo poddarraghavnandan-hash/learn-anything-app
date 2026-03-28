@@ -1153,14 +1153,15 @@
 - [x] Comprehensive test suite (42 tests passing)
 
 ### Phase 4.4: Learner Dashboard UI
-- [ ] Build LearnerSignalDashboard component (main dashboard)
-- [ ] Build SignalTimeline component (visualize signals over time)
-- [ ] Build LearningStyleCard component (show detected learning style)
-- [ ] Build ConfidenceTrajectoryChart component (confidence over time)
-- [ ] Build ConceptMasteryMap component (concept mastery visualization)
-- [ ] Build InsightCards component (key insights from signals)
-- [ ] Add dashboard to Profile tab
-- [ ] Test dashboard on multiple screen sizes
+- [x] Build LearnerSignalDashboard component (main dashboard)
+- [x] Build LearningStyleCard component (show detected learning style)
+- [x] Build ConfidenceTrajectoryCard component (confidence over time)
+- [x] Build SignalDistributionCard component (signal type breakdown)
+- [x] Build TopConceptsCard component (top concepts by confidence)
+- [x] Build KnowledgeGapsCard component (areas needing improvement)
+- [x] Build RecommendedNextStepsCard component (personalized recommendations)
+- [x] Build InsightCards component (key insights from signals)
+- [x] Test dashboard components (16 tests passing)
 
 ### Phase 4.5: Testing & Deployment
 - [ ] Write comprehensive tests for signal integration
