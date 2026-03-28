@@ -1180,3 +1180,50 @@
 - [x] Integration test: signal capture → profile update → recommendations
 - [x] Create checkpoint for Phase 4
 - [x] Document signal-driven adaptive learning system
+
+
+## Phase 5: Signal Capture Middleware Integration
+
+### Phase 5.1: Signal Capture Middleware
+- [x] Create signal capture middleware (server/signal-capture-middleware.ts)
+- [x] Implement captureQuestionSignal function
+- [x] Implement captureTeachingSignal function
+- [x] Implement captureBreakthroughSignal function
+- [x] Implement captureStuckSignal function
+- [x] Implement captureConnectionSignal function
+- [x] Implement captureApplicationSignal function
+- [x] Implement captureFeedbackSignal function
+- [x] Add signal capture context tracking
+- [x] Add error handling and logging
+
+### Phase 5.2: Ask/Chat Integration
+- [x] Wire signal capture into Ask/Chat endpoint
+- [x] Capture question signals from user questions
+- [x] Capture teaching signals from AI responses
+- [x] Capture breakthrough signals from user affirmations
+- [x] Capture stuck signals from user confusion indicators
+- [x] Add signal metadata extraction from chat context
+- [x] Test signal capture in Ask/Chat flow (20 tests passing)
+
+### Phase 5.3: Learning Journey Integration
+- [ ] Wire signal capture into learning journey progression
+- [ ] Capture signals from stage completions
+- [ ] Capture signals from quiz/assessment results
+- [ ] Capture signals from content engagement
+- [ ] Track time spent on concepts
+- [ ] Track concept mastery progression
+
+### Phase 5.4: Content Interaction Tracking
+- [ ] Wire signal capture into content views
+- [ ] Track content engagement metrics
+- [ ] Capture signals from video playback
+- [ ] Capture signals from code examples
+- [ ] Capture signals from practice exercises
+- [ ] Track learning velocity
+
+### Phase 5.5: Testing & Deployment
+- [ ] Write tests for signal capture middleware
+- [ ] Write integration tests for Ask/Chat signals
+- [ ] Write integration tests for learning journey signals
+- [ ] Performance testing for signal capture
+- [ ] Create checkpoint for Phase 5

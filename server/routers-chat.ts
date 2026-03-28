@@ -7,6 +7,13 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import * as adaptiveChat from "./adaptive-chat";
+import {
+  captureQuestionSignal,
+  captureTeachingSignal,
+  captureBreakthroughSignal,
+  captureStuckSignal,
+  captureFeedbackSignal,
+} from "./signal-capture-middleware";
 
 export const chatRouter = router({
   /**
@@ -41,6 +48,21 @@ export const chatRouter = router({
         response.message,
         response.layer
       );
+
+      // Capture signals from the interaction
+      // Capture question signal from user message
+      await captureQuestionSignal(userId, input.message, 0, {
+        layer: response.layer,
+        timestamp: new Date(),
+      });
+
+      // Capture teaching signal from AI response
+      if (response.message && response.message.length > 50) {
+        await captureTeachingSignal(userId, response.message, 0, {
+          layer: response.layer,
+          timestamp: new Date(),
+        });
+      }
 
       return response;
     }),
@@ -79,6 +101,21 @@ export const chatRouter = router({
         input.assistantResponse,
         input.layer
       );
+
+      // Capture signals from the interaction
+      // Capture question signal from user message
+      await captureQuestionSignal(userId, input.userMessage, input.conceptId, {
+        layer: input.layer,
+        timestamp: new Date(),
+      });
+
+      // Capture teaching signal from assistant response
+      if (input.assistantResponse && input.assistantResponse.length > 50) {
+        await captureTeachingSignal(userId, input.assistantResponse, input.conceptId, {
+          layer: input.layer,
+          timestamp: new Date(),
+        });
+      }
 
       return { success: true };
     }),
