@@ -6,6 +6,11 @@ import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import * as ladderIntegration from "./learning-ladder-integration";
 import * as summaryEnrichment from "./content-summary-enrichment";
+import {
+  captureBreakthroughSignal,
+  captureStuckSignal,
+  captureConnectionSignal,
+} from "./signal-capture-middleware";
 
 export const integrationRouter = router({
   /**
@@ -64,6 +69,8 @@ export const integrationRouter = router({
           topicSlug: z.string(),
           stageNumber: z.number().min(1),
           layerCompleted: z.enum(["foundation", "deepDive", "expert"]),
+          accuracy: z.number().min(0).max(1).optional(),
+          timeSpentSeconds: z.number().min(0).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -76,6 +83,48 @@ export const integrationRouter = router({
           input.stageNumber,
           input.layerCompleted
         );
+
+        // Capture signals based on stage completion
+        const stageDescription = `Completed ${input.topicSlug} stage ${input.stageNumber}`;
+        
+        if (input.accuracy !== undefined) {
+          if (input.accuracy >= 0.8) {
+            await captureBreakthroughSignal(userId, stageDescription, 0, {
+              topicSlug: input.topicSlug,
+              stageNumber: input.stageNumber,
+              layerCompleted: input.layerCompleted,
+              accuracy: input.accuracy,
+              timeSpentSeconds: input.timeSpentSeconds,
+              timestamp: new Date(),
+            });
+          } else if (input.accuracy < 0.5) {
+            await captureStuckSignal(userId, stageDescription, 0, {
+              topicSlug: input.topicSlug,
+              stageNumber: input.stageNumber,
+              layerCompleted: input.layerCompleted,
+              accuracy: input.accuracy,
+              timeSpentSeconds: input.timeSpentSeconds,
+              timestamp: new Date(),
+            });
+          } else {
+            await captureConnectionSignal(userId, stageDescription, 0, undefined, {
+              topicSlug: input.topicSlug,
+              stageNumber: input.stageNumber,
+              layerCompleted: input.layerCompleted,
+              accuracy: input.accuracy,
+              timeSpentSeconds: input.timeSpentSeconds,
+              timestamp: new Date(),
+            });
+          }
+        } else {
+          await captureBreakthroughSignal(userId, stageDescription, 0, {
+            topicSlug: input.topicSlug,
+            stageNumber: input.stageNumber,
+            layerCompleted: input.layerCompleted,
+            timeSpentSeconds: input.timeSpentSeconds,
+            timestamp: new Date(),
+          });
+        }
 
         return { success: true };
       }),
