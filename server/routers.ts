@@ -15,6 +15,7 @@ import { signalObserverRouter } from "./routes/signal-observer";
 import { learnerProfileRouter } from "./routes/learner-profile";
 import { recommendationsRouter } from "./routers-recommendations";
 import { notificationsRouter } from "./routers-notifications";
+import { feedRouter } from "./routers-feed";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -105,7 +106,9 @@ export const appRouter = router({
   }),
 
   // ─── Content Feed ─────────────────────────────────────────────────────────
-  feed: router({
+  // feed: feedRouter,  // Replaced with new feed router
+  feed: feedRouter,
+  feedLegacy: router({
     get: publicProcedure
       .input(z.object({
         topicSlugs: z.array(z.string()).min(1),
