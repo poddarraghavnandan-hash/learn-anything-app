@@ -2,11 +2,6 @@ import { z } from "zod";
 import { publicProcedure, router } from "./_core/trpc";
 import type { FeedCardData } from "../components/feed-card";
 
-/**
- * Feed generation router - creates personalized learning feeds
- * Implements feed algorithm with content type interleaving
- */
-
 function getTimeOfDay(): "morning" | "midday" | "afternoon" | "evening" | "night" {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return "morning";
@@ -217,6 +212,25 @@ export const feedRouter = router({
         cardId: input.cardId,
         xpEarned: 15,
         rating: input.rating,
+      };
+    }),
+
+  refresh: publicProcedure
+    .input(
+      z.object({
+        topicSlugs: z.array(z.string()).min(1).max(5),
+      })
+    )
+    .mutation(async ({ input }: any) => {
+      const types = getContentTypeDistribution(10);
+      const cards: FeedCardData[] = types.map((type, index) => {
+        return createMockFeedCard(type, index);
+      });
+
+      return {
+        success: true,
+        cards,
+        refreshedAt: new Date().toISOString(),
       };
     }),
 });
