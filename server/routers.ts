@@ -16,6 +16,7 @@ import { learnerProfileRouter } from "./routes/learner-profile";
 import { recommendationsRouter } from "./routers-recommendations";
 import { notificationsRouter } from "./routers-notifications";
 import { feedRouter } from "./routers-feed";
+import { adaptiveLearningRouter } from "./routers-adaptive-learning";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1877,6 +1878,8 @@ Return JSON: {
 
   // ─── Signal-Based Notifications ────────────────────────────────────────────────────────────────
   notifications: notificationsRouter,
+  // ─── Adaptive Learning (Assessment, Content, Flow) ────────────────────────────────────────────────────────────────
+  adaptiveLearning: adaptiveLearningRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({
