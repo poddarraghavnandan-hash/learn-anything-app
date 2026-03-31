@@ -209,7 +209,7 @@ export default function AdaptiveContentScreen() {
             )}
             {currentSection.type === "example" && (
               <>
-                <MaterialIcons name="example" size={20} color={colors.success} />
+                <MaterialIcons name="lightbulb-outline" size={20} color={colors.success} />
                 <Text className="text-sm font-semibold text-success">Example</Text>
               </>
             )}
