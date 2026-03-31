@@ -157,7 +157,7 @@ export default function OnboardingFlow() {
               <View className="w-20 h-20 bg-primary rounded-full items-center justify-center mb-6">
                 <MaterialIcons name="school" size={40} color="white" />
               </View>
-              <Text className="text-3xl font-bold text-foreground text-center mb-4">Welcome to Learn Anything</Text>
+              <Text className="text-3xl font-bold text-foreground text-center mb-4">Welcome to Shiromani</Text>
               <Text className="text-lg text-muted text-center">
                 Let's personalize your learning experience. This takes just 2 minutes.
               </Text>

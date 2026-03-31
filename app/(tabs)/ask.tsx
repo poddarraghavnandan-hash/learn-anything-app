@@ -2040,7 +2040,7 @@ export default function AskScreen() {
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerLeft}>
             <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-              {activeJourney && !showWelcome ? activeJourney.emoji + " Learning Journey" : "Learn Anything"}
+              {activeJourney && !showWelcome ? activeJourney.emoji + " Learning Journey" : "Shiromani"}
             </Text>
             {activeJourney && !showWelcome ? (
               <Text numberOfLines={1} style={[styles.headerSub, { color: colors.muted }]}>

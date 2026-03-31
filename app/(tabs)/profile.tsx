@@ -617,7 +617,7 @@ export default function ProfileScreen() {
         <Animated.View entering={FadeInDown.duration(300).delay(450)} style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About</Text>
           <Text style={[styles.aboutText, { color: colors.muted }]}>
-            Learn Anything uses AI-powered adaptive learning to curate free content from YouTube and the web, personalized to your skill level and learning patterns. Built on principles from Google's LearnLM, spaced repetition research, and the science of how people actually learn.
+            Shiromani uses AI-powered adaptive learning to curate free content from YouTube and the web, personalized to your skill level and learning patterns. Built on principles from Google's LearnLM, spaced repetition research, and the science of how people actually learn.
           </Text>
           <Text style={[styles.aboutText, { color: colors.muted, marginTop: 8, fontStyle: "italic" }]}>
             Core belief: Anyone can learn anything. Teaching must be fine-tuned to the individual.

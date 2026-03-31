@@ -74,7 +74,7 @@ export default function HomeScreen() {
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
           <Text style={{ fontSize: 32, fontWeight: "800", color: colors.foreground, marginBottom: 4 }}>
-            Learn Anything
+            Shiromani
           </Text>
           <Text style={{ fontSize: 14, color: colors.muted }}>
             Deepen your knowledge with structured learning paths
