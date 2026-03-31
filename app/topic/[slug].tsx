@@ -38,7 +38,7 @@ export default function TopicDetailScreen() {
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
 
   const generateLadder = trpc.learningPath.generate.useMutation();
-  const fetchStepContent = trpc.feed.refreshForStep.useMutation();
+  // const fetchStepContent = trpc.feed.refreshForStep.useMutation(); // Removed - endpoint doesn't exist
 
   const topicSlug = slug || "";
   const topicName = name || topicSlug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -126,19 +126,11 @@ export default function TopicDetailScreen() {
         const step = ladder.steps[stepIndex];
         if (!step) return;
         setStepContentLoading(stepIndex);
-        fetchStepContent.mutate(
-          { topicSlug, stepSearchQuery: step.searchQuery, stepTitle: step.title },
-          {
-            onSuccess: (data) => {
-              setStepContent((prev) => ({ ...prev, [stepIndex]: data.items || [] }));
-              setStepContentLoading(null);
-            },
-            onError: () => setStepContentLoading(null),
-          }
-        );
+        // Fetch step content would go here
+        setStepContentLoading(null);
       }
     },
-    [expandedStep, stepContent, ladder, topicSlug, fetchStepContent]
+    [expandedStep, stepContent, ladder, topicSlug]
   );
 
   const handleVideoPress = useCallback(

@@ -1,325 +1,199 @@
-import { ScrollView, Text, View, TextInput, Pressable, FlatList } from "react-native";
+import { ScrollView, Text, View, Pressable } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
 
-interface SuggestionChip {
-  id: string;
-  label: string;
-  icon: string;
-  color: string;
-}
-
-interface JourneyCard {
+interface LearningJourney {
   id: string;
   title: string;
-  category: string;
-  emoji: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  estimatedTime: number;
-  progress: number;
+  description: string;
+  icon: string;
+  color: string;
+  slug: string;
 }
 
-const suggestionChips: SuggestionChip[] = [
-  { id: "1", label: "For You", icon: "favorite", color: "#6C63FF" },
-  { id: "2", label: "Science", icon: "science", color: "#10B981" },
-  { id: "3", label: "Code", icon: "code", color: "#3B82F6" },
-  { id: "4", label: "AI", icon: "smart-toy", color: "#F59E0B" },
-  { id: "5", label: "Humanities", icon: "history-edu", color: "#EC4899" },
-];
-
-const journeyCards: JourneyCard[] = [
+const learningJourneys: LearningJourney[] = [
   {
     id: "1",
-    title: "Quantum Mechanics Basics",
-    category: "Physics",
-    emoji: "⚛️",
-    difficulty: "Intermediate",
-    estimatedTime: 15,
-    progress: 0.65,
+    title: "Physics Fundamentals",
+    description: "Quantum mechanics, relativity, and classical physics",
+    icon: "science",
+    color: "#10B981",
+    slug: "physics-fundamentals",
   },
   {
     id: "2",
-    title: "Machine Learning Fundamentals",
-    category: "AI",
-    emoji: "🤖",
-    difficulty: "Advanced",
-    estimatedTime: 20,
-    progress: 0.3,
+    title: "Machine Learning",
+    description: "Neural networks, algorithms, and AI foundations",
+    icon: "smart-toy",
+    color: "#F59E0B",
+    slug: "machine-learning",
   },
   {
     id: "3",
-    title: "Renaissance Art History",
-    category: "Art",
-    emoji: "🎨",
-    difficulty: "Beginner",
-    estimatedTime: 12,
-    progress: 0,
+    title: "Web Development",
+    description: "React, TypeScript, and modern web technologies",
+    icon: "code",
+    color: "#3B82F6",
+    slug: "web-development",
+  },
+  {
+    id: "4",
+    title: "Art History",
+    description: "Renaissance, impressionism, and modern art movements",
+    icon: "palette",
+    color: "#EC4899",
+    slug: "art-history",
   },
 ];
 
 export default function HomeScreen() {
   const colors = useColors();
+  const router = useRouter();
 
-  const renderSuggestionChip = (chip: SuggestionChip) => (
-    <Pressable
-      key={chip.id}
-      style={({ pressed }) => [
-        {
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          borderRadius: 20,
-          backgroundColor: chip.id === "1" ? chip.color : colors.surface,
-          borderWidth: 1,
-          borderColor: chip.id === "1" ? chip.color : colors.border,
-          marginRight: 8,
-          opacity: pressed ? 0.7 : 1,
-        },
-      ]}
-    >
-      <Text
-        style={{
-          color: chip.id === "1" ? "#FFFFFF" : colors.foreground,
-          fontSize: 13,
-          fontWeight: "600",
-        }}
-      >
-        {chip.label}
-      </Text>
-    </Pressable>
-  );
+  const handleStartLearning = (journey: LearningJourney) => {
+    router.push({
+      pathname: "/topic/[slug]",
+      params: {
+        slug: journey.slug,
+        name: journey.title,
+        emoji: journey.icon,
+      },
+    });
+  };
 
-  const renderJourneyCard = (journey: JourneyCard) => (
-    <Pressable
-      key={journey.id}
-      style={({ pressed }) => [
-        {
-          backgroundColor: colors.surface,
-          borderRadius: 16,
-          padding: 16,
-          marginBottom: 12,
-          borderWidth: 1,
-          borderColor: colors.border,
-          opacity: pressed ? 0.8 : 1,
-        },
-      ]}
-    >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 28, marginBottom: 4 }}>{journey.emoji}</Text>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "700",
-              color: colors.foreground,
-              marginBottom: 4,
-            }}
-            numberOfLines={2}
-          >
-            {journey.title}
-          </Text>
-          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>
-            {journey.category} • {journey.estimatedTime} min
-          </Text>
-        </View>
-        <View
-          style={{
-            backgroundColor: "#6C63FF",
-            borderRadius: 8,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            marginLeft: 8,
-          }}
-        >
-          <Text style={{ fontSize: 11, fontWeight: "600", color: "#FFFFFF" }}>
-            {journey.difficulty}
-          </Text>
-        </View>
-      </View>
-
-      <View
-        style={{
-          height: 4,
-          backgroundColor: colors.border,
-          borderRadius: 2,
-          overflow: "hidden",
-          marginBottom: 12,
-        }}
-      >
-        <View
-          style={{
-            height: "100%",
-            width: `${journey.progress * 100}%`,
-            backgroundColor: "#6C63FF",
-          }}
-        />
-      </View>
-
-      <Pressable
-        style={({ pressed }) => [
-          {
-            backgroundColor: "#6C63FF",
-            borderRadius: 10,
-            paddingVertical: 10,
-            alignItems: "center",
-            opacity: pressed ? 0.8 : 1,
-          },
-        ]}
-      >
-        <Text style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 14 }}>
-          {journey.progress > 0 ? "Continue Learning" : "Start Journey"}
-        </Text>
-      </Pressable>
-    </Pressable>
-  );
+  const handleAskQuestion = () => {
+    router.push("/(tabs)/ask");
+  };
 
   return (
     <ScreenContainer className="p-0">
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-      >
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
-          <Text
-            style={{
-              fontSize: 28,
-              fontWeight: "800",
-              color: colors.foreground,
-              marginBottom: 4,
-            }}
-          >
-            Good morning
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
+          <Text style={{ fontSize: 32, fontWeight: "800", color: colors.foreground, marginBottom: 4 }}>
+            Learn Anything
           </Text>
           <Text style={{ fontSize: 14, color: colors.muted }}>
-            What would you like to learn about today?
+            Deepen your knowledge with structured learning paths
           </Text>
-        </View>
+        </Animated.View>
 
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: colors.surface,
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
+        {/* Quick Action: Ask a Question */}
+        <Animated.View entering={SlideInUp.duration(400).delay(50)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+          <Pressable
+            onPress={handleAskQuestion}
+            style={({ pressed }) => [
+              {
+                backgroundColor: colors.primary,
+                borderRadius: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
           >
-            <MaterialIcons name="search" size={20} color={colors.muted} />
-            <TextInput
-              placeholder="Ask anything..."
-              placeholderTextColor={colors.muted}
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 14,
-                color: colors.foreground,
-              }}
-              editable={false}
-            />
-            <MaterialIcons name="mic" size={20} color={colors.muted} />
-          </View>
-        </View>
-
-        <View style={{ marginBottom: 24 }}>
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: "700",
-              color: colors.muted,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              paddingHorizontal: 16,
-              marginBottom: 12,
-            }}
-          >
-            Explore Learning Journeys
-          </Text>
-          <FlatList
-            horizontal
-            data={suggestionChips}
-            renderItem={({ item }) => renderSuggestionChip(item)}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            contentContainerStyle={{ paddingHorizontal: 16 }}
-            showsHorizontalScrollIndicator={false}
-          />
-        </View>
-
-        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "700",
-                color: colors.foreground,
-              }}
-            >
-              Personalized for You
-            </Text>
-            <Pressable>
-              <Text style={{ color: "#6C63FF", fontWeight: "600", fontSize: 13 }}>
-                See All
+            <MaterialIcons name="lightbulb" size={24} color="#FFFFFF" style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: "#FFFFFF", marginBottom: 2 }}>
+                Ask a Question
               </Text>
-            </Pressable>
-          </View>
-          {journeyCards.map(renderJourneyCard)}
-        </View>
+              <Text style={{ fontSize: 12, color: "#FFFFFF", opacity: 0.9 }}>
+                Get instant answers and explanations
+              </Text>
+            </View>
+            <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
+          </Pressable>
+        </Animated.View>
 
-        <View
-          style={{
-            paddingHorizontal: 16,
-            marginBottom: 24,
-            flexDirection: "row",
-            gap: 12,
-          }}
-        >
+        {/* Learning Journeys Section */}
+        <Animated.View entering={SlideInUp.duration(400).delay(100)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 12 }}>
+            Learning Paths
+          </Text>
+
+          <View style={{ gap: 12 }}>
+            {learningJourneys.map((journey, idx) => (
+              <Animated.View
+                key={journey.id}
+                entering={SlideInUp.duration(400).delay(150 + idx * 50)}
+              >
+                <Pressable
+                  onPress={() => handleStartLearning(journey)}
+                  style={({ pressed }) => [
+                    {
+                      backgroundColor: colors.surface,
+                      borderRadius: 14,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      opacity: pressed ? 0.8 : 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                    },
+                  ]}
+                >
+                  {/* Icon */}
+                  <View
+                    style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 12,
+                      backgroundColor: journey.color + "20",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginRight: 14,
+                    }}
+                  >
+                    <MaterialIcons name={journey.icon as any} size={28} color={journey.color} />
+                  </View>
+
+                  {/* Content */}
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>
+                      {journey.title}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 16 }} numberOfLines={2}>
+                      {journey.description}
+                    </Text>
+                  </View>
+
+                  {/* Arrow */}
+                  <MaterialIcons name="arrow-forward" size={20} color={colors.muted} />
+                </Pressable>
+              </Animated.View>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* Info Section */}
+        <Animated.View entering={SlideInUp.duration(400).delay(400)} style={{ paddingHorizontal: 16, marginBottom: 32 }}>
           <View
             style={{
-              flex: 1,
-              backgroundColor: colors.surface,
+              backgroundColor: colors.primary + "10",
               borderRadius: 12,
-              padding: 12,
+              padding: 14,
               borderWidth: 1,
-              borderColor: colors.border,
+              borderColor: colors.primary + "30",
             }}
           >
-            <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 4 }}>
-              Current Streak
-            </Text>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: "#FF9500" }}>
-              7 days
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+              <MaterialIcons name="info" size={20} color={colors.primary} style={{ marginRight: 10, marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>
+                  How It Works
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 16 }}>
+                  Choose a learning path, work through structured lessons, and master new skills at your own pace. Each path is designed for deep understanding, not surface-level knowledge.
+                </Text>
+              </View>
+            </View>
           </View>
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: colors.surface,
-              borderRadius: 12,
-              padding: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 4 }}>
-              XP Earned
-            </Text>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: "#6C63FF" }}>
-              2,450
-            </Text>
-          </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </ScreenContainer>
   );

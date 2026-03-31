@@ -227,11 +227,11 @@ export default function OnboardingScreen() {
     // Fire-and-forget: start fetching content in background
     // The Home tab's auto-refresh will detect empty feed and show skeleton loading
     // If this succeeds, the Home tab will pick up the data on its next refetch
-    refreshMutation.mutate({ topicSlugs: selectedTopics.slice(0, 5), skillLevel: "beginner" });
+    refreshMutation.mutate({ topicSlugs: selectedTopics.slice(0, 5) });
 
     // Navigate immediately — Home tab shows skeleton loading while content loads
     router.replace("/(tabs)");
-  }, [isFinishing, selectedAge, selectedTopics, dispatch, router, refreshMutation]);
+  }, [isFinishing, selectedTopics, dispatch, router, refreshMutation]);
 
   const canProceed = step === 1 ? selectedAge !== null : step === 3 ? selectedTopics.length >= 1 : true;
 
