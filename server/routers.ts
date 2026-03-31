@@ -19,6 +19,7 @@ import { feedRouter } from "./routers-feed";
 import { adaptiveLearningRouter } from "./routers-adaptive-learning";
 import { claudeContentRouter } from "./routers-claude-content";
 import { geminiContentRouter } from "./routers-gemini-content";
+import { metaLearningRouter } from "./routers-meta-learning";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1888,6 +1889,9 @@ Return JSON: {
 
   // ─── Gemini Content Analysis (Multimodal content understanding) ────────────────────────────────────────────────────────────────
   geminiContent: geminiContentRouter,
+
+  // ─── Meta-Learning System (Revolutionary adaptive learning with 9 approaches) ────────────────────────────────────────────────────────────────
+  metaLearning: metaLearningRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({
