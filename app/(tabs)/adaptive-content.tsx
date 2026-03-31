@@ -1,7 +1,9 @@
-import { ScrollView, View, Text, Pressable, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
+import { ScrollView, View, Pressable, ActivityIndicator, Text } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { ResponsiveLayout, ResponsiveText } from "@/components/responsive-layout";
+import { ResponsiveCard, ResponsiveSection, ResponsiveHeader } from "@/components/responsive-patterns";
 import { trpc } from "@/lib/trpc";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -139,7 +141,9 @@ export default function AdaptiveContentScreen() {
     return (
       <ScreenContainer className="flex items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text className="mt-4 text-muted">Generating personalized lesson...</Text>
+        <ResponsiveText size="base" className="mt-4 text-muted">
+          Generating personalized lesson...
+        </ResponsiveText>
       </ScreenContainer>
     );
   }
@@ -147,7 +151,9 @@ export default function AdaptiveContentScreen() {
   if (!lesson) {
     return (
       <ScreenContainer className="flex items-center justify-center">
-        <Text className="text-foreground text-lg font-semibold">Failed to load lesson</Text>
+        <ResponsiveText size="lg" weight="bold">
+          Failed to load lesson
+        </ResponsiveText>
         <Pressable
           onPress={loadAdaptiveContent}
           className="mt-4 bg-primary px-6 py-3 rounded-lg"
@@ -162,175 +168,190 @@ export default function AdaptiveContentScreen() {
   const progress = ((currentSectionIndex + 1) / lesson.sections.length) * 100;
 
   return (
-    <ScreenContainer className="bg-background">
-      <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
-        {/* Header */}
-        <View className="px-4 py-4 border-b border-border">
-          <Text className="text-xs text-muted uppercase font-semibold">{lesson.topic}</Text>
-          <Text className="text-2xl text-foreground font-bold mt-2">{lesson.title}</Text>
-          <View className="flex-row items-center justify-between mt-3">
-            <View className="flex-row items-center gap-2">
-              <MaterialIcons name="schedule" size={16} color={colors.muted} />
-              <Text className="text-sm text-muted">{lesson.estimatedMinutes} min</Text>
+    <ResponsiveLayout scrollable={true} className="bg-background">
+      {/* Header */}
+      <ResponsiveHeader
+        title={lesson.title}
+        subtitle={lesson.topic}
+        rightElement={
+          <View className="flex-row items-center gap-2">
+            <View className="w-24 h-2 bg-border rounded-full overflow-hidden">
+              <View
+                className="h-full bg-primary"
+                style={{ width: `${progress}%` }}
+              />
             </View>
-            <View className="flex-row items-center gap-2">
-              <View className="w-24 h-2 bg-border rounded-full overflow-hidden">
-                <View
-                  className="h-full bg-primary"
-                  style={{ width: `${progress}%` }}
-                />
-              </View>
-              <Text className="text-xs text-muted">{currentSectionIndex + 1}/{lesson.sections.length}</Text>
-            </View>
+            <Text className="text-xs text-muted">
+              {currentSectionIndex + 1}/{lesson.sections.length}
+            </Text>
           </View>
-        </View>
+        }
+      />
 
-        {/* Content Section */}
-        <View className="px-4 py-6 flex-1">
-          {/* Section Type Badge */}
-          <View className="flex-row items-center gap-2 mb-4">
-            {currentSection.type === "text" && (
-              <>
-                <MaterialIcons name="description" size={20} color={colors.primary} />
-                <Text className="text-sm font-semibold text-primary">Lesson</Text>
-              </>
-            )}
-            {currentSection.type === "concept-check" && (
-              <>
-                <MaterialIcons name="lightbulb" size={20} color={colors.warning} />
-                <Text className="text-sm font-semibold text-warning">Concept Check</Text>
-              </>
-            )}
-            {currentSection.type === "assessment" && (
-              <>
-                <MaterialIcons name="quiz" size={20} color={colors.primary} />
-                <Text className="text-sm font-semibold text-primary">Assessment</Text>
-              </>
-            )}
-            {currentSection.type === "example" && (
-              <>
-                <MaterialIcons name="lightbulb-outline" size={20} color={colors.success} />
-                <Text className="text-sm font-semibold text-success">Example</Text>
-              </>
-            )}
-          </View>
-
-          {/* Section Title */}
-          <Text className="text-xl text-foreground font-bold mb-4">{currentSection.title}</Text>
-
-          {/* Section Content */}
-          <Text className="text-base text-foreground leading-relaxed mb-6">{currentSection.content}</Text>
-
-          {/* Multiple Choice Options (for assessments and concept checks) */}
-          {(currentSection.type === "assessment" || currentSection.type === "concept-check") &&
-            currentSection.metadata?.options && (
-              <View className="gap-3 mb-6">
-                {currentSection.metadata.options.map((option: string, idx: number) => {
-                  const isSelected =
-                    userAnswers[`section-${currentSectionIndex}`] === option;
-                  const isCorrect = option === currentSection.metadata?.correctAnswer;
-                  const showCorrect = userAnswers[`section-${currentSectionIndex}`] !== undefined;
-
-                  return (
-                    <Pressable
-                      key={idx}
-                      onPress={() => handleAnswer(currentSectionIndex, option)}
-                      className={`p-4 rounded-lg border-2 ${
-                        isSelected
-                          ? isCorrect
-                            ? "border-success bg-success/10"
-                            : "border-error bg-error/10"
-                          : showCorrect && isCorrect
-                          ? "border-success bg-success/10"
-                          : "border-border bg-surface"
-                      }`}
-                    >
-                      <View className="flex-row items-center justify-between">
-                        <Text className={`flex-1 text-base ${isSelected ? "font-semibold" : ""} ${
-                          isSelected && !isCorrect ? "text-error" : "text-foreground"
-                        }`}>
-                          {option}
-                        </Text>
-                        {showCorrect && isCorrect && (
-                          <MaterialIcons name="check-circle" size={24} color={colors.success} />
-                        )}
-                        {isSelected && !isCorrect && showCorrect && (
-                          <MaterialIcons name="cancel" size={24} color={colors.error} />
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-
-                {/* Explanation */}
-                {userAnswers[`section-${currentSectionIndex}`] && currentSection.metadata?.explanation && (
-                  <View className="mt-4 p-4 bg-surface rounded-lg border border-border">
-                    <Text className="text-sm font-semibold text-foreground mb-2">Explanation:</Text>
-                    <Text className="text-sm text-muted">{currentSection.metadata.explanation}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-          {/* Mastery Score */}
-          {masteryScore > 0 && (
-            <View className="p-4 bg-success/10 rounded-lg border border-success mb-6">
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text className="text-sm text-muted">Mastery Progress</Text>
-                  <Text className="text-2xl font-bold text-success">{masteryScore}%</Text>
-                </View>
-                <MaterialIcons name="trending-up" size={32} color={colors.success} />
-              </View>
-            </View>
+      {/* Content Section */}
+      <View className="flex-1 gap-4">
+        {/* Section Type Badge */}
+        <View className="flex-row items-center gap-2">
+          {currentSection.type === "text" && (
+            <>
+              <MaterialIcons name="description" size={20} color={colors.primary} />
+              <ResponsiveText size="sm" weight="semibold" color="text-primary">
+                Lesson
+              </ResponsiveText>
+            </>
+          )}
+          {currentSection.type === "concept-check" && (
+            <>
+              <MaterialIcons name="lightbulb" size={20} color={colors.warning} />
+              <ResponsiveText size="sm" weight="semibold" color="text-warning">
+                Concept Check
+              </ResponsiveText>
+            </>
+          )}
+          {currentSection.type === "assessment" && (
+            <>
+              <MaterialIcons name="quiz" size={20} color={colors.primary} />
+              <ResponsiveText size="sm" weight="semibold" color="text-primary">
+                Assessment
+              </ResponsiveText>
+            </>
+          )}
+          {currentSection.type === "example" && (
+            <>
+              <MaterialIcons name="lightbulb-outline" size={20} color={colors.success} />
+              <ResponsiveText size="sm" weight="semibold" color="text-success">
+                Example
+              </ResponsiveText>
+            </>
           )}
         </View>
 
-        {/* Navigation Buttons */}
-        <View className="px-4 py-4 border-t border-border flex-row gap-3">
-          <Pressable
-            onPress={handlePreviousSection}
-            disabled={currentSectionIndex === 0}
-            className={`flex-1 py-3 px-4 rounded-lg border border-border ${
-              currentSectionIndex === 0 ? "opacity-50" : ""
-            }`}
-          >
-            <View className="flex-row items-center justify-center gap-2">
-              <MaterialIcons
-                name="arrow-back"
-                size={20}
-                color={currentSectionIndex === 0 ? colors.muted : colors.foreground}
-              />
-              <Text className={`font-semibold ${
-                currentSectionIndex === 0 ? "text-muted" : "text-foreground"
-              }`}>
-                Previous
-              </Text>
-            </View>
-          </Pressable>
+        {/* Section Title */}
+        <ResponsiveText size="xl" weight="bold">
+          {currentSection.title}
+        </ResponsiveText>
 
-          <Pressable
-            onPress={handleNextSection}
-            disabled={currentSectionIndex === lesson.sections.length - 1}
-            className={`flex-1 py-3 px-4 rounded-lg ${
-              currentSectionIndex === lesson.sections.length - 1
-                ? "bg-success"
-                : "bg-primary"
-            } ${currentSectionIndex === lesson.sections.length - 1 ? "opacity-50" : ""}`}
-          >
-            <View className="flex-row items-center justify-center gap-2">
-              <Text className="font-semibold text-background">
-                {currentSectionIndex === lesson.sections.length - 1 ? "Complete" : "Next"}
-              </Text>
-              <MaterialIcons
-                name={currentSectionIndex === lesson.sections.length - 1 ? "check" : "arrow-forward"}
-                size={20}
-                color="white"
-              />
+        {/* Section Content */}
+        <ResponsiveText size="base" className="leading-relaxed">
+          {currentSection.content}
+        </ResponsiveText>
+
+        {/* Multiple Choice Options (for assessments and concept checks) */}
+        {(currentSection.type === "assessment" || currentSection.type === "concept-check") &&
+          currentSection.metadata?.options && (
+            <View className="gap-3">
+              {currentSection.metadata.options.map((option: string, idx: number) => {
+                const isSelected =
+                  userAnswers[`section-${currentSectionIndex}`] === option;
+                const isCorrect = option === currentSection.metadata?.correctAnswer;
+                const showCorrect = userAnswers[`section-${currentSectionIndex}`] !== undefined;
+
+                return (
+                  <Pressable
+                    key={idx}
+                    onPress={() => handleAnswer(currentSectionIndex, option)}
+                    className={`p-4 rounded-lg border-2 ${
+                      isSelected
+                        ? isCorrect
+                          ? "border-success bg-success/10"
+                          : "border-error bg-error/10"
+                        : showCorrect && isCorrect
+                        ? "border-success bg-success/10"
+                        : "border-border bg-surface"
+                    }`}
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <ResponsiveText
+                        size="base"
+                        weight={isSelected ? "semibold" : "normal"}
+                        color={isSelected && !isCorrect ? "text-error" : "text-foreground"}
+                        className="flex-1"
+                      >
+                        {option}
+                      </ResponsiveText>
+                      {showCorrect && isCorrect && (
+                        <MaterialIcons name="check-circle" size={24} color={colors.success} />
+                      )}
+                      {isSelected && !isCorrect && showCorrect && (
+                        <MaterialIcons name="cancel" size={24} color={colors.error} />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+
+              {/* Explanation */}
+              {userAnswers[`section-${currentSectionIndex}`] && currentSection.metadata?.explanation && (
+                <ResponsiveCard>
+                  <ResponsiveText size="sm" weight="semibold" className="mb-2">
+                    Explanation:
+                  </ResponsiveText>
+                  <ResponsiveText size="sm" color="text-muted">
+                    {currentSection.metadata.explanation}
+                  </ResponsiveText>
+                </ResponsiveCard>
+              )}
             </View>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </ScreenContainer>
+          )}
+
+        {/* Mastery Score */}
+        {masteryScore > 0 && (
+          <ResponsiveCard className="bg-success/10 border-success">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <ResponsiveText size="sm" color="text-muted">
+                  Mastery Progress
+                </ResponsiveText>
+                <ResponsiveText size="2xl" weight="bold" color="text-success">
+                  {masteryScore}%
+                </ResponsiveText>
+              </View>
+              <MaterialIcons name="trending-up" size={32} color={colors.success} />
+            </View>
+          </ResponsiveCard>
+        )}
+      </View>
+
+      {/* Navigation Buttons */}
+      <View className="flex-row gap-3 pt-4 border-t border-border">
+        <Pressable
+          onPress={handlePreviousSection}
+          disabled={currentSectionIndex === 0}
+          className={`flex-1 py-3 px-4 rounded-lg border border-border ${
+            currentSectionIndex === 0 ? "opacity-50" : ""
+          }`}
+        >
+          <View className="flex-row items-center justify-center gap-2">
+            <MaterialIcons
+              name="arrow-back"
+              size={20}
+              color={currentSectionIndex === 0 ? colors.muted : colors.primary}
+            />
+            <Text className="font-semibold text-primary">Previous</Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={handleNextSection}
+          disabled={currentSectionIndex === lesson.sections.length - 1}
+          className={`flex-1 py-3 px-4 rounded-lg ${
+            currentSectionIndex === lesson.sections.length - 1
+              ? "bg-primary/50"
+              : "bg-primary"
+          }`}
+        >
+          <View className="flex-row items-center justify-center gap-2">
+            <Text className="font-semibold text-background">
+              {currentSectionIndex === lesson.sections.length - 1 ? "Complete" : "Next"}
+            </Text>
+            <MaterialIcons
+              name={currentSectionIndex === lesson.sections.length - 1 ? "check" : "arrow-forward"}
+              size={20}
+              color="#FFFFFF"
+            />
+          </View>
+        </Pressable>
+      </View>
+    </ResponsiveLayout>
   );
 }

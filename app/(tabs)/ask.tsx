@@ -1132,32 +1132,31 @@ function ChatSidebar({
             )}
           </ScrollView>
 
-          {/* Chat Input */}
+          {/* Chat I          {/* Chat Input */}
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            keyboardVerticalOffset={0}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+            style={{ flex: 0 }}
           >
-            <View style={[styles.chatInputBar, { borderTopColor: colors.border, backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF" }]}>
+            <View style={[styles.chatInputBar, { borderTopColor: colors.border, backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF", paddingBottom: Platform.OS === "ios" ? 16 : 8 }]}>
               <TextInput
                 value={inputText}
                 onChangeText={setInputText}
                 placeholder="Ask about this card..."
                 placeholderTextColor={colors.muted}
-                style={[styles.chatInput, { backgroundColor: isDark ? colors.surface : "#F3F4F6", color: colors.foreground }]}
+                style={[styles.chatInput, { backgroundColor: isDark ? colors.surface : "#F3F4F6", color: colors.foreground, maxHeight: 100 }]}
                 multiline
                 maxLength={500}
                 returnKeyType="done"
                 onSubmitEditing={handleSend}
                 blurOnSubmit
+                scrollEnabled
               />
               <TouchableOpacity
                 onPress={handleSend}
                 disabled={!inputText.trim() || isSending}
                 activeOpacity={0.7}
-                style={[
-                  styles.chatSendBtn,
-                  { backgroundColor: inputText.trim() && !isSending ? colors.primary : colors.surface },
-                ]}
+                style={[styles.chatSendBtn, { backgroundColor: inputText.trim() && !isSending ? colors.primary : colors.surface }]}
               >
                 <Text style={[styles.chatSendIcon, { color: inputText.trim() && !isSending ? "#FFFFFF" : colors.muted }]}>
                   {"↑"}

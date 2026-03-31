@@ -1294,3 +1294,15 @@
 - Adaptive Difficulty System: 25 tests passing
 - Total Phase 6 Tests So Far: 59 tests (100% pass rate)
 - Total Project Tests: 263 tests (100% pass rate)
+
+
+## Critical UX Fixes (Phase 14 - URGENT)
+
+- [ ] Fix bottom navigation - remove invalid routes (review, index-..., adapt...)
+- [ ] Fix ask screen - keyboard covers input box, need scroll/adjust layout
+- [ ] Remove unwanted modals - "Impressive session" appears without user action
+- [ ] Fix learning path entry - can't access Step 1, no clear CTA
+- [ ] Implement seamless ask-to-learning flow - "Next" button should transition to learning path
+- [ ] Fix learning path navigation - make step access clear and functional
+- [ ] Test keyboard handling on all screens
+- [ ] Verify all buttons are functional and route correctly

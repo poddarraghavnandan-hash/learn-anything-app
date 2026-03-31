@@ -52,26 +52,18 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="lightbulb.fill" color={color} />,
         }}
       />
+      {/* Hide recommendations tab - content in progress */}
       <Tabs.Screen
         name="recommendations"
         options={{
-          title: "For You",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="target" color={color} />,
+          href: null,
         }}
       />
+      {/* Hide notifications tab - content in progress */}
       <Tabs.Screen
         name="notifications"
         options={{
-          title: "Notifications",
-          tabBarIcon: ({ color }) => (
-            <BadgeIcon
-              name="bell.fill"
-              size={26}
-              color={color}
-              badgeCount={notifCount}
-              badgeColor={colors.error}
-            />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

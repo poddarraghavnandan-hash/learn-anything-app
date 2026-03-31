@@ -17,6 +17,8 @@ import { recommendationsRouter } from "./routers-recommendations";
 import { notificationsRouter } from "./routers-notifications";
 import { feedRouter } from "./routers-feed";
 import { adaptiveLearningRouter } from "./routers-adaptive-learning";
+import { claudeContentRouter } from "./routers-claude-content";
+import { geminiContentRouter } from "./routers-gemini-content";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1880,6 +1882,12 @@ Return JSON: {
   notifications: notificationsRouter,
   // ─── Adaptive Learning (Assessment, Content, Flow) ────────────────────────────────────────────────────────────────
   adaptiveLearning: adaptiveLearningRouter,
+
+  // ─── Claude Content Generation (LLM-powered adaptive content) ────────────────────────────────────────────────────────────────
+  claudeContent: claudeContentRouter,
+
+  // ─── Gemini Content Analysis (Multimodal content understanding) ────────────────────────────────────────────────────────────────
+  geminiContent: geminiContentRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({
