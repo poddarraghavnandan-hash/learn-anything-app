@@ -22,6 +22,7 @@ import { geminiContentRouter } from "./routers-gemini-content";
 import { metaLearningRouter } from "./routers-meta-learning";
 import { personalMindMapRouter } from "./routers-personal-mind-map";
 import { personalLearningIntelligenceRouter } from "./routers-pli";
+import { behaviorTrackingRouter } from "./routers-behavior-tracking";
 
 // ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
 const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
@@ -1897,6 +1898,9 @@ Return JSON: {
   // ─── Personal Learning Mind Map (Scholarship-driven, behavior-based personalization) ────────────────────────────────────────────────────────────────
   personalMindMap: personalMindMapRouter,
   personalLearningIntelligence: personalLearningIntelligenceRouter,
+
+  // ─── Behavior Tracking (Learning Signal Analysis) ────────────────────────────────────────────────────────────────
+  behaviorTracking: behaviorTrackingRouter,
 
   // ─── App Update ────────────────────────────────────────────────────────
   appUpdate: router({

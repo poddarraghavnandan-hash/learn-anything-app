@@ -1306,3 +1306,41 @@
 - [ ] Fix learning path navigation - make step access clear and functional
 - [ ] Test keyboard handling on all screens
 - [ ] Verify all buttons are functional and route correctly
+
+
+## Phase 4: Integrate Claude/Gemini APIs for Lesson Content
+- [x] Create lesson-content screen to display AI-generated content
+- [x] Wire Claude API to generate personalized lesson content
+- [x] Wire Gemini API for multimodal content analysis
+- [x] Add content caching to avoid redundant API calls
+- [x] Implement error handling and fallbacks for API failures
+
+## Phase 5: Implement Behavior Tracking
+- [x] Create behavior tracking service to record learning signals
+- [x] Track engagement metrics (time spent, interactions, attention)
+- [x] Track comprehension signals (quiz scores, mistakes, hints used)
+- [x] Track confidence levels (self-reported + inferred from behavior)
+- [x] Persist behavior data to database for analysis
+
+## Phase 6: Wire Meta-Learning System
+- [x] Connect meta-learning engine to lesson selection
+- [x] Implement approach selection based on user profile
+- [x] Track approach effectiveness after each lesson
+- [x] Update user learning profile with new data
+- [x] Trigger approach innovation when stagnation detected
+
+## Phase 7: Implement Adaptive Difficulty
+- [x] Create difficulty assessment logic
+- [x] Implement real-time difficulty adjustment
+- [x] Add struggle detection during lessons
+- [x] Implement outcome prediction
+- [x] Calibrate challenge level to maintain optimal difficulty
+
+## Phase 8: Test & Deliver
+- [x] End-to-end flow testing (Home → Learning Path → Lesson → Gaia)
+- [x] Test all 9 learning approaches
+- [x] Verify behavior tracking data collection
+- [x] Test meta-learning approach selection
+- [x] Verify adaptive difficulty adjustments
+- [x] Performance optimization
+- [x] Final checkpoint and delivery

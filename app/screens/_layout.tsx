@@ -8,6 +8,7 @@ export default function ScreensLayout() {
       }}
     >
       <Stack.Screen name="learning-path-detail" />
+      <Stack.Screen name="lesson-content" />
     </Stack>
   );
 }

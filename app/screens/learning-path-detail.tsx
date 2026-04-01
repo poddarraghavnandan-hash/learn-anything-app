@@ -122,9 +122,9 @@ export default function LearningPathDetailScreen() {
   const handleStartLesson = (lesson: LessonStep) => {
     if (lesson.status === "locked") return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Navigate to Gaia chat with lesson context
+    // Navigate to lesson content screen with Gaia as presenter
     router.push({
-      pathname: "/(tabs)/ask",
+      pathname: "/screens/lesson-content",
       params: {
         topic,
         lessonId: lesson.id,
