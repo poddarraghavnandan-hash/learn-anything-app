@@ -1,5 +1,6 @@
 import { ScrollView, Text, View, Pressable, ActivityIndicator } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { LoadingQuote } from "@/components/loading-quote";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
@@ -106,8 +107,11 @@ export default function ReviewScreen() {
     return (
       <ScreenContainer className="p-4">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 16, color: colors.muted }}>Loading concepts for review...</Text>
+          <LoadingQuote
+            message="Loading concepts for review..."
+            rotateQuotes={true}
+            rotationInterval={5000}
+          />
         </View>
       </ScreenContainer>
     );

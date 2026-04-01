@@ -1,6 +1,7 @@
 import { ScrollView, Text, View, Pressable, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { LoadingQuote } from "@/components/loading-quote";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
@@ -118,8 +119,11 @@ export default function LessonContentScreen() {
     return (
       <ScreenContainer className="p-4">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 16, color: colors.muted }}>Gaia is preparing your lesson...</Text>
+          <LoadingQuote
+            message="Gaia is preparing your lesson..."
+            rotateQuotes={true}
+            rotationInterval={6000}
+          />
         </View>
       </ScreenContainer>
     );
