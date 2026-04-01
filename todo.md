@@ -1344,3 +1344,13 @@
 - [x] Verify adaptive difficulty adjustments
 - [x] Performance optimization
 - [x] Final checkpoint and delivery
+
+
+## Next Step 1: Replace Placeholder with Actual Claude API Implementation
+- [x] Create use-claude-lesson.ts hook for fetching Claude-generated content
+- [x] Integrate with tRPC claudeContent.generateLessonContent endpoint
+- [x] Transform Claude GeneratedContent format to LessonContentData
+- [x] Add fallback to placeholder content if API fails
+- [x] Update lesson-content.tsx to use Claude hook instead of placeholder
+- [x] All tests passing (613 tests)
+- [x] TypeScript compilation clean

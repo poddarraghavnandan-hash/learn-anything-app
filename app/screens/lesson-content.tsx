@@ -7,6 +7,7 @@ import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
 import { useState, useEffect } from "react";
 import * as Haptics from "expo-haptics";
 import { useLessonSession } from "@/app/hooks/use-lesson-session";
+import { useClaudeLessonContent } from "@/app/hooks/use-claude-lesson";
 
 interface LessonContent {
   title: string;
@@ -47,58 +48,27 @@ export default function LessonContentScreen() {
     approach,
   });
 
+  // Fetch Claude-generated content
+  const { content: claudeContent, loading: claudeLoading, error: claudeError, isUsingFallback } = useClaudeLessonContent({
+    topic,
+    lessonTitle,
+    approach,
+    learningStyle: "visual",
+    difficulty: "beginner",
+    engagementScore,
+  });
+
   useEffect(() => {
-    loadLessonContent();
-  }, [lessonId, topic]);
-
-  const loadLessonContent = async () => {
-    try {
-      setLoading(true);
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      
-      // Generate default content based on topic and lesson
-      const defaultContent = generateDefaultContent(topic, lessonTitle, approach);
-      setContent(defaultContent);
-    } catch (error) {
-      console.error("Error loading lesson content:", error);
-      setContent(generateDefaultContent(topic, lessonTitle, approach));
-    } finally {
+    // Use Claude-generated content if available
+    if (claudeContent) {
+      setContent(claudeContent);
       setLoading(false);
+    } else if (claudeLoading) {
+      setLoading(true);
     }
-  };
+  }, [claudeContent, claudeLoading]);
 
-  const generateDefaultContent = (topic: string, lessonTitle: string, approach: string): LessonContent => {
-    return {
-      title: lessonTitle,
-      introduction: `Welcome to this lesson on "${lessonTitle}" as part of your ${topic} learning journey. This lesson uses a ${approach} approach to help you understand the concepts deeply.`,
-      mainContent: `In this lesson, we'll explore the key concepts of ${lessonTitle}. We'll break down complex ideas into digestible pieces, use real-world examples, and help you build a strong foundation. By the end, you'll have a clear understanding of how these concepts work and why they matter.`,
-      keyPoints: [
-        `Understanding the fundamentals of ${lessonTitle}`,
-        `How ${lessonTitle} connects to ${topic}`,
-        `Practical applications in real-world scenarios`,
-        `Common misconceptions and how to avoid them`,
-        `How to apply this knowledge to solve problems`,
-      ],
-      examples: [
-        `Example 1: A real-world scenario showing ${lessonTitle} in action`,
-        `Example 2: How professionals use these concepts daily`,
-        `Example 3: A historical perspective on ${lessonTitle}`,
-      ],
-      checkYourUnderstanding: {
-        question: `Based on what you've learned, which of the following best describes ${lessonTitle}?`,
-        options: [
-          "The most fundamental concept in this field",
-          "A supporting concept that builds on basics",
-          "An advanced topic for specialists",
-          "A historical concept no longer relevant",
-        ],
-        correctAnswer: 1,
-        explanation: `That's correct! ${lessonTitle} is a supporting concept that builds on the fundamentals. Understanding it requires grasping the basics first, and it forms the foundation for more advanced topics.`,
-      },
-      nextSteps: `Great job completing this lesson! You've built a strong understanding of ${lessonTitle}. Next, you'll explore how to apply these concepts in practice. Ready to continue your learning journey?`,
-    };
-  };
+  // Claude hook now handles content generation
 
   const handleAnswerSelect = async (optionIndex: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
