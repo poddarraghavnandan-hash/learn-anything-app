@@ -42,6 +42,8 @@ import { useColors } from "@/hooks/use-colors";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { trpc } from "@/lib/trpc";
 import { openVideoInApp } from "@/lib/video-utils";
+import { gaiaVoice } from "@/lib/gaia-voice";
+import { gaiaAchievements } from "@/lib/gaia-achievements";
 import {
   getResponsiveFontSize,
   getResponsiveSpacing,
@@ -1713,6 +1715,13 @@ export default function AskScreen() {
         for (const concept of activeJourney.mappedConcepts) {
           dispatch({ type: "ADD_CONCEPT_CONFIDENCE", payload: { concept, confidence: 0.8 } });
         }
+        // Celebrate correct answer with Gaia voice
+        const message = gaiaVoice.generateCelebrationMessage("answer");
+        gaiaVoice.speak(message, "celebration");
+      } else if (!correct) {
+        // Encourage on wrong answer
+        const message = gaiaVoice.generateEncouragementMessage("answer");
+        gaiaVoice.speak(message, "encouragement");
       }
     },
     [addXp, dispatch, activeJourney, checkStartTime, challengeTimerExpired]
