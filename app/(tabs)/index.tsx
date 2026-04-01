@@ -4,6 +4,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 interface LearningJourney {
   id: string;
@@ -54,9 +55,10 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const handleStartLearning = (journey: LearningJourney) => {
-    // Navigate to Gaia (ask screen) with pre-filled topic
+    // Navigate to learning path detail screen with structured lessons
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({
-      pathname: "/(tabs)/ask",
+      pathname: "/screens/learning-path-detail",
       params: {
         topic: journey.title,
         slug: journey.slug,
@@ -65,6 +67,7 @@ export default function HomeScreen() {
   };
 
   const handleAskQuestion = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/(tabs)/ask");
   };
 
