@@ -28,11 +28,15 @@ interface UseClaudioLessonOptions {
 /**
  * Hook to fetch Claude-generated lesson content
  * Falls back to placeholder if API fails
+ * 
+ * BUG FIX: Now handles success:false case (server error without network error)
+ * and includes 20s timeout to prevent infinite loading
  */
 export function useClaudeLessonContent(options: UseClaudioLessonOptions) {
   const [content, setContent] = useState<LessonContentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasTimedOut, setHasTimedOut] = useState(false);
 
   // Map learning style to valid values
   const mapLearningStyle = (style?: string): "visual" | "kinesthetic" | "auditory" | "reading" => {
@@ -56,6 +60,15 @@ export function useClaudeLessonContent(options: UseClaudioLessonOptions) {
 
   // Handle Claude query results
   useEffect(() => {
+    // BUG FIX: Handle success:false case (server returned error but no network error)
+    if (claudeQuery.data?.success === false) {
+      console.warn("Claude content generation failed on server:", claudeQuery.data.error);
+      setError(claudeQuery.data.error || "Failed to generate lesson content");
+      setContent(generateFallbackContent(options));
+      setLoading(false);
+      return;
+    }
+
     if (claudeQuery.data?.success && claudeQuery.data.content) {
       // Transform Claude response to LessonContentData format
       const firstQuestion = claudeQuery.data.content.assessmentQuestions?.[0];
@@ -90,11 +103,26 @@ export function useClaudeLessonContent(options: UseClaudioLessonOptions) {
     }
   }, [claudeQuery.data, claudeQuery.isError, claudeQuery.error, claudeQuery.isLoading, options]);
 
+  // TIMEOUT: If loading takes more than 20 seconds, use fallback
+  useEffect(() => {
+    if (!loading || hasTimedOut) return;
+
+    const timeoutId = setTimeout(() => {
+      console.warn("Claude content generation timed out after 20s, using fallback");
+      setHasTimedOut(true);
+      setError("Content generation took too long, using fallback");
+      setContent(generateFallbackContent(options));
+      setLoading(false);
+    }, 20000); // 20 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [loading, hasTimedOut, options]);
+
   return {
     content,
-    loading,
+    loading: loading && !hasTimedOut,
     error,
-    isUsingFallback: error !== null,
+    isUsingFallback: error !== null || hasTimedOut,
   };
 }
 

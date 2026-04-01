@@ -10,6 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
  * - Multiple content modalities (text, examples, analogies)
  * - Adaptive difficulty adjustment
  * - Real-time content generation
+ * - API TIMEOUT PROTECTION: All Claude API calls have timeouts to prevent hanging
  */
 
 interface LearnerProfile {
@@ -57,6 +58,7 @@ class ClaudeContentGenerator {
 
   /**
    * Generate personalized learning content for a specific topic
+   * Includes 15-second timeout to prevent hanging
    */
   async generateLessonContent(
     learnerProfile: LearnerProfile,
@@ -64,24 +66,33 @@ class ClaudeContentGenerator {
   ): Promise<GeneratedContent> {
     const prompt = this.buildContentPrompt(learnerProfile, topic);
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
+    try {
+      const message = await this.withTimeout(
+        this.client.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 2000,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+        15000 // 15 second timeout
+      );
 
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
-    return this.parseGeneratedContent(responseText);
+      const responseText =
+        message.content[0].type === "text" ? message.content[0].text : "";
+      return this.parseGeneratedContent(responseText);
+    } catch (error) {
+      console.error("Claude API call timed out or failed:", error);
+      throw new Error("Failed to generate lesson content: API timeout or error");
+    }
   }
 
   /**
    * Generate misconception corrections based on learner's wrong answers
+   * Includes 10-second timeout
    */
   async generateMisconceptionCorrection(
     learnerProfile: LearnerProfile,
@@ -108,18 +119,26 @@ Generate a clear, encouraging explanation that:
 Keep the explanation concise (2-3 paragraphs) and encouraging.
 `;
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 800,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
+    try {
+      const message = await this.withTimeout(
+        this.client.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 800,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+        10000 // 10 second timeout
+      );
 
-    return message.content[0].type === "text" ? message.content[0].text : "";
+      return message.content[0].type === "text" ? message.content[0].text : "";
+    } catch (error) {
+      console.error("Claude API call timed out:", error);
+      throw new Error("Failed to generate misconception correction: API timeout");
+    }
   }
 
   /**
@@ -155,20 +174,28 @@ ADVANCED:
 [advanced version]
 `;
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
+    try {
+      const message = await this.withTimeout(
+        this.client.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 2000,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+        12000 // 12 second timeout
+      );
 
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
-    return this.parseDifficultyVariants(responseText);
+      const responseText =
+        message.content[0].type === "text" ? message.content[0].text : "";
+      return this.parseDifficultyVariants(responseText);
+    } catch (error) {
+      console.error("Claude API call timed out:", error);
+      throw new Error("Failed to generate difficulty variants: API timeout");
+    }
   }
 
   /**
@@ -196,28 +223,36 @@ Return ONLY a JSON array of 5 topic strings, like:
 ["Topic 1", "Topic 2", "Topic 3", "Topic 4", "Topic 5"]
 `;
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 500,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
     try {
-      const jsonMatch = responseText.match(/\[.*\]/s);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      const message = await this.withTimeout(
+        this.client.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 500,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+        10000 // 10 second timeout
+      );
+
+      const responseText =
+        message.content[0].type === "text" ? message.content[0].text : "";
+      try {
+        const jsonMatch = responseText.match(/\[.*\]/s);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        console.error("Failed to parse learning path recommendations:", e);
       }
-    } catch (e) {
-      console.error("Failed to parse learning path recommendations:", e);
+      return [];
+    } catch (error) {
+      console.error("Claude API call timed out:", error);
+      return [];
     }
-    return [];
   }
 
   /**
@@ -255,28 +290,36 @@ Format as JSON array:
 ]
 `;
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
     try {
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      const message = await this.withTimeout(
+        this.client.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 2000,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+        12000 // 12 second timeout
+      );
+
+      const responseText =
+        message.content[0].type === "text" ? message.content[0].text : "";
+      try {
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        console.error("Failed to parse assessment questions:", e);
       }
-    } catch (e) {
-      console.error("Failed to parse assessment questions:", e);
+      return [];
+    } catch (error) {
+      console.error("Claude API call timed out:", error);
+      return [];
     }
-    return [];
   }
 
   /**
@@ -312,21 +355,45 @@ The content should:
 Keep it to 3-4 paragraphs.
 `;
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1000,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
+    try {
+      const message = await this.withTimeout(
+        this.client.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+        10000 // 10 second timeout
+      );
 
-    return message.content[0].type === "text" ? message.content[0].text : "";
+      return message.content[0].type === "text" ? message.content[0].text : "";
+    } catch (error) {
+      console.error("Claude API call timed out:", error);
+      return "";
+    }
   }
 
   // ─── Private Helper Methods ──────────────────────────────────────────────────
+
+  /**
+   * Wraps a promise with a timeout
+   * Rejects if the promise doesn't resolve within the specified time
+   */
+  private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Operation timed out after ${ms}ms`)),
+          ms
+        )
+      ),
+    ]);
+  }
 
   private buildContentPrompt(
     learnerProfile: LearnerProfile,
