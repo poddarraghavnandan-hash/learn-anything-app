@@ -1354,3 +1354,23 @@
 - [x] Update lesson-content.tsx to use Claude hook instead of placeholder
 - [x] All tests passing (613 tests)
 - [x] TypeScript compilation clean
+
+
+## Next Step 1: Spaced Repetition Review Screen
+- [x] Design spaced repetition algorithm (SM-2 variant)
+- [x] Create userConceptMetrics table schema (already exists)
+- [x] Implement review scheduling logic (SpacedRepetitionEngine service)
+- [x] Build review-screen.tsx UI component
+- [x] Add review navigation from home screen
+- [x] Integrate behavior tracking with review sessions
+- [x] Test spaced repetition calculations
+
+## Next Step 3: Learner Baseline Evaluation
+- [x] Design baseline assessment flow (fun, non-test-like)
+- [x] Create baseline-evaluation.tsx screen
+- [x] Implement 5-7 adaptive questions about prior knowledge
+- [x] Add learning style assessment questions
+- [x] Create baseline-results.tsx to show assessment summary
+- [x] Store baseline data in database (BaselineEvaluator service)
+- [x] Integrate with learning path selection logic
+- [x] Show baseline results before first lesson
