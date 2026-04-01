@@ -48,7 +48,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="ask"
         options={{
-          title: "Learn",
+          title: "Gaia",
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="lightbulb.fill" color={color} />,
         }}
       />
@@ -66,11 +66,11 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      {/* Hide progress tab - only 3 buttons in nav */}
       <Tabs.Screen
         name="progress"
         options={{
-          title: "Progress",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

@@ -54,12 +54,12 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const handleStartLearning = (journey: LearningJourney) => {
+    // Navigate to Gaia (ask screen) with pre-filled topic
     router.push({
-      pathname: "/topic/[slug]",
+      pathname: "/(tabs)/ask",
       params: {
+        topic: journey.title,
         slug: journey.slug,
-        name: journey.title,
-        emoji: journey.icon,
       },
     });
   };
@@ -81,7 +81,7 @@ export default function HomeScreen() {
           </Text>
         </Animated.View>
 
-        {/* Quick Action: Ask a Question */}
+        {/* Quick Action: Chat with Gaia */}
         <Animated.View entering={SlideInUp.duration(400).delay(50)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
           <Pressable
             onPress={handleAskQuestion}
@@ -97,13 +97,13 @@ export default function HomeScreen() {
               },
             ]}
           >
-            <MaterialIcons name="lightbulb" size={24} color="#FFFFFF" style={{ marginRight: 12 }} />
+            <Text style={{ fontSize: 20, marginRight: 12 }}>🌍</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 14, fontWeight: "600", color: "#FFFFFF", marginBottom: 2 }}>
-                Ask a Question
+                Chat with Gaia
               </Text>
               <Text style={{ fontSize: 12, color: "#FFFFFF", opacity: 0.9 }}>
-                Get instant answers and explanations
+                Your personal learning companion
               </Text>
             </View>
             <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />

@@ -2040,7 +2040,7 @@ export default function AskScreen() {
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerLeft}>
             <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-              {activeJourney && !showWelcome ? activeJourney.emoji + " Learning Journey" : "Shiromani"}
+              {activeJourney && !showWelcome ? activeJourney.emoji + " Learning Journey" : "🌍 Gaia"}
             </Text>
             {activeJourney && !showWelcome ? (
               <Text numberOfLines={1} style={[styles.headerSub, { color: colors.muted }]}>
@@ -2050,7 +2050,7 @@ export default function AskScreen() {
               <Text style={[styles.headerSub, { color: colors.muted }]}>
                 {state.learnerModel.questionsAsked > 0
                   ? `${state.learnerModel.questionsAsked} topics explored`
-                  : "Ask a question, start a journey"}
+                  : "Your learning companion"}
               </Text>
             )}
           </View>
@@ -2093,10 +2093,10 @@ export default function AskScreen() {
             <Animated.View entering={FadeIn.duration(400)} style={styles.welcomeInner}>
               <Text style={styles.welcomeEmoji}>{"💡"}</Text>
               <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>
-                What do you want to learn?
+                Hi! I'm Gaia, your learning companion
               </Text>
               <Text style={[styles.welcomeDesc, { color: colors.muted }]}>
-                Ask any question and I'll build a guided learning journey — from a curiosity-sparking hook to a deep-dive video.
+                I'm here to coach you through any topic, celebrate your wins, and help you master what matters. What would you like to learn today?
               </Text>
             </Animated.View>
 
