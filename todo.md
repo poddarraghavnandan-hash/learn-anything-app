@@ -1,4 +1,4 @@
-# Learn Anything — Project TODO
+# Shiro — Project TODO
 
 ## Theme & Branding
 - [x] Update theme colors (indigo-violet primary, deep navy dark mode)
@@ -109,7 +109,7 @@
 - [x] XP awarded for every interaction type
 - [x] Engagement tracking (card type, time spent, reaction, hour of day)
 
-## LearnLM-Inspired Pedagogy (Core Belief: Anyone Can Learn Anything)
+## Shiro Pedagogy (Core Belief: Anyone Can Shiro)
 - [x] Integrate LearnLM 5 principles into all LLM system prompts
 - [x] Quiz: think-about prompts before revealing answer (metacognition)
 - [x] Quiz: adaptive difficulty — calibrated by accuracy per topic
@@ -1391,3 +1391,21 @@
 - [x] Add 15-second timeout to Claude API calls in generateLessonContent
 - [x] Add timeout wrappers to all Claude API methods
 - [x] Test all fixes - all 613 tests passing
+
+
+## Bug: Continue to Next Step Button Not Working
+- [x] Fix "Continue to Next Step" button in lesson-content.tsx
+- [x] Add navigation to next lesson or learning path completion screen
+- [x] Test navigation flow end-to-end
+
+
+## Refactoring: learn-anything → Shiro
+- [x] Update app.config.ts with new app name and slug
+- [x] Update package.json project name
+- [x] Update all import paths and file references
+- [x] Refactor all "learn-anything" string references in code
+- [x] Update database schema and migrations
+- [x] Update server configuration
+- [x] Update README and documentation
+- [x] Test all functionality after refactoring
+- [x] Verify logo is preserved

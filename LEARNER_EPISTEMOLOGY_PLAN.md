@@ -1,7 +1,7 @@
 # Learner-Centric Epistemology System: Implementation Plan
 
 ## Vision
-Transform Learn Anything from a content delivery app into a **wisdom transmission platform** that:
+Transform Shiro from a content delivery app into a **wisdom transmission platform** that:
 - Adapts to each learner's unique cognitive style, problem frame, and meaning-making pattern
 - Captures continuous signals to infer understanding without explicit testing
 - Uses real-world application (butterfly effects) as proof of understanding

@@ -1,4 +1,4 @@
-# Learn Anything — Content Depth System BUILD_PLAN
+# Shiro — Content Depth System BUILD_PLAN
 
 ## Vision
 Build a comprehensive content depth system that delivers **Foundation → Deep Dive → Expert** layers with **implicit knowledge graph generation**, **adaptive prerequisite assessment**, and **parallel presentation** across Ask/Ladder/Summaries.

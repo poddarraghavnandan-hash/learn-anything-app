@@ -1,4 +1,4 @@
-# Learn Anything — Daily Build Plan (Learning-Focused)
+# Shiro — Daily Build Plan (Learning-Focused)
 
 **Budget:** 70 credits today + 300 credits/day starting tomorrow
 

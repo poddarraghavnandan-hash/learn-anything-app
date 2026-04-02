@@ -95,8 +95,27 @@ export default function LessonContentScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Record final confidence
     await recordConfidence(engagementScore);
-    // Navigate back to learning path detail
-    router.back();
+    
+    // Get current lesson number from lessonId
+    const currentLessonNum = parseInt(lessonId) || 1;
+    const nextLessonNum = currentLessonNum + 1;
+    
+    // Check if there are more lessons (assume max 8 lessons per path)
+    if (nextLessonNum <= 8) {
+      // Navigate to next lesson
+      router.push({
+        pathname: "/screens/lesson-content",
+        params: {
+          topic,
+          lessonId: nextLessonNum.toString(),
+          lessonTitle: `Lesson ${nextLessonNum}`,
+          approach,
+        },
+      });
+    } else {
+      // All lessons completed - navigate back to learning path
+      router.back();
+    }
   };
 
   const handleAskGaia = async () => {

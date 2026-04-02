@@ -2,7 +2,7 @@
 
 ## Vision: Truly Personalized Learning
 
-The **Adaptive Learning Engine** is the heart of Learn Anything. It continuously monitors learner performance, understanding, and engagement, then **dynamically generates and adjusts content in real-time** to optimize learning outcomes.
+The **Adaptive Learning Engine** is the heart of Shiro. It continuously monitors learner performance, understanding, and engagement, then **dynamically generates and adjusts content in real-time** to optimize learning outcomes.
 
 Key principle: **Every learner gets a unique, personalized curriculum tailored to their needs.**
 

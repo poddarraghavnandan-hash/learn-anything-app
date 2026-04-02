@@ -1,4 +1,4 @@
-# Learn Anything - System Alignment Document
+# Shiro - System Alignment Document
 
 ## Core Vision: LLM-Powered Adaptive Learning + TikTok Engagement
 

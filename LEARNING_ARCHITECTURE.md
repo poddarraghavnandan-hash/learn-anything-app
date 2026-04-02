@@ -1,8 +1,8 @@
-# Learn Anything - Comprehensive Learning Architecture
+# Shiro - Comprehensive Learning Architecture
 
 ## Vision: Deep Learning, Not Surface-Level Fun Facts
 
-Learn Anything is built on the principle that **real learning requires depth, structure, and mastery-based progression**. This is NOT a gamified trivia app—it's a serious educational platform that teaches genuine understanding.
+Shiro is built on the principle that **real learning requires depth, structure, and mastery-based progression**. This is NOT a gamified trivia app—it's a serious educational platform that teaches genuine understanding.
 
 ---
 

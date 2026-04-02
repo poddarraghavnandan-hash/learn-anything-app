@@ -1,4 +1,4 @@
-# Learn Anything — Mobile App Interface Design
+# Shiro — Mobile App Interface Design
 
 ## Design Philosophy
 
@@ -14,7 +14,7 @@ This app merges **TikTok-style engagement mechanics** with **evidence-based lear
 ---
 
 ## Brand Identity
-- **App Name:** Learn Anything
+- **App Name:** Shiro
 - **Tagline:** "Swipe. Learn. Remember."
 - **Color Palette:**
 
