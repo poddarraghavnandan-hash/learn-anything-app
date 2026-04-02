@@ -1409,3 +1409,13 @@
 - [x] Update README and documentation
 - [x] Test all functionality after refactoring
 - [x] Verify logo is preserved
+
+
+## Feature: Review Button on Home Screen
+- [x] Create review-button component showing pending review count
+- [x] Fetch pending review count from database
+- [x] Add review button to home screen (index.tsx)
+- [x] Implement navigation to review-screen.tsx
+- [x] Add badge animation when reviews are pending
+- [x] Test review count accuracy
+- [x] Test navigation flow

@@ -1,10 +1,12 @@
 import { ScrollView, Text, View, Pressable } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { usePendingReviews } from "@/hooks/use-pending-reviews";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import { ReviewButton } from "@/components/review-button";
 
 interface LearningJourney {
   id: string;
@@ -53,6 +55,12 @@ const learningJourneys: LearningJourney[] = [
 export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
+  const { pendingCount } = usePendingReviews();
+
+  const handleReview = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/screens/review-screen");
+  };
 
   const handleStartLearning = (journey: LearningJourney) => {
     // Navigate to learning path detail screen with structured lessons
@@ -83,6 +91,9 @@ export default function HomeScreen() {
             Deepen your knowledge with structured learning paths
           </Text>
         </Animated.View>
+
+        {/* Review Button - Shows when there are pending reviews */}
+        <ReviewButton pendingCount={pendingCount} onPress={handleReview} />
 
         {/* Quick Action: Chat with Gaia */}
         <Animated.View entering={SlideInUp.duration(400).delay(50)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
