@@ -322,3 +322,7 @@ export const googleSignInData = mysqlTable("googleSignInData", {
 
 export type GoogleSignInData = typeof googleSignInData.$inferSelect;
 export type InsertGoogleSignInData = typeof googleSignInData.$inferInsert;
+
+// ─── Meta-Learning & Behavior Tracking Exports ──────────────────────────────
+export * from "../server/db/schema-learning-behavior";
+export * from "../server/db/schema-meta-learning";

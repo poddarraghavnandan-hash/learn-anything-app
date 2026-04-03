@@ -311,6 +311,7 @@ Learner level: ${input.skillLevel}
 ${input.startingStep > 0 ? `The learner already knows the basics (starting from step ${input.startingStep + 1}). Skip foundational content they already understand.` : "Start from the very beginning — assume no prior knowledge."}`,
               },
             ],
+            maxTokens: 8192,
             response_format: { type: "json_object" },
           });
 
@@ -839,6 +840,7 @@ Return JSON (Schema Example of all possible objects, remember to ONLY CHOOSE 3 t
                 content: input.question,
               },
             ],
+            maxTokens: 8192,
             response_format: { type: "json_object" },
           });
 

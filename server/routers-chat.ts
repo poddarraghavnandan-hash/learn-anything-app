@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import * as adaptiveChat from "./adaptive-chat";
+import { getConceptBySlug } from "./db";
 import {
   captureQuestionSignal,
   captureTeachingSignal,
@@ -24,6 +25,7 @@ export const chatRouter = router({
       z.object({
         message: z.string(),
         conceptName: z.string(),
+        conceptId: z.number().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -40,25 +42,32 @@ export const chatRouter = router({
         throw new Error("Failed to generate response");
       }
 
+      // Resolve conceptId from input or by slug lookup
+      let resolvedConceptId = input.conceptId ?? 0;
+      if (!resolvedConceptId && input.conceptName) {
+        const slug = input.conceptName.toLowerCase().replace(/\s+/g, "-");
+        const concept = await getConceptBySlug(slug);
+        if (concept) resolvedConceptId = concept.id;
+      }
+
       // Record the interaction
       await adaptiveChat.recordChatInteraction(
         userId,
-        0, // TODO: Get actual conceptId
+        resolvedConceptId,
         input.message,
         response.message,
         response.layer
       );
 
       // Capture signals from the interaction
-      // Capture question signal from user message
-      await captureQuestionSignal(userId, input.message, 0, {
+      await captureQuestionSignal(userId, input.message, resolvedConceptId, {
         layer: response.layer,
         timestamp: new Date(),
       });
 
       // Capture teaching signal from AI response
       if (response.message && response.message.length > 50) {
-        await captureTeachingSignal(userId, response.message, 0, {
+        await captureTeachingSignal(userId, response.message, resolvedConceptId, {
           layer: response.layer,
           timestamp: new Date(),
         });
