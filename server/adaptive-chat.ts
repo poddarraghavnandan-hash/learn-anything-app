@@ -5,7 +5,7 @@
  * Automatically suggests relevant content layers and prerequisites.
  */
 
-import { invokeLLM } from "./_core/llm";
+import { orchestrateLLM } from "./ai-orchestrator";
 import * as db from "./db";
 import * as assessment from "./adaptive-assessment";
 
@@ -149,7 +149,7 @@ export async function generateAdaptiveResponse(
     const systemPrompt = buildAdaptiveSystemPrompt(context);
 
     // Generate LLM response
-    const response = await invokeLLM({
+    const response = await orchestrateLLM("reasoning", {
       messages: [
         {
           role: "system",
