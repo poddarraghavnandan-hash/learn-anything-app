@@ -50,7 +50,6 @@ app-example
 *~
 
 # Logs
-logs
 *.log
 
 # OS
@@ -63,3 +62,4 @@ Thumbs.db
 
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
+logs/
