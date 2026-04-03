@@ -4,8 +4,9 @@
  */
 
 import { z } from "zod";
-import { protectedProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as spacedRep from "./spaced-repetition";
+import { seedConceptsFromJourney } from "./services/heuristic-engine";
 
 export const spacedRepetitionRouter = router({
   /**
@@ -59,6 +60,27 @@ export const spacedRepetitionRouter = router({
       }
 
       return updated;
+    }),
+
+  /**
+   * Seed concepts from a completed journey into spaced repetition
+   * Creates userConceptMetrics rows so concepts appear in review schedule
+   */
+  seedFromJourney: publicProcedure
+    .input(
+      z.object({
+        userId: z.number(),
+        concepts: z.array(
+          z.object({
+            name: z.string(),
+            checkCorrect: z.boolean().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const seeded = await seedConceptsFromJourney(input.userId, input.concepts);
+      return { seeded, total: input.concepts.length };
     }),
 
   /**

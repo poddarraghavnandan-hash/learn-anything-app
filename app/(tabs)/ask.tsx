@@ -1292,6 +1292,7 @@ export default function AskScreen() {
   const suggestionsMutation = trpc.chat.suggestions.useMutation();
   const regenStageMutation = trpc.chat.regenStage.useMutation();
   const priorKnowledgeMutation = trpc.chat.priorKnowledge.useMutation();
+  const seedConceptsMutation = trpc.spacedRepetition.seedFromJourney.useMutation();
 
   // Prior knowledge check state
   const [priorKnowledgeQuestions, setPriorKnowledgeQuestions] = useState<PriorKnowledgeQuestion[]>([]);
@@ -1822,6 +1823,17 @@ export default function AskScreen() {
     }
 
     setShowCompletion(true);
+
+    // Fire-and-forget: seed concepts into spaced repetition for future review
+    if (activeJourney.mappedConcepts.length > 0) {
+      seedConceptsMutation.mutate({
+        userId: 0, // Anonymous seeding — will be linked when user authenticates
+        concepts: activeJourney.mappedConcepts.map((name: string) => ({
+          name,
+          checkCorrect: journeyCheckCorrect,
+        })),
+      });
+    }
   }, [activeJourney, journeyCheckCorrect, videoWatched, journeyXp, awardStageXp, dispatch, state.learnerModel]);
 
   // ─── Handle Next Steps Selection ────────────────────────────────────────────
