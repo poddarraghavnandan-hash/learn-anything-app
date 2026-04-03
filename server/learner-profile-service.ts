@@ -1,4 +1,4 @@
-import { invokeLLM } from "./_core/llm";
+import { orchestrateLLM } from "./ai-orchestrator";
 import {
   createLearnerProfile,
   getLearnerProfile,
@@ -138,7 +138,7 @@ Infer and return a JSON object with:
 
 Return ONLY valid JSON, no markdown or explanation.`;
 
-  const result = await invokeLLM({
+  const result = await orchestrateLLM("reasoning", {
     messages: [
       {
         role: "user",
@@ -282,7 +282,7 @@ Return a JSON object with:
 
 Return ONLY valid JSON, no markdown.`;
 
-  const result = await invokeLLM({
+  const result = await orchestrateLLM("reasoning", {
     messages: [
       {
         role: "user",
@@ -376,7 +376,7 @@ Should any aspect of their profile be refined? Return JSON with:
 
 Return ONLY valid JSON.`;
 
-  const result = await invokeLLM({
+  const result = await orchestrateLLM("reasoning", {
     messages: [
       {
         role: "user",

@@ -4,7 +4,7 @@
  * Fetches and caches real educational content for lessons
  */
 
-import { invokeLLM } from "./_core/llm";
+import { orchestrateLLM } from "./ai-orchestrator";
 
 export interface ContentSource {
   id: string;
@@ -303,7 +303,7 @@ Format as JSON array with path IDs from: ${CURATED_PATHS.map((p) => p.id).join("
 Return only valid JSON like:
 ["path-id-1", "path-id-2"]`;
 
-    const result = await invokeLLM({
+    const result = await orchestrateLLM("content", {
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

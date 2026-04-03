@@ -5,7 +5,7 @@
  * Caches results to minimize API calls.
  */
 
-import { invokeLLM } from "./_core/llm";
+import { orchestrateLLM } from "./ai-orchestrator";
 import * as db from "./db";
 import { InsertConceptPrerequisite, InsertConceptRelationship } from "../drizzle/schema";
 
@@ -94,7 +94,7 @@ Format your response as a JSON array like this:
 
 IMPORTANT: Return ONLY valid JSON, no markdown formatting or extra text.`;
 
-    const result = await invokeLLM({
+    const result = await orchestrateLLM("reasoning", {
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -216,7 +216,7 @@ Format as JSON:
 
 IMPORTANT: Return ONLY valid JSON, no markdown.`;
 
-    const result = await invokeLLM({
+    const result = await orchestrateLLM("reasoning", {
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

@@ -34,6 +34,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
+import { useVideoPlayer, VideoView } from "expo-video";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { FillInTheBlankCard } from "@/components/fill-in-the-blank-card";
@@ -617,7 +620,7 @@ function InfoCardContent({ stage, isDark }: { stage: JourneyStage; isDark: boole
     : (STAGE_ACCENTS[stageType] || STAGE_ACCENTS.explanation);
 
   return (
-    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+    <LinearGradient colors={[isDark ? "#0F1419" : "#FFFFFF", accent.bg + "30"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.cardBody, { borderColor: accent.bg + "50", borderWidth: 1 }]}>
       <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
       <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
@@ -630,7 +633,7 @@ function InfoCardContent({ stage, isDark }: { stage: JourneyStage; isDark: boole
           <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
         </View>
       ) : null}
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -656,7 +659,7 @@ function CheckCardContent({
   };
 
   return (
-    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+    <LinearGradient colors={[isDark ? "#0F1419" : "#FFFFFF", accent.bg + "30"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.cardBody, { borderColor: accent.bg + "50", borderWidth: 1 }]}>
       <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
       <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.question || stage.title}</Text>
@@ -715,7 +718,7 @@ function CheckCardContent({
           </Text>
         </Animated.View>
       )}
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -739,8 +742,19 @@ function VideoCardContent({
     ? `${Math.floor(video.durationSeconds / 60)}:${String(video.durationSeconds % 60).padStart(2, "0")}`
     : null;
 
+  const { data: proxyData, isLoading: proxyLoading } = trpc.video.getRawStreamUrl.useQuery(
+    { youtubeUrl: video?.url || "" },
+    { enabled: !!video?.url }
+  );
+
+  const player = useVideoPlayer(proxyData?.streamUrl || null, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
+
   return (
-    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+    <LinearGradient colors={[isDark ? "#0F1419" : "#FFFFFF", accent.bg + "30"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.cardBody, { borderColor: accent.bg + "50", borderWidth: 1 }]}>
       <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
       <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
@@ -753,42 +767,62 @@ function VideoCardContent({
           <ActivityIndicator size="small" color={accent.text} />
           <Text style={[styles.videoLoadingText, { color: isDark ? colors.muted : "#6B7280" }]}>Finding the best video...</Text>
         </View>
+      ) : proxyLoading ? (
+        <View style={styles.videoLoading}>
+          <ActivityIndicator size="small" color={accent.text} />
+          <Text style={[styles.videoLoadingText, { color: isDark ? colors.muted : "#6B7280" }]}>Optimizing stream for native playback...</Text>
+        </View>
       ) : video ? (
-        <TouchableOpacity
-          onPress={() => onWatch(video.url, video.title)}
-          activeOpacity={0.8}
-          style={[styles.videoPreview, { borderColor: isDark ? colors.border : "#E5E7EB" }]}
-        >
-          {video.thumbnailUrl ? (
-            <View style={styles.videoThumbWrap}>
-              <Image source={{ uri: video.thumbnailUrl }} style={styles.videoThumb} contentFit="cover" />
-              <View style={styles.playOverlay}>
-                <View style={styles.playButton}>
-                  <Text style={styles.playIcon}>{"▶"}</Text>
-                </View>
-              </View>
+        <View style={{ marginTop: 10 }}>
+          {proxyData?.streamUrl ? (
+            <View style={[styles.videoPreview, { borderColor: isDark ? colors.border : "#E5E7EB", overflow: "hidden", height: 220, position: "relative" }]}>
+              <VideoView 
+                player={player}
+                style={{ width: "100%", height: "100%" }}
+                allowsFullscreen={true}
+                allowsPictureInPicture={true}
+                nativeControls={true}
+              />
               {duration ? (
-                <View style={styles.durationBadge}>
+                <View style={[styles.durationBadge, { zIndex: 10 }]}>
                   <Text style={styles.durationText}>{duration}</Text>
                 </View>
               ) : null}
             </View>
-          ) : null}
-          <View style={styles.videoMeta}>
+          ) : (
+            <TouchableOpacity
+              onPress={() => onWatch(video.url, video.title)}
+              activeOpacity={0.8}
+              style={[styles.videoPreview, { borderColor: isDark ? colors.border : "#E5E7EB", overflow: "hidden" }]}
+            >
+              {video.thumbnailUrl ? (
+                <View style={styles.videoThumbWrap}>
+                  <Image source={{ uri: video.thumbnailUrl }} style={styles.videoThumb} contentFit="cover" />
+                  <View style={styles.playOverlay}>
+                    <View style={styles.playButton}>
+                      <Text style={styles.playIcon}>{"▶"}</Text>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          )}
+
+          <View style={[styles.videoMeta, { marginTop: 8 }]}>
             <Text numberOfLines={2} style={[styles.videoMetaTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>
-              {video.title}
+              {proxyData?.title || video.title}
             </Text>
             <Text numberOfLines={1} style={[styles.videoMetaChannel, { color: isDark ? colors.muted : "#6B7280" }]}>
               {video.channelOrAuthor || video.source}
             </Text>
           </View>
-        </TouchableOpacity>
+        </View>
       ) : (
         <Text style={[styles.cardContent, { color: isDark ? colors.muted : "#6B7280" }]}>
           No video found for this topic. Tap Continue to keep going!
         </Text>
       )}
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -808,7 +842,7 @@ function NextStepsCardContent({
   const paths = stage.paths || [];
 
   return (
-    <View style={[styles.cardBody, { backgroundColor: accent.bg }]}>
+    <LinearGradient colors={[isDark ? "#0F1419" : "#FFFFFF", accent.bg + "30"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={[styles.cardBody, { borderColor: accent.bg + "50", borderWidth: 1 }]}>
       <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
       <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
@@ -845,7 +879,7 @@ function NextStepsCardContent({
           <Text style={styles.completeJourneyBtnText}>{"✨"} Complete Journey</Text>
         </TouchableOpacity>
       </Animated.View>
-    </View>
+    </LinearGradient>
   );
 }
 
