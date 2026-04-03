@@ -131,7 +131,7 @@ export default function SwipeFeedScreen() {
     }
   };
 
-  const handlePanGesture = (event: any) => {
+  const handlePanGesture = async (event: any) => {
     const { translationY, state } = event.nativeEvent;
 
     if (state === State.ACTIVE) {
