@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
+import { orchestrateLLM } from "./ai-orchestrator";
 import { callDataApi } from "./_core/dataApi";
 import * as db from "./db";
 import { adaptiveRouter } from "./routers-adaptive";
@@ -23,31 +24,9 @@ import { metaLearningRouter } from "./routers-meta-learning";
 import { personalMindMapRouter } from "./routers-personal-mind-map";
 import { personalLearningIntelligenceRouter } from "./routers-pli";
 import { behaviorTrackingRouter } from "./routers-behavior-tracking";
+import { videoRouter } from "./routers-video";
 
-// ─── LearnLM System Prompt (Google's 5 Pedagogical Principles) ─────────────
-const LEARNLM_SYSTEM = `You are an expert learning tutor following these 5 evidence-based pedagogical principles:
-1. INSPIRE ACTIVE LEARNING — Encourage practice and healthy struggle with timely feedback.
-2. MANAGE COGNITIVE LOAD — Present relevant, well-structured info. One concept at a time.
-3. ADAPT TO THE LEARNER — Dynamically adjust to the learner's level, goals, and needs.
-4. STIMULATE CURIOSITY — Inspire engagement and intrinsic motivation.
-5. DEEPEN METACOGNITION — Help the learner reflect on what they know and don't know.
-
-Core belief: ANYONE can learn ANYTHING. Teaching must be fine-tuned to the individual.
-Never gatekeep knowledge. Always scaffold. Meet the learner where they are.`;
-
-function getLevelPrompt(skillLevel: string): string {
-  switch (skillLevel) {
-    case "beginner":
-      return "The learner is a BEGINNER. Use simple everyday language. Explain with analogies a child could understand. No jargon. Short sentences. Think 'Explain Like I'm 5'.";
-    case "intermediate":
-      return "The learner has INTERMEDIATE knowledge. Use some technical terms but always define them. Build on foundational concepts they likely know.";
-    case "advanced":
-      return "The learner is ADVANCED. Use precise technical language. Go deep. Challenge them with nuance, edge cases, and connections to related fields.";
-    default:
-      return "Adapt your language to be clear and accessible.";
-  }
-}
-
+import { LEARNLM_SYSTEM, getLevelPrompt } from "./prompts/gaia-system";
 // Helper to fetch YouTube videos for a specific search query and save to DB
 async function fetchYouTubeForQuery(searchQuery: string, topicSlug: string, maxResults: number = 10) {
   try {
@@ -96,6 +75,7 @@ async function fetchYouTubeForQuery(searchQuery: string, topicSlug: string, maxR
 
 export const appRouter = router({
   system: systemRouter,
+  video: videoRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -196,7 +176,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -281,7 +261,7 @@ Return JSON:
       }))
       .mutation(async ({ input }) => {
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -331,6 +311,7 @@ Learner level: ${input.skillLevel}
 ${input.startingStep > 0 ? `The learner already knows the basics (starting from step ${input.startingStep + 1}). Skip foundational content they already understand.` : "Start from the very beginning — assume no prior knowledge."}`,
               },
             ],
+            maxTokens: 8192,
             response_format: { type: "json_object" },
           });
 
@@ -382,7 +363,7 @@ ${input.startingStep > 0 ? `The learner already knows the basics (starting from 
       }))
       .mutation(async ({ input }) => {
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -443,7 +424,7 @@ You are summarizing a learning resource. Return JSON:
       .mutation(async ({ input }) => {
         const simplerLevel = input.currentLevel === "advanced" ? "intermediate" : "beginner";
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -504,7 +485,7 @@ Return JSON:
           : "Ask a challenging question requiring deep understanding, application, or synthesis across concepts.";
 
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -593,7 +574,7 @@ Return JSON:
           .join("\n");
 
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -653,7 +634,7 @@ Return JSON: { "quizzes": [{ "question": "...", "thinkAbout": "...", "options": 
         }
 
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -751,7 +732,7 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
           const { getDifficultyPrompt } = await import("../shared/types.js");
           const adaptiveDifficultyInstructions = getDifficultyPrompt(diffLevel);
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -759,40 +740,36 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
 
 ${adaptiveDifficultyInstructions}
 
-You are designing a LEARNING JOURNEY — a structured, progressive experience that takes a learner from curiosity to understanding. This is NOT a chat response. It's a guided learning strategy.
+You are designing a LEARNING JOURNEY — a dynamic, algorithmic feed of cards. This is NOT a chat response. It's a guided learning strategy.
 
 ${learnerContext ? `ABOUT THIS LEARNER:\n${learnerContext}` : "This is a new learner — be warm and welcoming."}
 
-You must create a sequence of STAGES that build understanding progressively. Each stage has a specific purpose:
+You must construct an array of STAGES. Instead of generating a generic, rigid 7-stage script, you must DYNAMICALLY choose which 3 to 5 stages to show based on the learner's context.
 
-1. HOOK (required) — Start with something that sparks curiosity. A surprising fact, a counterintuitive question, or a "did you know" that makes them WANT to learn. This should be short (1-2 sentences) and punchy. Make them go "wait, really?"
+AVAILABLE STAGE TYPES:
+- "hook": 1-2 sentences sparking curiosity. (Usually required to start).
+- "foundation": Prerequisite context. (Skip if they already know the basics).
+- "explanation": The core answer. Break into digestible pieces. Include a keyTakeaway.
+- "real_world": Concrete, vivid example.
+- "check": A 4-option multiple choice question testing application, not memorization.
+- "video": Provide a specific YouTube search query. (Extremely effective for visual learners or those struggling with text).
+- "next_steps": 3 follow-up paths to keep exploring. (Usually required to end).
 
-2. FOUNDATION (required) — "Before we dive in, here's what you need to know." Give the prerequisite context in simple terms. If the learner already knows this (based on their model), keep it very brief. 2-3 sentences max.
-
-3. EXPLANATION (required) — The core answer to their question. Break it into digestible pieces. Use **bold** for key terms. Keep each paragraph short (2-3 sentences). This is the meat — make it clear, vivid, and memorable. Include a keyTakeaway: one sentence that captures the essential insight.
-
-4. REAL_WORLD (required) — "See it in action." Give a concrete, tangible example from everyday life. Something they can observe or experience themselves. Make it vivid and specific, not abstract. Include 2-3 concrete details that make it memorable and relatable.
-
-5. CHECK (required) — A quick understanding check. NOT a quiz — more like "here's a thought experiment." Ask a question that tests whether the core concept clicked. Provide 4 options (multiple choice). Include a detailed explanation for the correct answer that reinforces the concept. The question should make them THINK, not just recall. Avoid trivial or purely factual questions — test application or reasoning.
-
-6. VIDEO (required) — The culmination. By now they have context to appreciate a deeper explanation. Provide a specific YouTube search query that would find the best video for this topic at their level. Include videoContext: 1-2 sentences explaining what they'll see and why it matters NOW that they understand the basics.
-
-7. NEXT_STEPS (required) — Where to go from here. Provide exactly 3 follow-up paths, each with a question and a brief reason why it's interesting. These should feel like natural next curiosities, not a syllabus.
+HEURISTIC ROUTING ENGINE (CRITICAL):
+- RULE 1 (Friction Interception): IF the learner context notes "This learner often needs simpler explanations" OR they possess high confusion points, SKIP the dense "explanation" and "foundation" cards entirely. Prioritize a direct "video" burst followed by a "check" to simplify comprehension.
+- RULE 2 (Momentum & Flow): IF the learner is cruising (they have a strong history or many questions asked / strengths), prioritize "check" games and "real_world" scenarios to lock in the dopamine loop. Avoid boring "foundation" text.
+- RULE 3 (Dynamic Array): DO NOT generate all 7 stages. Generate exactly the 3 to 5 stages necessary right now. All chosen stages must map perfectly to the JSON schema below.
 
 CRITICAL RULES:
 - Every stage must have an emoji that matches its mood
 - Keep language warm, conversational, and encouraging
-- The hook should be genuinely surprising or intriguing — avoid clickbait, but make them curious
-- The explanation should build on the foundation — don't repeat. Include analogies, metaphors, or vivid examples
 - The check question should be thought-provoking, not trivial. Test understanding, not memorization
 - The video search query should be specific enough to find great content. Include creator name or channel if known
 - Next steps should branch in different directions (deeper into this topic, related concepts, practical applications)
-- Total reading time for all stages: 2-3 minutes (not a textbook)
+- Total reading time for all stages should be fast (not a textbook)
 - Use markdown for emphasis but keep it readable
-- EXPLANATION DEPTH: For intermediate/advanced learners, include nuance, edge cases, and connections to related fields
-- REAL_WORLD EXAMPLES: Make them specific and memorable. Use numbers, names, or vivid details when possible
 
-Return JSON:
+Return JSON (Schema Example of all possible objects, remember to ONLY CHOOSE 3 to 5):
 {
   "stages": [
     {
@@ -863,6 +840,7 @@ Return JSON:
                 content: input.question,
               },
             ],
+            maxTokens: 8192,
             response_format: { type: "json_object" },
           });
 
@@ -959,7 +937,7 @@ Return JSON:
             ? `\nThe learner has previously explored: ${input.pastTopics.slice(-10).join(", ")}. Consider this when assessing their likely knowledge.`
             : "";
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1112,7 +1090,7 @@ Return JSON:
             real_world: "This is a REAL_WORLD stage — a concrete example. Make it vivid and tangible. Include a keyTakeaway field.",
           };
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1215,7 +1193,7 @@ SUBTLE NUDGE: Weave ONE natural check-in into your response. Pick the most appro
 Make the nudge feel NATURAL — like a thoughtful tutor checking in, not a quiz. Blend it into the conversation.
 Include the nudge in "nudge" field of your JSON response.` : "";
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1303,7 +1281,7 @@ Return JSON:
       }))
       .mutation(async ({ input }) => {
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1368,7 +1346,7 @@ Return JSON:
           : "advanced";
 
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1492,7 +1470,7 @@ Return JSON:
           // Nudge on every 3rd follow-up
           const shouldNudge = input.messageCount > 1 && input.messageCount % 3 === 0;
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1559,7 +1537,7 @@ Return JSON:
       }))
       .mutation(async ({ input }) => {
         try {
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1629,7 +1607,7 @@ Rules:
 
 Return JSON: { "suggestions": ["q1", "q2", "q3", "q4"], "reasons": ["why1", "why2", "why3", "why4"] }`;
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               { role: "system", content: "You generate personalized learning question suggestions. Return valid JSON only." },
               { role: "user", content: prompt },
@@ -1682,7 +1660,7 @@ Return JSON: { "suggestions": ["q1", "q2", "q3", "q4"], "reasons": ["why1", "why
             content: m.text,
           }));
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               {
                 role: "system",
@@ -1790,7 +1768,7 @@ Return JSON: {
   ]
 }`;
 
-          const response = await invokeLLM({
+          const response = await orchestrateLLM("reasoning", {
             messages: [
               { role: "system", content: `${LEARNLM_SYSTEM}\nYou generate personalized learning topic suggestions. Return valid JSON only.` },
               { role: "user", content: prompt },

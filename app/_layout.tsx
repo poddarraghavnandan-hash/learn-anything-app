@@ -1,6 +1,6 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -17,9 +17,10 @@ import {
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
-import { LearningProvider } from "@/lib/learning-store";
+import { LearningProvider, useLearning } from "@/lib/learning-store";
 import { CelebrationManager } from "@/components/celebration-manager";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
+import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -28,12 +29,37 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { state } = useLearning();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!state.loaded) return;
+    
+    const inAuthGroup = segments[0] === "onboarding" || segments[0] === "oauth";
+    
+    if (!state.profile.onboardingDone && !inAuthGroup) {
+      router.replace("/onboarding");
+    }
+  }, [state.loaded, state.profile.onboardingDone, segments]);
+
+  return <>{children}</>;
+}
+
 export default function RootLayout() {
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
+
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+  });
 
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
@@ -88,16 +114,18 @@ export default function RootLayout() {
           {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
           {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="oauth/callback" />
-            <Stack.Screen name="onboarding" options={{ presentation: "fullScreenModal", animation: "fade" }} />
-            <Stack.Screen name="content/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="topic/[slug]" options={{ headerShown: false }} />
-            <Stack.Screen name="curiosity-check" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
-            <Stack.Screen name="quick-burst" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
-            <Stack.Screen name="video-player" options={{ headerShown: false, animation: "slide_from_bottom" }} />
-          </Stack>
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="oauth/callback" />
+              <Stack.Screen name="onboarding" options={{ presentation: "fullScreenModal", animation: "fade" }} />
+              <Stack.Screen name="content/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="topic/[slug]" options={{ headerShown: false }} />
+              <Stack.Screen name="curiosity-check" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
+              <Stack.Screen name="quick-burst" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", headerShown: false }} />
+              <Stack.Screen name="video-player" options={{ headerShown: false, animation: "slide_from_bottom" }} />
+            </Stack>
+          </AuthGate>
           <StatusBar style="auto" />
         </QueryClientProvider>
       </trpc.Provider>
@@ -107,6 +135,10 @@ export default function RootLayout() {
   );
 
   const shouldOverrideSafeArea = Platform.OS === "web";
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   if (shouldOverrideSafeArea) {
     return (

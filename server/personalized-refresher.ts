@@ -1,7 +1,7 @@
 import { getDb } from "./db";
 import { eq, and, lt, desc } from "drizzle-orm";
 import { userConceptMetrics } from "@/drizzle/schema";
-import { invokeLLM } from "./_core/llm";
+import { orchestrateLLM } from "./ai-orchestrator";
 
 export interface KnowledgeGap {
   conceptId: number;
@@ -120,7 +120,7 @@ export async function generatePersonalizedRefresher(
 
   // Generate refresher content via LLM
   const prompt = buildRefresherPrompt(topicSlug, config);
-  const result = await invokeLLM({
+  const result = await orchestrateLLM("reasoning", {
     messages: [{ role: "user", content: prompt }],
     maxTokens: Math.ceil(maxLength / 4), // rough estimate: 1 token ≈ 4 chars
   });

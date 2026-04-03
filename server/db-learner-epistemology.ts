@@ -24,7 +24,7 @@ export async function createLearnerProfile(
   profile: Partial<InsertLearnerProfile>
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   return await db.insert(learnerProfiles).values({
     userId,
     ...profile,
@@ -33,7 +33,7 @@ export async function createLearnerProfile(
 
 export async function getLearnerProfile(userId: number) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const result = await db
     .select()
     .from(learnerProfiles)
@@ -47,7 +47,7 @@ export async function updateLearnerProfile(
   updates: Partial<InsertLearnerProfile>
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   return await db
     .update(learnerProfiles)
     .set(updates)
@@ -68,7 +68,7 @@ export async function captureSignal(
   conceptId?: number
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const contentHash = crypto.createHash("sha256").update(content).digest("hex");
   const contentSummary = content.substring(0, 500);
   const contentLength = content.length;
@@ -86,7 +86,7 @@ export async function captureSignal(
 
 export async function getSignalTimeline(userId: number, conceptId?: number) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const whereClause = conceptId
     ? and(eq(learnerSignals.userId, userId), eq(learnerSignals.conceptId, conceptId))
     : eq(learnerSignals.userId, userId);
@@ -100,7 +100,7 @@ export async function getSignalTimeline(userId: number, conceptId?: number) {
 
 export async function getRecentSignals(userId: number, hours: number = 24) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
   
   return await db
@@ -121,7 +121,7 @@ export async function getOrCreateUnderstandingProgression(
   conceptId: number
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const progressionResult = await db
     .select()
     .from(understandingProgression)
@@ -163,7 +163,7 @@ export async function updateUnderstandingProgression(
   updates: Partial<InsertUnderstandingProgression>
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   return await db
     .update(understandingProgression)
     .set(updates)
@@ -241,7 +241,7 @@ export async function addMisconception(
 
 export async function getCulturalHook(conceptId: number, culturalContext: string) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const result = await db
     .select()
     .from(conceptCulturalHooks)
@@ -264,7 +264,7 @@ export async function saveCulturalHook(
   confidence: number = 0.7
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const cachedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
   return await db.insert(conceptCulturalHooks).values({
@@ -282,7 +282,7 @@ export async function saveCulturalHook(
 
 export async function getStuckPointBaseline(userId: number, conceptId: number) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const result = await db
     .select()
     .from(stuckPointBaselines)
@@ -302,7 +302,7 @@ export async function updateStuckPointBaseline(
   updates: Partial<InsertStuckPointBaseline>
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const existing = await getStuckPointBaseline(userId, conceptId);
 
   if (existing) {
@@ -331,7 +331,7 @@ export async function saveGoogleSignInData(
   googleData: Partial<InsertGoogleSignInData>
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const existingResult = await db
     .select()
     .from(googleSignInData)
@@ -354,7 +354,7 @@ export async function saveGoogleSignInData(
 
 export async function getGoogleSignInData(userId: number) {
   const db = await getDb();
-  if (!db) throw new Error("Database not connected");
+  if (!db) return undefined as any;
   const result = await db
     .select()
     .from(googleSignInData)

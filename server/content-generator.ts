@@ -5,7 +5,7 @@
  * Uses LLM with intelligent caching to minimize API costs.
  */
 
-import { invokeLLM } from "./_core/llm";
+import { orchestrateLLM } from "./ai-orchestrator";
 import * as db from "./db";
 import { InsertConceptContent } from "../drizzle/schema";
 
@@ -49,7 +49,7 @@ Format your response as JSON:
 
 IMPORTANT: Return ONLY valid JSON, no markdown.`;
 
-  const result = await invokeLLM({
+  const result = await orchestrateLLM("content", {
     messages: [
       {
         role: "user",
@@ -102,7 +102,7 @@ Format your response as JSON:
 
 IMPORTANT: Return ONLY valid JSON, no markdown.`;
 
-  const result = await invokeLLM({
+  const result = await orchestrateLLM("content", {
     messages: [
       {
         role: "user",
@@ -156,7 +156,7 @@ Format your response as JSON:
 
 IMPORTANT: Return ONLY valid JSON, no markdown.`;
 
-  const result = await invokeLLM({
+  const result = await orchestrateLLM("content", {
     messages: [
       {
         role: "user",

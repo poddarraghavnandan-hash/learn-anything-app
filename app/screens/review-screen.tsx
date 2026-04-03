@@ -1,12 +1,14 @@
-import { ScrollView, Text, View, Pressable, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, Pressable } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { LoadingQuote } from "@/components/loading-quote";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ReviewConcept {
   conceptId: number;
@@ -18,61 +20,33 @@ interface ReviewConcept {
 
 /**
  * Review Screen - Spaced Repetition Review Session
- * 
- * Shows concepts due for review using spaced repetition algorithm.
- * Users review concepts to reinforce learning and optimize retention.
+ *
+ * Shows concepts due for review using SM-2 spaced repetition.
+ * Fetches real data from the server via tRPC.
  */
 export default function ReviewScreen() {
   const colors = useColors();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [concepts, setConcepts] = useState<ReviewConcept[]>([]);
+  const { user } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [responses, setResponses] = useState<Array<{ conceptId: number; quality: number }>>([]);
 
-  useEffect(() => {
-    loadConceptsForReview();
-  }, []);
+  const { data, isLoading } = trpc.spacedRepetition.getConceptsDue.useQuery(
+    { limit: 20 },
+    { enabled: !!user?.id }
+  );
 
-  const loadConceptsForReview = async () => {
-    try {
-      setLoading(true);
-      // Simulate API call to fetch concepts due for review
-      await new Promise((resolve) => setTimeout(resolve, 600));
+  const recordReviewMutation = trpc.spacedRepetition.recordReview.useMutation();
 
-      // Mock data - in real app, fetch from backend
-      const mockConcepts: ReviewConcept[] = [
-        {
-          conceptId: 1,
-          conceptName: "Quantum Superposition",
-          daysOverdue: 2,
-          mastery: 65,
-          priority: "high",
-        },
-        {
-          conceptId: 2,
-          conceptName: "Wave-Particle Duality",
-          daysOverdue: 0,
-          mastery: 72,
-          priority: "medium",
-        },
-        {
-          conceptId: 3,
-          conceptName: "Uncertainty Principle",
-          daysOverdue: -1,
-          mastery: 58,
-          priority: "medium",
-        },
-      ];
-
-      setConcepts(mockConcepts);
-    } catch (error) {
-      console.error("Error loading concepts for review:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Map server data to ReviewConcept shape
+  const concepts: ReviewConcept[] = (data?.concepts || []).map((c: any) => ({
+    conceptId: c.conceptId,
+    conceptName: c.conceptName || "Unknown",
+    daysOverdue: Math.max(0, -c.daysUntilReview),
+    mastery: Math.min(100, (c.repetitions || 0) * 20),
+    priority: c.difficulty === "hard" ? "urgent" : c.difficulty === "medium" ? "high" : "medium",
+  }));
 
   const startSession = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -81,29 +55,32 @@ export default function ReviewScreen() {
 
   const handleQualityResponse = async (quality: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     const current = concepts[currentIndex];
     if (current) {
-      setResponses([...responses, { conceptId: current.conceptId, quality }]);
+      const newResponses = [...responses, { conceptId: current.conceptId, quality }];
+      setResponses(newResponses);
+
+      // Record review to server
+      recordReviewMutation.mutate({
+        conceptId: current.conceptId,
+        quality,
+      });
     }
 
-    // Move to next concept or end session
     if (currentIndex < concepts.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      // Session complete
       endSession();
     }
   };
 
   const endSession = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // In real app, save responses to backend
-    console.log("Review session complete:", responses);
     router.back();
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <ScreenContainer className="p-4">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -154,7 +131,7 @@ export default function ReviewScreen() {
 
           {/* Concepts Overview */}
           <Animated.View entering={SlideInUp.duration(400).delay(100)} style={{ marginTop: 24, gap: 12 }}>
-            {concepts.map((concept, index) => (
+            {concepts.map((concept) => (
               <View
                 key={concept.conceptId}
                 style={{
@@ -181,7 +158,7 @@ export default function ReviewScreen() {
                   </View>
                   <View style={{ alignItems: "center" }}>
                     <Text style={{ fontSize: 12, color: colors.muted }}>
-                      {concept.daysOverdue > 0 ? `${concept.daysOverdue}d overdue` : "Due soon"}
+                      {concept.daysOverdue > 0 ? `${concept.daysOverdue}d overdue` : "Due today"}
                     </Text>
                   </View>
                 </View>
@@ -223,7 +200,7 @@ export default function ReviewScreen() {
           {/* Info Card */}
           <View style={{ backgroundColor: colors.primary + "15", borderRadius: 12, padding: 16, marginBottom: 24 }}>
             <Text style={{ fontSize: 14, fontWeight: "600", color: colors.primary, marginBottom: 8 }}>
-              💡 How Spaced Repetition Works
+              How Spaced Repetition Works
             </Text>
             <Text style={{ fontSize: 13, color: colors.foreground, lineHeight: 20 }}>
               Review concepts at optimal intervals based on your performance. The better you know something, the longer we wait before asking again. This maximizes retention while minimizing study time.
@@ -283,100 +260,33 @@ export default function ReviewScreen() {
 
         {/* Quality Response Buttons */}
         <Animated.View entering={SlideInUp.duration(400).delay(100)} style={{ gap: 12, marginBottom: 24 }}>
-          <Pressable
-            onPress={() => handleQualityResponse(0)}
-            style={({ pressed }) => [
-              {
-                backgroundColor: colors.error + "20",
-                borderWidth: 2,
-                borderColor: colors.error,
-                borderRadius: 12,
-                paddingVertical: 16,
-                paddingHorizontal: 12,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={{ color: colors.error, fontWeight: "600", fontSize: 16, textAlign: "center" }}>
-              ❌ Blackout (forgot completely)
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => handleQualityResponse(1)}
-            style={({ pressed }) => [
-              {
-                backgroundColor: colors.error + "15",
-                borderWidth: 2,
-                borderColor: colors.error,
-                borderRadius: 12,
-                paddingVertical: 16,
-                paddingHorizontal: 12,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={{ color: colors.error, fontWeight: "600", fontSize: 16, textAlign: "center" }}>
-              ❌ Incorrect (got it wrong)
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => handleQualityResponse(2)}
-            style={({ pressed }) => [
-              {
-                backgroundColor: colors.warning + "20",
-                borderWidth: 2,
-                borderColor: colors.warning,
-                borderRadius: 12,
-                paddingVertical: 16,
-                paddingHorizontal: 12,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={{ color: colors.warning, fontWeight: "600", fontSize: 16, textAlign: "center" }}>
-              ⚠️ Incorrect but close
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => handleQualityResponse(3)}
-            style={({ pressed }) => [
-              {
-                backgroundColor: colors.primary + "20",
-                borderWidth: 2,
-                borderColor: colors.primary,
-                borderRadius: 12,
-                paddingVertical: 16,
-                paddingHorizontal: 12,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 16, textAlign: "center" }}>
-              ✓ Correct (with difficulty)
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => handleQualityResponse(4)}
-            style={({ pressed }) => [
-              {
-                backgroundColor: colors.success + "20",
-                borderWidth: 2,
-                borderColor: colors.success,
-                borderRadius: 12,
-                paddingVertical: 16,
-                paddingHorizontal: 12,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Text style={{ color: colors.success, fontWeight: "600", fontSize: 16, textAlign: "center" }}>
-              ✓✓ Correct (easy)
-            </Text>
-          </Pressable>
+          {[
+            { quality: 0, label: "Blackout (forgot completely)", color: colors.error, prefix: "X" },
+            { quality: 1, label: "Incorrect (got it wrong)", color: colors.error, prefix: "X" },
+            { quality: 2, label: "Incorrect but close", color: colors.warning, prefix: "!" },
+            { quality: 3, label: "Correct (with difficulty)", color: colors.primary, prefix: "~" },
+            { quality: 4, label: "Correct (easy)", color: colors.success, prefix: "+" },
+          ].map(({ quality, label, color, prefix }) => (
+            <Pressable
+              key={quality}
+              onPress={() => handleQualityResponse(quality)}
+              style={({ pressed }) => [
+                {
+                  backgroundColor: color + "20",
+                  borderWidth: 2,
+                  borderColor: color,
+                  borderRadius: 12,
+                  paddingVertical: 16,
+                  paddingHorizontal: 12,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Text style={{ color, fontWeight: "600", fontSize: 16, textAlign: "center" }}>
+                {label}
+              </Text>
+            </Pressable>
+          ))}
         </Animated.View>
       </ScrollView>
     </ScreenContainer>

@@ -42,8 +42,9 @@ export function MatchingGameCard({
   };
 
   const leftItems = pairs.map((p) => p.left);
-  const rightItems = pairs.map((p) => p.right);
-  const shuffledRight = [...rightItems].sort(() => Math.random() - 0.5);
+  const [shuffledRight] = useState(() =>
+    [...pairs.map((p) => p.right)].sort(() => Math.random() - 0.5)
+  );
 
   return (
     <ScrollView
