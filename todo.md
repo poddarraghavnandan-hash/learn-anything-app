@@ -1419,3 +1419,14 @@
 - [x] Add badge animation when reviews are pending
 - [x] Test review count accuracy
 - [x] Test navigation flow
+
+## Swipe Gestures & Interactions (NEW)
+- [x] Swipe Feed Screen - Vertical card stack with swipe up/down navigation
+- [x] Swipe Feed - Video, Article, Quiz card types
+- [x] Swipe Feed - Micro-reactions (Mind Blown, Knew This, Save, Skip)
+- [x] Swipe Feed - Pull-to-refresh for new content
+- [x] Swipe Feed - Progress tracking and card counter
+- [x] Lesson Screen - Left/right swipe to navigate between 8 lesson steps
+- [x] Lesson Screen - Lesson progress bar showing current position (X/8)
+- [x] Lesson Screen - Haptic feedback on swipe gestures
+- [x] Lesson Screen - Smooth animations during swipe transitions
