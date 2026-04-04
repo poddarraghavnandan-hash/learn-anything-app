@@ -1430,3 +1430,9 @@
 - [x] Lesson Screen - Lesson progress bar showing current position (X/8)
 - [x] Lesson Screen - Haptic feedback on swipe gestures
 - [x] Lesson Screen - Smooth animations during swipe transitions
+
+
+## Bugs to Fix (URGENT)
+- [ ] Content generation quality - same questions keep repeating
+- [ ] Scroll functionality not working on lesson screens
+- [ ] Feed content diversity needs improvement

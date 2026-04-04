@@ -1,4 +1,4 @@
-import { ScrollView, Text, View, Pressable, ActivityIndicator } from "react-native";
+import { ScrollView, Text, View, Pressable, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { LoadingQuote } from "@/components/loading-quote";
@@ -47,6 +47,7 @@ export default function LessonContentScreen() {
   const translateX = useSharedValue(0);
   const panRef = useRef(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const isScrollingRef = useRef(false);
 
   const { recordQuizAnswer, recordConfidence, recordInteraction } = useLessonSession({
     userId,
@@ -94,6 +95,9 @@ export default function LessonContentScreen() {
 
   const handleSwipeGesture = (event: any) => {
     const { translationX, state } = event.nativeEvent;
+
+    // Don't process swipe if user is scrolling
+    if (isScrollingRef.current) return;
 
     if (state === State.ACTIVE) {
       translateX.value = translationX;
@@ -170,6 +174,15 @@ export default function LessonContentScreen() {
     });
   };
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // Track if user is actively scrolling
+    isScrollingRef.current = true;
+  };
+
+  const handleScrollEnd = () => {
+    isScrollingRef.current = false;
+  };
+
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: translateX.value }],
@@ -210,9 +223,22 @@ export default function LessonContentScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ScreenContainer className="p-0">
-        <PanGestureHandler onHandlerStateChange={handleSwipeGesture} ref={panRef}>
+        <PanGestureHandler 
+          onHandlerStateChange={handleSwipeGesture} 
+          ref={panRef}
+          simultaneousHandlers={[scrollViewRef]}
+        >
           <Animated.View style={[{ flex: 1 }, animatedStyle]}>
-            <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} ref={scrollViewRef}>
+            <ScrollView 
+              contentContainerStyle={{ flexGrow: 1 }} 
+              showsVerticalScrollIndicator={true}
+              ref={scrollViewRef}
+              scrollEnabled={true}
+              onScroll={handleScroll}
+              onScrollEndDrag={handleScrollEnd}
+              onMomentumScrollEnd={handleScrollEnd}
+              scrollEventThrottle={16}
+            >
               {/* Header with Back Button */}
               <Animated.View
                 entering={FadeIn.duration(300)}
