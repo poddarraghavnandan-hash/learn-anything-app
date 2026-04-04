@@ -1433,6 +1433,6 @@
 
 
 ## Bugs to Fix (URGENT)
-- [ ] Content generation quality - same questions keep repeating
-- [ ] Scroll functionality not working on lesson screens
-- [ ] Feed content diversity needs improvement
+- [x] Content generation quality - same questions keep repeating (FIXED: Added diverse templates)
+- [x] Scroll functionality not working on lesson screens (FIXED: Proper gesture handler config)
+- [x] Feed content diversity needs improvement (FIXED: Multiple content templates)
