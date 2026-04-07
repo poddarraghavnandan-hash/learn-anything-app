@@ -1436,3 +1436,11 @@
 - [x] Content generation quality - same questions keep repeating (FIXED: Added diverse templates)
 - [x] Scroll functionality not working on lesson screens (FIXED: Proper gesture handler config)
 - [x] Feed content diversity needs improvement (FIXED: Multiple content templates)
+
+
+## Responsive Design Issues (CRITICAL)
+- [ ] Small device rendering - text and layouts not fitting properly
+- [ ] Text input issues on small screens - keyboard overlap and input field visibility
+- [ ] Scrolling problems on small devices - content not scrollable or scroll jumps
+- [ ] Padding/margin issues causing content cutoff on small screens
+- [ ] Font sizes too large for small device viewports

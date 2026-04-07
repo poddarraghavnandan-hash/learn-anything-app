@@ -158,3 +158,48 @@ export function getResponsiveTypography(level: keyof typeof RESPONSIVE_TYPOGRAPH
   if (breakpoint === "md") return sizes.md;
   return sizes.lg;
 }
+
+
+// Get responsive input height
+export function getResponsiveInputHeight(): number {
+  if (isSmallScreen()) return 36;
+  if (isMediumScreen()) return 40;
+  return 44;
+}
+
+// Get responsive button height
+export function getResponsiveButtonHeight(): number {
+  if (isSmallScreen()) return 40;
+  if (isMediumScreen()) return 44;
+  return 48;
+}
+
+// Get keyboard vertical offset for iOS
+export function getKeyboardVerticalOffset(): number {
+  if (Platform.OS !== "ios") return 0;
+  if (isSmallScreen()) return 50;
+  if (isMediumScreen()) return 70;
+  return 90;
+}
+
+// Get max input height for multiline inputs
+export function getMaxInputHeight(): number {
+  if (isSmallScreen()) return 60;
+  if (isMediumScreen()) return 80;
+  return 100;
+}
+
+// Get responsive icon size
+export function getResponsiveIconSize(baseSize: number = 24): number {
+  return getResponsiveFontSize(baseSize);
+}
+
+// Get responsive border radius
+export function getResponsiveBorderRadius(baseRadius: number = 12): number {
+  return getResponsiveSpacing(baseRadius);
+}
+
+// Get responsive line height for text
+export function getResponsiveLineHeight(fontSize: number): number {
+  return fontSize * 1.4;
+}

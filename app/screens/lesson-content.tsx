@@ -1,4 +1,5 @@
-import { ScrollView, Text, View, Pressable, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import { ScrollView, Text, View, Pressable, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Dimensions } from "react-native";
+import { getResponsiveSpacing, getResponsiveFontSize, getResponsiveTypography, isSmallScreen } from "@/lib/responsive";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { LoadingQuote } from "@/components/loading-quote";
@@ -220,6 +221,9 @@ export default function LessonContentScreen() {
   const isAnswerCorrect = selectedAnswer === content.checkYourUnderstanding.correctAnswer;
   const currentLessonNum = parseInt(lessonId) || 1;
 
+  const responsivePadding = getResponsiveSpacing(16);
+  const responsiveHorizontalPadding = getResponsiveSpacing(12);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ScreenContainer className="p-0">
@@ -243,27 +247,27 @@ export default function LessonContentScreen() {
               <Animated.View
                 entering={FadeIn.duration(300)}
                 style={{
-                  paddingHorizontal: 16,
-                  paddingTop: 16,
-                  paddingBottom: 12,
+                  paddingHorizontal: responsiveHorizontalPadding,
+                  paddingTop: responsivePadding,
+                  paddingBottom: getResponsiveSpacing(10),
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
                 }}
               >
-                <Pressable onPress={() => router.back()} style={{ padding: 8 }}>
-                  <MaterialIcons name="arrow-back" size={24} color={colors.foreground} />
+                <Pressable onPress={() => router.back()} style={{ padding: getResponsiveSpacing(6) }}>
+                  <MaterialIcons name="arrow-back" size={getResponsiveFontSize(24)} color={colors.foreground} />
                 </Pressable>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, flex: 1, marginLeft: 8 }}>
+                <Text style={{ fontSize: getResponsiveFontSize(16), fontWeight: "700", color: colors.foreground, flex: 1, marginLeft: getResponsiveSpacing(8) }}>
                   {topic}
                 </Text>
-                <Text style={{ fontSize: 12, fontWeight: "600", color: colors.muted }}>
+                <Text style={{ fontSize: getResponsiveFontSize(12), fontWeight: "600", color: colors.muted }}>
                   {currentLessonNum}/8
                 </Text>
               </Animated.View>
 
               {/* Lesson Progress Bar */}
-              <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+              <View style={{ paddingHorizontal: responsiveHorizontalPadding, marginBottom: getResponsiveSpacing(10) }}>
                 <View style={{ height: 4, backgroundColor: colors.border, borderRadius: 2, overflow: "hidden" }}>
                   <View
                     style={{
@@ -276,7 +280,7 @@ export default function LessonContentScreen() {
               </View>
 
               {/* Gaia Presenter Card */}
-              <Animated.View entering={SlideInUp.duration(400).delay(50)} style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+              <Animated.View entering={SlideInUp.duration(400).delay(50)} style={{ paddingHorizontal: responsiveHorizontalPadding, marginBottom: getResponsiveSpacing(16) }}>
                 <View
                   style={{
                     backgroundColor: colors.primary + "15",
@@ -301,11 +305,11 @@ export default function LessonContentScreen() {
               </Animated.View>
 
               {/* Lesson Title */}
-              <Animated.View entering={SlideInUp.duration(400).delay(100)} style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-                <Text style={{ fontSize: 24, fontWeight: "800", color: colors.foreground, marginBottom: 8 }}>
+              <Animated.View entering={SlideInUp.duration(400).delay(100)} style={{ paddingHorizontal: responsiveHorizontalPadding, marginBottom: getResponsiveSpacing(16) }}>
+                <Text style={{ fontSize: getResponsiveFontSize(24), fontWeight: "800", color: colors.foreground, marginBottom: getResponsiveSpacing(8) }}>
                   {content.title}
                 </Text>
-                <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 18 }}>
+                <Text style={{ fontSize: getResponsiveFontSize(13), color: colors.muted, lineHeight: 18 }}>
                   {content.introduction}
                 </Text>
               </Animated.View>

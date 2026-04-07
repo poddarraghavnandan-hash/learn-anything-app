@@ -13,6 +13,7 @@ import {
   FlatList,
   Modal,
 } from "react-native";
+import { getResponsiveSpacing, getKeyboardVerticalOffset, getMaxInputHeight, getResponsiveFontSize, isSmallScreen } from "@/lib/responsive";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -1171,16 +1172,16 @@ function ChatSidebar({
           {/* Chat I          {/* Chat Input */}
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+            keyboardVerticalOffset={getKeyboardVerticalOffset()}
             style={{ flex: 0 }}
           >
-            <View style={[styles.chatInputBar, { borderTopColor: colors.border, backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF", paddingBottom: Platform.OS === "ios" ? 16 : 8 }]}>
+            <View style={[styles.chatInputBar, { borderTopColor: colors.border, backgroundColor: isDark ? "#1A1A2E" : "#FFFFFF", paddingBottom: isSmallScreen() ? 8 : 12, paddingHorizontal: getResponsiveSpacing(8) }]}>
               <TextInput
                 value={inputText}
                 onChangeText={setInputText}
                 placeholder="Ask about this card..."
                 placeholderTextColor={colors.muted}
-                style={[styles.chatInput, { backgroundColor: isDark ? colors.surface : "#F3F4F6", color: colors.foreground, maxHeight: 100 }]}
+                style={[styles.chatInput, { backgroundColor: isDark ? colors.surface : "#F3F4F6", color: colors.foreground, maxHeight: getMaxInputHeight(), fontSize: getResponsiveFontSize(14) }]}
                 multiline
                 maxLength={500}
                 returnKeyType="done"
@@ -2617,17 +2618,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     gap: 8,
   },
-  input: {
+  chatInput: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
+    minHeight: isSmallScreen() ? 36 : 40,
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
+    paddingHorizontal: getResponsiveSpacing(12),
+    paddingVertical: getResponsiveSpacing(8),
+    fontSize: getResponsiveFontSize(14),
     borderWidth: 1,
-  },
-  sendBtn: {
+  },endBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -2902,10 +2901,10 @@ const styles = StyleSheet.create({
   chatInputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: getResponsiveSpacing(10),
+    paddingVertical: getResponsiveSpacing(6),
     borderTopWidth: 0.5,
-    gap: 8,
+    gap: getResponsiveSpacing(6),
   },
   chatInput: {
     flex: 1,
