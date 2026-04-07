@@ -86,12 +86,19 @@ export default function LessonContentScreen() {
     const score = isCorrect ? 100 : 50;
     setEngagementScore(score);
 
-    await recordQuizAnswer(
-      0,
-      optionIndex,
-      content?.checkYourUnderstanding.correctAnswer || 0,
-      timeSpent
-    );
+    // Record quiz answer with proper metrics for spaced repetition
+    if (content) {
+      try {
+        await recordQuizAnswer(
+          parseInt(lessonId || "1"),
+          selectedAnswer || 0,
+          content?.checkYourUnderstanding.correctAnswer || 0,
+          timeSpent
+        );
+      } catch (error) {
+        console.error("Failed to record quiz answer:", error);
+      }
+    }
   };
 
   const handleSwipeGesture = (event: any) => {

@@ -64,11 +64,15 @@ export function useLessonSession(options: LessonSessionOptions) {
    * Record quiz answer
    */
   const recordQuizAnswer = async (
-    questionIndex: number,
+    conceptIdOrQuestionIndex: string | number,
     selectedAnswerIndex: number,
     correctAnswerIndex: number,
     timeSpentSeconds: number
   ) => {
+    // Convert conceptId to number if needed
+    const questionIndex = typeof conceptIdOrQuestionIndex === 'string' 
+      ? parseInt(conceptIdOrQuestionIndex, 10) 
+      : conceptIdOrQuestionIndex;
     const isCorrect = selectedAnswerIndex === correctAnswerIndex;
     const comprehensionScore = isCorrect ? 100 : 50;
 
