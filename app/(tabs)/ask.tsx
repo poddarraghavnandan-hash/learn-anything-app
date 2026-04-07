@@ -13,7 +13,7 @@ import {
   FlatList,
   Modal,
 } from "react-native";
-import { getResponsiveSpacing, getKeyboardVerticalOffset, getMaxInputHeight, getResponsiveFontSize, isSmallScreen } from "@/lib/responsive";
+import { getResponsiveSpacing, getKeyboardVerticalOffset, getMaxInputHeight, isSmallScreen } from "@/lib/responsive";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -49,9 +49,6 @@ import { openVideoInApp } from "@/lib/video-utils";
 import { gaiaVoice } from "@/lib/gaia-voice";
 import { gaiaAchievements } from "@/lib/gaia-achievements";
 import {
-  getResponsiveFontSize,
-  getResponsiveSpacing,
-  isSmallScreen,
   isMediumScreen,
   isLargeScreen,
   getResponsiveCardHeight,
@@ -1181,7 +1178,7 @@ function ChatSidebar({
                 onChangeText={setInputText}
                 placeholder="Ask about this card..."
                 placeholderTextColor={colors.muted}
-                style={[styles.chatInput, { backgroundColor: isDark ? colors.surface : "#F3F4F6", color: colors.foreground, maxHeight: getMaxInputHeight(), fontSize: getResponsiveFontSize(14) }]}
+                style={[styles.chatInput, { backgroundColor: isDark ? colors.surface : "#F3F4F6", color: colors.foreground, maxHeight: getMaxInputHeight(), fontSize: 14 }]}
                 multiline
                 maxLength={500}
                 returnKeyType="done"
@@ -2336,7 +2333,7 @@ export default function AskScreen() {
               placeholder="Ask anything you want to learn..."
               placeholderTextColor={colors.muted}
               style={[
-                styles.input,
+                styles.chatInput,
                 { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
               ]}
               multiline
@@ -2351,7 +2348,7 @@ export default function AskScreen() {
               disabled={!inputText.trim() || isLoading}
               activeOpacity={0.7}
               style={[
-                styles.sendBtn,
+                styles.endBtn,
                 {
                   backgroundColor: inputText.trim() && !isLoading ? colors.primary : colors.surface,
                 },
@@ -2359,7 +2356,7 @@ export default function AskScreen() {
             >
               <Text
                 style={[
-                  styles.sendIcon,
+                  styles.chatSendIcon,
                   { color: inputText.trim() && !isLoading ? "#FFFFFF" : colors.muted },
                 ]}
               >
@@ -2478,10 +2475,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
-  cardTitle: { fontSize: getResponsiveFontSize(22), fontWeight: "700", lineHeight: getResponsiveFontSize(30), marginBottom: getResponsiveSpacing(16) },
-  cardTitleSmall: { fontSize: getResponsiveFontSize(18), fontWeight: "700", lineHeight: getResponsiveFontSize(26), marginBottom: getResponsiveSpacing(12) },
-  cardContent: { fontSize: getResponsiveFontSize(16), lineHeight: getResponsiveFontSize(28) },
-  cardContentSmall: { fontSize: getResponsiveFontSize(14), lineHeight: getResponsiveFontSize(24) },
+  cardTitle: { fontSize: 22, fontWeight: "700", lineHeight: 30, marginBottom: getResponsiveSpacing(16) },
+  cardTitleSmall: { fontSize: 18, fontWeight: "700", lineHeight: 26, marginBottom: getResponsiveSpacing(12) },
+  cardContent: { fontSize: 16, lineHeight: 28 },
+  cardContentSmall: { fontSize: 14, lineHeight: 24 },
   cardScroll: { paddingHorizontal: getResponsiveSpacing(20), paddingTop: getResponsiveSpacing(8), paddingBottom: getResponsiveSpacing(100) },
   cardScrollSmall: { paddingHorizontal: getResponsiveSpacing(16), paddingTop: getResponsiveSpacing(4), paddingBottom: getResponsiveSpacing(80) },
 
@@ -2499,7 +2496,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 6,
   },
-  takeawayText: { fontSize: getResponsiveFontSize(15), lineHeight: getResponsiveFontSize(24), fontWeight: "500" },
+  takeawayText: { fontSize: 15, lineHeight: 24, fontWeight: "500" },
 
   // Check Options
   checkOption: {
@@ -2509,7 +2506,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: getResponsiveSpacing(8),
   },
-  checkOptionText: { fontSize: getResponsiveFontSize(15), fontWeight: "500", lineHeight: getResponsiveFontSize(24) },
+  checkOptionText: { fontSize: 15, fontWeight: "500", lineHeight: 24 },
   checkExplanation: {
     marginTop: 12,
     padding: 12,
@@ -2624,9 +2621,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: getResponsiveSpacing(12),
     paddingVertical: getResponsiveSpacing(8),
-    fontSize: getResponsiveFontSize(14),
+    fontSize: 14,
     borderWidth: 1,
-  },endBtn: {
+  },
+  endBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -2905,15 +2903,6 @@ const styles = StyleSheet.create({
     paddingVertical: getResponsiveSpacing(6),
     borderTopWidth: 0.5,
     gap: getResponsiveSpacing(6),
-  },
-  chatInput: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
   },
   chatSendBtn: {
     width: 40,
