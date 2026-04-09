@@ -1457,3 +1457,18 @@
 - [ ] Check if learning paths are actually personalized or just generic
 - [ ] Verify baseline evaluation is being used to tailor content
 - [ ] Test if user can actually see their learning progress over time
+
+
+## ArxiVisuals MVP (Content → Motion Graphics - REFACTORED)
+- [x] Set up arXiv API integration (DONE - now making it optional)
+- [x] Build concept extraction agent using Claude (DONE - works on any text)
+- [x] Create teaching plan generator (DONE - content-agnostic)
+- [x] Design database schema (DONE - refactoring to generic content)
+- [x] Build API endpoints (DONE - refactoring to generic)
+- [ ] Refactor backend to be content-agnostic (remove arXiv-specific code)
+- [ ] Add Gemini integration for content generation on any topic
+- [ ] Add text input modes (paste, PDF upload, URL, Gemini generation)
+- [ ] Build content processor pipeline (text → concepts → teaching plan → storyboards)
+- [ ] Create UI for content input and processing status
+- [ ] Test end-to-end with Gemini-generated content
+- [ ] Commit refactored ArxiVisuals and prepare for video generation
