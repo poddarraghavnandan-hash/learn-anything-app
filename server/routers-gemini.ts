@@ -3,7 +3,7 @@
  * API endpoints for generating learning content using Gemini
  */
 
-import { router, publicProcedure } from "./trpc";
+import { router, publicProcedure } from "./_core/trpc";
 import { z } from "zod";
 import { GeminiContentGenerator, createGeminiGenerator } from "./services/gemini-content-generator";
 
@@ -26,8 +26,8 @@ export const geminiRouter = router({
    * POST /api/trpc/gemini.generateContent
    */
   generateContent: publicProcedure
-    .input(generateContentSchema)
-    .mutation(async ({ input }) => {
+  .input(generateContentSchema)
+  .mutation(async ({ input }: { input: z.infer<typeof generateContentSchema> }) => {
       try {
         const generator = createGeminiGenerator();
 
