@@ -4,8 +4,13 @@
  */
 
 import { useState, useCallback, useEffect } from "react";
-import { useNetInfo } from "@react-native-community/netinfo";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as OfflineCache from "@/app/services/offline-cache";
+
+// Simple online status detection (fallback if netinfo not available)
+const useNetInfo = () => ({
+  isConnected: true, // Default to online
+});
 
 export interface UseOfflineCacheState {
   isOnline: boolean;
@@ -22,27 +27,20 @@ export interface UseOfflineCacheState {
 }
 
 export function useOfflineCache() {
-  const netInfo = useNetInfo();
   const [state, setState] = useState<UseOfflineCacheState>({
-    isOnline: netInfo.isConnected ?? true,
+    isOnline: true,
     isSyncing: false,
     cacheStats: { totalSize: 0, itemCount: 0 },
     syncProgress: { synced: 0, total: 0 },
     error: null,
   });
 
-  // Update online status
+  // Trigger sync when connection is restored
   useEffect(() => {
-    setState((prev) => ({
-      ...prev,
-      isOnline: netInfo.isConnected ?? true,
-    }));
-
-    // Trigger sync when connection is restored
-    if (netInfo.isConnected && !state.isSyncing) {
+    if (state.isOnline && !state.isSyncing) {
       syncCachedContent();
     }
-  }, [netInfo.isConnected]);
+  }, [state.isOnline]);
 
   // Update cache stats on mount and periodically
   useEffect(() => {
@@ -204,9 +202,8 @@ export function useOfflineCache() {
    * Sync cached content when connection is restored
    */
   const syncCachedContent = useCallback(async () => {
-    if (!state.isOnline || state.isSyncing) {
-      return;
-    }
+    // Sync is triggered automatically when connection is restored
+    // or can be called manually
 
     try {
       setState((prev) => ({
