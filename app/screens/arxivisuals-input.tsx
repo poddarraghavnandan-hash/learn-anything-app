@@ -7,7 +7,7 @@
  * - Upload PDF
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,12 +24,14 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { cn } from "@/lib/utils";
 import * as Haptics from "expo-haptics";
+import { useGeminiGenerator } from "@/hooks/use-gemini-generator";
 
 type InputMode = "paste" | "gemini" | "url" | "pdf";
 
 export default function ArxivisualsInputScreen() {
   const router = useRouter();
   const colors = useColors();
+  const geminiGenerator = useGeminiGenerator();
 
   const [inputMode, setInputMode] = useState<InputMode>("paste");
   const [pastedText, setPastedText] = useState("");
@@ -40,6 +42,21 @@ export default function ArxivisualsInputScreen() {
     "intermediate"
   );
   const [isProcessing, setIsProcessing] = useState(false);
+  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
+
+  // Load topic suggestions on mount
+  useEffect(() => {
+    loadSuggestions();
+  }, []);
+
+  const loadSuggestions = async () => {
+    try {
+      const suggestions = await geminiGenerator.getSuggestions(undefined, 4);
+      setTopicSuggestions(suggestions);
+    } catch (error) {
+      console.error("Failed to load suggestions:", error);
+    }
+  };
 
   const handleModeChange = (mode: InputMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -54,6 +71,7 @@ export default function ArxivisualsInputScreen() {
       let content = "";
       let type: "pasted_text" | "url" | "pdf" | "gemini_generated" = "pasted_text";
       let topic = "";
+      let generatedContent: string | null = null;
 
       // Validate input
       if (inputMode === "paste") {
@@ -72,6 +90,24 @@ export default function ArxivisualsInputScreen() {
         }
         topic = geminiTopic;
         type = "gemini_generated";
+
+        // Generate content using Gemini
+        try {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          const generated = await geminiGenerator.generateContent(
+            geminiTopic,
+            difficulty,
+            geminiPrompt || undefined
+          );
+          generatedContent = generated.content;
+        } catch (error) {
+          Alert.alert(
+            "Generation Error",
+            error instanceof Error ? error.message : "Failed to generate content with Gemini"
+          );
+          setIsProcessing(false);
+          return;
+        }
       } else if (inputMode === "url") {
         if (!url.trim()) {
           Alert.alert("Error", "Please enter a URL");
@@ -86,7 +122,7 @@ export default function ArxivisualsInputScreen() {
         pathname: "/arxivisuals-processing",
         params: {
           type,
-          content: type === "pasted_text" ? content : undefined,
+          content: type === "pasted_text" ? content : generatedContent || undefined,
           url: type === "url" ? url : undefined,
           topic: type === "gemini_generated" ? topic : undefined,
           geminiPrompt: geminiPrompt || undefined,
@@ -99,6 +135,12 @@ export default function ArxivisualsInputScreen() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleSuggestionSelect = (suggestion: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setInputMode("gemini");
+    setGeminiTopic(suggestion);
   };
 
   const isValidInput = () => {
@@ -300,13 +342,15 @@ export default function ArxivisualsInputScreen() {
         <View className="px-6 pb-6">
           <TouchableOpacity
             onPress={handleProcess}
-            disabled={!isValidInput() || isProcessing}
+            disabled={!isValidInput() || isProcessing || geminiGenerator.isGenerating}
             className={cn(
               "py-4 px-6 rounded-lg items-center justify-center",
-              isValidInput() && !isProcessing ? "bg-primary" : "bg-primary opacity-50"
+              isValidInput() && !isProcessing && !geminiGenerator.isGenerating
+                ? "bg-primary"
+                : "bg-primary opacity-50"
             )}
           >
-            {isProcessing ? (
+            {isProcessing || geminiGenerator.isGenerating ? (
               <ActivityIndicator color={colors.background} size="small" />
             ) : (
               <Text className="text-background font-bold text-base">
@@ -316,34 +360,46 @@ export default function ArxivisualsInputScreen() {
           </TouchableOpacity>
 
           <Text className="text-xs text-muted text-center mt-3">
-            Processing typically takes 2-5 minutes
+            {geminiGenerator.isGenerating
+              ? "Generating with Gemini..."
+              : "Processing typically takes 2-5 minutes"}
           </Text>
         </View>
 
-        {/* Examples */}
-        <View className="px-6 pb-6">
-          <Text className="text-sm font-semibold text-muted mb-3">Example Topics</Text>
-          <View className="gap-2">
-            {[
-              "How Neural Networks Learn",
-              "The History of Photography",
-              "Photosynthesis Explained",
-              "Introduction to Blockchain",
-            ].map((example) => (
-              <TouchableOpacity
-                key={example}
-                onPress={() => {
-                  setInputMode("gemini");
-                  setGeminiTopic(example);
-                }}
-                className="bg-surface border border-border rounded-lg p-3 flex-row items-center justify-between"
-              >
-                <Text className="text-sm text-foreground flex-1">{example}</Text>
-                <Text className="text-lg">→</Text>
-              </TouchableOpacity>
-            ))}
+        {/* Suggested Topics */}
+        {topicSuggestions.length > 0 && (
+          <View className="px-6 pb-6">
+            <Text className="text-sm font-semibold text-muted mb-3">Trending Topics</Text>
+            <View className="gap-2">
+              {topicSuggestions.map((suggestion) => (
+                <TouchableOpacity
+                  key={suggestion}
+                  onPress={() => handleSuggestionSelect(suggestion)}
+                  className="bg-surface border border-border rounded-lg p-3 flex-row items-center justify-between"
+                >
+                  <Text className="text-sm text-foreground flex-1">{suggestion}</Text>
+                  <Text className="text-lg">→</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
+
+        {/* Error Display */}
+        {geminiGenerator.error && (
+          <View className="px-6 pb-6">
+            <View className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <Text className="text-xs text-red-900 font-semibold mb-2">Error</Text>
+              <Text className="text-xs text-red-900">{geminiGenerator.error}</Text>
+              <TouchableOpacity
+                onPress={geminiGenerator.clearError}
+                className="mt-2 bg-red-100 py-1 px-2 rounded"
+              >
+                <Text className="text-xs text-red-900 font-semibold">Dismiss</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
