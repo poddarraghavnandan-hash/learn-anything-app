@@ -160,7 +160,7 @@ export default function ArxivisualsProcessingScreen() {
   const handleViewResult = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
-      pathname: "/arxivisuals-result",
+      pathname: "./arxivisuals-result",
       params: {
         result: JSON.stringify(result),
       },

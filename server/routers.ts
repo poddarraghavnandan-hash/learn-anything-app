@@ -21,6 +21,7 @@ import { adaptiveLearningRouter } from "./routers-adaptive-learning";
 import { claudeContentRouter } from "./routers-claude-content";
 import { geminiContentRouter } from "./routers-gemini-content";
 import { geminiRouter } from "./routers-gemini";
+import { videoGenerationRouter } from "./routers-video-generation";
 import { metaLearningRouter } from "./routers-meta-learning";
 import { personalMindMapRouter } from "./routers-personal-mind-map";
 import { personalLearningIntelligenceRouter } from "./routers-pli";
@@ -78,6 +79,7 @@ export const appRouter = router({
   system: systemRouter,
   video: videoRouter,
   gemini: geminiRouter,
+  videoGeneration: videoGenerationRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

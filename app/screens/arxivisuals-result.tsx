@@ -90,7 +90,7 @@ export default function ArxivisualsResultScreen() {
   const handleStartLearning = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
-      pathname: "/arxivisuals-lesson",
+      pathname: "./arxivisuals-lesson",
       params: {
         step: "1",
         totalSteps: mockSteps.length,
@@ -225,7 +225,7 @@ export default function ArxivisualsResultScreen() {
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       router.push({
-                        pathname: "/arxivisuals-lesson",
+                        pathname: "./arxivisuals-lesson",
                         params: {
                           step: step.stepNumber.toString(),
                           totalSteps: mockSteps.length,

@@ -87,7 +87,7 @@ export default function ArxivisualsInputScreen() {
 
       // Navigate to processing screen with parameters
       router.push({
-        pathname: "/arxivisuals-processing",
+        pathname: "./arxivisuals-processing",
         params: {
           type,
           content: type === "pasted_text" ? content : undefined,

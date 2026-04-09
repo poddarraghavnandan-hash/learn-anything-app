@@ -108,7 +108,7 @@ export default function ArxivisualsLessonScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (step < totalSteps) {
       router.push({
-        pathname: "/arxivisuals-lesson",
+        pathname: "./arxivisuals-lesson",
         params: {
           step: (step + 1).toString(),
           totalSteps: totalSteps.toString(),
@@ -122,7 +122,7 @@ export default function ArxivisualsLessonScreen() {
   const handlePreviousStep = () => {
     if (step > 1) {
       router.push({
-        pathname: "/arxivisuals-lesson",
+        pathname: "./arxivisuals-lesson",
         params: {
           step: (step - 1).toString(),
           totalSteps: totalSteps.toString(),

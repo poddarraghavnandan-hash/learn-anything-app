@@ -41,13 +41,9 @@ export function useGeminiGenerator() {
   });
 
   const generateContentMutation = trpc.gemini.generateContent.useMutation();
-  const generateVariationsMutation = trpc.gemini.generateVariations.useMutation();
-  const getSuggestionsMutation = trpc.gemini.getSuggestions.useQuery(
-    { count: 5 },
-    { enabled: false }
-  );
-  const validateTopicMutation = trpc.gemini.validateTopic.useMutation();
-  const getMetadataMutation = trpc.gemini.getMetadata.useMutation();
+  const generateVariationsMutation = trpc.gemini.variations.useMutation();
+  const validateTopicMutation = trpc.gemini.validation.useMutation();
+  const getMetadataMutation = trpc.gemini.metadata.useMutation();
 
   /**
    * Generate content on a topic
@@ -153,25 +149,25 @@ export function useGeminiGenerator() {
    * Get topic suggestions
    */
   const getSuggestions = useCallback(
-    async (category?: string, count: number = 5) => {
+    async (topic?: string, count: number = 5) => {
       try {
         setState((prev) => ({ ...prev, isLoading: true }));
 
-        const result = await getSuggestionsMutation.refetch({
-          category,
-          count,
-        });
+        // TODO: Implement getSuggestions endpoint
+        const suggestions = [
+          "Quantum Computing Basics",
+          "Machine Learning Fundamentals",
+          "Web Development with React",
+          "Data Science Essentials",
+          "Cloud Architecture Patterns",
+        ];
 
-        if (result.data?.data) {
-          setState((prev) => ({
-            ...prev,
-            suggestions: result.data.data,
-            isLoading: false,
-          }));
-          return result.data.data;
-        }
-
-        throw new Error("Failed to get suggestions");
+        setState((prev) => ({
+          ...prev,
+          suggestions: suggestions.slice(0, count),
+          isLoading: false,
+        }));
+        return suggestions.slice(0, count);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         setState((prev) => ({
@@ -182,7 +178,7 @@ export function useGeminiGenerator() {
         throw error;
       }
     },
-    [getSuggestionsMutation]
+    []
   );
 
   /**
