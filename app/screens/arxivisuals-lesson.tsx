@@ -115,7 +115,7 @@ export default function ArxivisualsLessonScreen() {
         },
       });
     } else {
-      router.push("/arxivisuals-completion");
+      router.push("../arxivisuals-completion");
     }
   };
 

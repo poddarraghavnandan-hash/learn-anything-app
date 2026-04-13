@@ -32,6 +32,7 @@ export default function ArxivisualsInputScreen() {
   const colors = useColors();
 
   const [inputMode, setInputMode] = useState<InputMode>("paste");
+  const [type, setType] = useState<"pasted_text" | "url" | "gemini_generated" | "pdf">("pasted_text");
   const [pastedText, setPastedText] = useState("");
   const [geminiTopic, setGeminiTopic] = useState("");
   const [geminiPrompt, setGeminiPrompt] = useState("");
@@ -44,6 +45,13 @@ export default function ArxivisualsInputScreen() {
   const handleModeChange = (mode: InputMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setInputMode(mode);
+    const typeMap: Record<InputMode, "pasted_text" | "url" | "gemini_generated" | "pdf"> = {
+      paste: "pasted_text",
+      gemini: "gemini_generated",
+      url: "url",
+      pdf: "pdf",
+    };
+    setType(typeMap[mode]);
   };
 
   const handleProcess = async () => {
@@ -86,15 +94,22 @@ export default function ArxivisualsInputScreen() {
       }
 
       // Navigate to processing screen with parameters
+      const params: Record<string, any> = {
+        type,
+        difficulty,
+      };
+
+      if (type === "pasted_text") {
+        params.content = pastedText;
+      } else if (type === "url") {
+        params.url = url;
+      } else if (type === "gemini_generated") {
+        params.topic = geminiTopic;
+      }
+
       router.push({
         pathname: "./arxivisuals-processing",
-        params: {
-          type,
-          content: type === "pasted_text" ? content : undefined,
-          url: type === "url" ? url : undefined,
-          topic: type === "gemini_generated" ? topic : undefined,
-          difficulty,
-        },
+        params,
       });
     } catch (error) {
       console.error("Processing error:", error);

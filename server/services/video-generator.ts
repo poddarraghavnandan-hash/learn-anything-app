@@ -123,7 +123,6 @@ function generateLayers(storyboard: ConceptStoryboard): any[] {
                   fc: [0.2, 0.2, 0.2],
                   sc: false,
                   sw: 0,
-                  sc: false,
                   t: step.content,
                   ca: 0,
                   lh: 1.2,

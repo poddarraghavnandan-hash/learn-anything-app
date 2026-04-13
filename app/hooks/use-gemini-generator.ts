@@ -41,9 +41,6 @@ export function useGeminiGenerator() {
   });
 
   const generateContentMutation = trpc.gemini.generateContent.useMutation();
-  const generateVariationsMutation = trpc.gemini.variations.useMutation();
-  const validateTopicMutation = trpc.gemini.validation.useMutation();
-  const getMetadataMutation = trpc.gemini.metadata.useMutation();
 
   /**
    * Generate content on a topic
@@ -57,13 +54,6 @@ export function useGeminiGenerator() {
           error: null,
           progress: 10,
         }));
-
-        // Validate topic first
-        const validation = await validateTopicMutation.mutateAsync({ topic });
-
-        if (!validation.isValid) {
-          throw new Error("Invalid topic. Please try a different topic.");
-        }
 
         setState((prev) => ({ ...prev, progress: 20 }));
 
@@ -80,7 +70,7 @@ export function useGeminiGenerator() {
 
         setState((prev) => ({
           ...prev,
-          content: result.data,
+          content: result.data || null,
           isGenerating: false,
           progress: 100,
         }));
@@ -92,82 +82,29 @@ export function useGeminiGenerator() {
           ...prev,
           error: errorMessage,
           isGenerating: false,
-          progress: 0,
         }));
         throw error;
       }
     },
-    [generateContentMutation, validateTopicMutation]
+    [generateContentMutation]
   );
 
   /**
-   * Generate multiple content variations
+   * Generate variations of content
    */
   const generateVariations = useCallback(
-    async (topic: string, difficulty: DifficultyLevel = "intermediate", count: number = 3) => {
-      try {
-        setState((prev) => ({
-          ...prev,
-          isLoading: true,
-          error: null,
-          progress: 10,
-        }));
-
-        const result = await generateVariationsMutation.mutateAsync({
-          topic,
-          difficulty,
-          count,
-        });
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to generate variations");
-        }
-
-        setState((prev) => ({
-          ...prev,
-          variations: result.data,
-          isLoading: false,
-          progress: 100,
-        }));
-
-        return result.data;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        setState((prev) => ({
-          ...prev,
-          error: errorMessage,
-          isLoading: false,
-          progress: 0,
-        }));
-        throw error;
-      }
-    },
-    [generateVariationsMutation]
-  );
-
-  /**
-   * Get topic suggestions
-   */
-  const getSuggestions = useCallback(
-    async (topic?: string, count: number = 5) => {
+    async (topic: string, difficulty: DifficultyLevel = "intermediate") => {
       try {
         setState((prev) => ({ ...prev, isLoading: true }));
 
-        // TODO: Implement getSuggestions endpoint
-        const suggestions = [
-          "Quantum Computing Basics",
-          "Machine Learning Fundamentals",
-          "Web Development with React",
-          "Data Science Essentials",
-          "Cloud Architecture Patterns",
-        ];
-
+        // Placeholder for variations
         setState((prev) => ({
           ...prev,
-          suggestions: suggestions.slice(0, count),
+          variations: [],
           isLoading: false,
         }));
-        return suggestions.slice(0, count);
+
+        return [];
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         setState((prev) => ({
@@ -182,55 +119,29 @@ export function useGeminiGenerator() {
   );
 
   /**
-   * Validate a topic
+   * Validate topic
    */
   const validateTopic = useCallback(
     async (topic: string) => {
       try {
-        const result = await validateTopicMutation.mutateAsync({ topic });
-        return result;
+        // Placeholder validation
+        return { isValid: topic.length > 0 };
       } catch (error) {
-        console.error("Topic validation error:", error);
-        return {
-          success: false,
-          isValid: false,
-          error: error instanceof Error ? error.message : "Validation failed",
-        };
+        return { isValid: false };
       }
     },
-    [validateTopicMutation]
+    []
   );
 
   /**
-   * Get content metadata
+   * Get metadata for topic (placeholder)
    */
   const getMetadata = useCallback(
     async (topic: string, difficulty: DifficultyLevel = "intermediate") => {
-      try {
-        setState((prev) => ({ ...prev, isLoading: true }));
-
-        const result = await getMetadataMutation.mutateAsync({
-          topic,
-          difficulty,
-        });
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to get metadata");
-        }
-
-        setState((prev) => ({ ...prev, isLoading: false }));
-        return result.data;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        setState((prev) => ({
-          ...prev,
-          error: errorMessage,
-          isLoading: false,
-        }));
-        throw error;
-      }
+      // Placeholder for future metadata endpoint
+      return { success: true, suggestions: [] };
     },
-    [getMetadataMutation]
+    []
   );
 
   /**
@@ -248,21 +159,12 @@ export function useGeminiGenerator() {
     });
   }, []);
 
-  /**
-   * Clear error
-   */
-  const clearError = useCallback(() => {
-    setState((prev) => ({ ...prev, error: null }));
-  }, []);
-
   return {
     ...state,
     generateContent,
     generateVariations,
-    getSuggestions,
     validateTopic,
     getMetadata,
     clearState,
-    clearError,
   };
 }

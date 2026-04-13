@@ -33,7 +33,7 @@ export default function ArxivisualsCompletionScreen() {
 
   const handleCreateAnother = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push("/arxivisuals-input");
+    router.push("../arxivisuals-input");
   };
 
   return (
