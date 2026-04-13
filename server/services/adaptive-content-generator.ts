@@ -1,8 +1,11 @@
 /**
  * Adaptive Content Generator for Learning Ladder
  * Generates progressively complex content for each of the 5 levels
- * Uses Gemini API to create level-specific learning material
+ * Uses Claude API to create level-specific learning material
+ * Adapts content based on user sophistication and detected knowledge level
  */
+
+import Anthropic from "@anthropic-ai/sdk";
 
 export interface LevelContentRequest {
   concept: string;
@@ -86,34 +89,127 @@ const LEVEL_DEFINITIONS = {
   },
 };
 
+const client = new Anthropic();
+
 /**
- * Generate content for a specific level using Gemini
+ * Generate content for a specific level using Claude
  */
 export async function generateLevelContent(
   request: LevelContentRequest,
-  geminiApiKey: string
+  _claudeApiKey?: string // Claude API key is read from environment
 ): Promise<LevelContent> {
   const levelDef = LEVEL_DEFINITIONS[request.level];
 
-  // Build prompt for Gemini
+  // Build prompt for Claude
   const prompt = buildLevelPrompt(request, levelDef);
 
-  // TODO: Call Gemini API with prompt
-  // For now, return mock content structure
+  // Call Claude API
+  const message = await client.messages.create({
+    model: "claude-3-5-sonnet-20241022",
+    max_tokens: 2000,
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+  });
+
+  const responseText =
+    message.content[0].type === "text" ? message.content[0].text : "";
+
+  // Parse JSON response
+  let contentData;
+  try {
+    contentData = JSON.parse(responseText);
+  } catch (e) {
+    // Fallback to template if parsing fails
+    contentData = {
+      mainContent: `Content for ${request.concept} at ${levelDef.name} level`,
+      examples: generateExamples(request.concept, request.level),
+      keyPoints: generateKeyPoints(request.concept, request.level),
+      quizzes: generateQuizzes(request.concept, request.level, 3),
+      discussionPrompts: generateDiscussionPrompts(request.concept, request.level),
+      practiceProblems: generatePracticeProblems(request.concept, request.level),
+      storyboardScenes: generateStoryboard(request.concept, request.level).scenes,
+    };
+  }
 
   return {
     level: request.level,
     title: `${levelDef.name}: ${levelDef.tagline}`,
     description: levelDef.description,
-    mainContent: `Content for ${request.concept} at ${levelDef.name} level`,
-    examples: generateExamples(request.concept, request.level),
-    keyPoints: generateKeyPoints(request.concept, request.level),
+    mainContent: contentData.mainContent || `Content for ${request.concept}`,
+    examples: contentData.examples || generateExamples(request.concept, request.level),
+    keyPoints: contentData.keyPoints || generateKeyPoints(request.concept, request.level),
     estimatedTime: levelDef.estimatedTime,
-    quizzes: generateQuizzes(request.concept, request.level, 3),
-    discussionPrompts: generateDiscussionPrompts(request.concept, request.level),
-    practiceProblems: generatePracticeProblems(request.concept, request.level),
-    visualStoryboard: generateStoryboard(request.concept, request.level),
+    quizzes: (contentData.quizzes || []).map((q: any) => ({
+      question: q.question,
+      options: q.options,
+      correctAnswer: q.correctAnswer,
+      explanation: q.explanation,
+      difficulty: request.level,
+    })),
+    discussionPrompts: contentData.discussionPrompts || generateDiscussionPrompts(request.concept, request.level),
+    practiceProblems: contentData.practiceProblems || generatePracticeProblems(request.concept, request.level),
+    visualStoryboard: {
+      scenes: contentData.storyboardScenes || generateStoryboard(request.concept, request.level).scenes,
+    },
   };
+}
+
+/**
+ * Adapt content based on user sophistication score
+ */
+export async function adaptContentToSophistication(
+  request: LevelContentRequest,
+  sophisticationScore: number
+): Promise<LevelContentRequest> {
+  // If sophistication is very high (>85), elevate to higher level
+  if (sophisticationScore > 85 && request.level < 5) {
+    return {
+      ...request,
+      level: (request.level + 1) as 1 | 2 | 3 | 4 | 5,
+    };
+  }
+
+  // If sophistication is very low (<30), simplify to lower level
+  if (sophisticationScore < 30 && request.level > 1) {
+    return {
+      ...request,
+      level: (request.level - 1) as 1 | 2 | 3 | 4 | 5,
+    };
+  }
+
+  return request;
+}
+
+/**
+ * Generate simplified explanation for a concept
+ */
+export async function simplifyContent(
+  content: string,
+  targetLevel: "eli5" | "simple" | "intermediate" | "advanced"
+): Promise<string> {
+  const levelGuides = {
+    eli5: "Explain as if to a 5-year-old. Use simple words, short sentences, everyday examples.",
+    simple: "Explain simply. Use basic vocabulary, clear structure, concrete examples.",
+    intermediate: "Explain clearly with some technical terms. Assume basic knowledge.",
+    advanced: "Explain with technical depth. Assume prior knowledge of fundamentals.",
+  };
+
+  const message = await client.messages.create({
+    model: "claude-3-5-sonnet-20241022",
+    max_tokens: 1000,
+    messages: [
+      {
+        role: "user",
+        content: `${levelGuides[targetLevel]}\n\nContent to simplify:\n${content}`,
+      },
+    ],
+  });
+
+  return message.content[0].type === "text" ? message.content[0].text : "";
 }
 
 /**

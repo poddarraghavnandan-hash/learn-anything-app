@@ -15,6 +15,7 @@ import { useLadderProgress } from "@/app/hooks/use-ladder-progress";
 import { LearningLadder } from "@/components/learning-ladder";
 import { LevelAdvancementCelebration } from "@/components/level-advancement-celebration";
 
+
 interface LessonContent {
   title: string;
   introduction: string;
@@ -32,7 +33,8 @@ interface LessonContent {
 
 export default function LessonContentScreen() {
   const colors = useColors();
-  const router = useRouter();
+  const routerNav = useRouter();
+  const router = routerNav; // For compatibility
   const params = useLocalSearchParams();
   
   const topic = (params.topic as string) || "Learning Topic";
@@ -521,6 +523,80 @@ export default function LessonContentScreen() {
                   <Text style={{ fontSize: 13, color: colors.foreground, lineHeight: 20 }}>
                     {content.nextSteps}
                   </Text>
+                </View>
+              </Animated.View>
+
+              {/* Continue Learning Options */}
+              <Animated.View entering={SlideInUp.duration(400).delay(375)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginBottom: 12 }}>
+                  📚 Continue Learning
+                </Text>
+                <View style={{ gap: 10 }}>
+                  {/* Go Deeper */}
+                  <Pressable
+                    onPress={() => router.push(`/screens/lesson-content?topic=${topic}&lessonTitle=Advanced&approach=deep-dive`)}
+                    style={({ pressed }) => [{
+                      backgroundColor: colors.surface,
+                      borderRadius: 12,
+                      padding: 14,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      opacity: pressed ? 0.7 : 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                    }]}
+                  >
+                    <Text style={{ fontSize: 18 }}>⬆️</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>Go Deeper</Text>
+                      <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Next level on this topic</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* Related Concepts */}
+                  <Pressable
+                    onPress={() => router.push(`/screens/mind-map?topic=${topic}`)}
+                    style={({ pressed }) => [{
+                      backgroundColor: colors.surface,
+                      borderRadius: 12,
+                      padding: 14,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      opacity: pressed ? 0.7 : 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                    }]}
+                  >
+                    <Text style={{ fontSize: 18 }}>🔗</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>Related Concepts</Text>
+                      <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Explore mind map</Text>
+                    </View>
+                  </Pressable>
+
+                  {/* Review */}
+                  <Pressable
+                    onPress={() => router.push(`/screens/review?topic=${topic}`)}
+                    style={({ pressed }) => [{
+                      backgroundColor: colors.surface,
+                      borderRadius: 12,
+                      padding: 14,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      opacity: pressed ? 0.7 : 1,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                    }]}
+                  >
+                    <Text style={{ fontSize: 18 }}>🔄</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>Spaced Repetition</Text>
+                      <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Review key concepts</Text>
+                    </View>
+                  </Pressable>
                 </View>
               </Animated.View>
 
