@@ -11,6 +11,9 @@ import * as Haptics from "expo-haptics";
 import { useLessonSession } from "@/app/hooks/use-lesson-session";
 import { useClaudeLessonContent } from "@/app/hooks/use-claude-lesson";
 import { GestureHandlerRootView, PanGestureHandler, State } from "react-native-gesture-handler";
+import { useLadderProgress } from "@/app/hooks/use-ladder-progress";
+import { LearningLadder } from "@/components/learning-ladder";
+import { LevelAdvancementCelebration } from "@/components/level-advancement-celebration";
 
 interface LessonContent {
   title: string;
@@ -44,11 +47,16 @@ export default function LessonContentScreen() {
   const [engagementScore, setEngagementScore] = useState(0);
   const [startTime] = useState(Date.now());
   const [userId] = useState("user-123");
+  const [showLevelAdvancement, setShowLevelAdvancement] = useState(false);
+  const [advancedLevel, setAdvancedLevel] = useState<{ level: number; name: string; icon: string } | null>(null);
   
   const translateX = useSharedValue(0);
   const panRef = useRef(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const isScrollingRef = useRef(false);
+  
+  // Initialize learning ladder for this concept
+  const ladder = useLadderProgress(topic);
 
   const { recordQuizAnswer, recordConfidence, recordInteraction } = useLessonSession({
     userId,
@@ -85,6 +93,25 @@ export default function LessonContentScreen() {
     const timeSpent = Math.round((Date.now() - startTime) / 1000);
     const score = isCorrect ? 100 : 50;
     setEngagementScore(score);
+
+    // Update learning ladder mastery based on quiz performance
+    const masteryGain = isCorrect ? 15 : 5; // Correct answers give more mastery
+    const newMastery = Math.min(100, ladder.masteryPercentage + masteryGain);
+    ladder.updateMastery(newMastery);
+    
+    // Check if user should advance to next level
+    const didAdvance = ladder.checkAdvancement();
+    if (didAdvance) {
+      const nextLevel = ladder.getCurrentLevelDetails();
+      if (nextLevel) {
+        setAdvancedLevel({
+          level: nextLevel.level,
+          name: nextLevel.name,
+          icon: nextLevel.icon,
+        });
+        setShowLevelAdvancement(true);
+      }
+    }
 
     // Record quiz answer with proper metrics for spaced repetition
     if (content) {
@@ -272,6 +299,16 @@ export default function LessonContentScreen() {
                   {currentLessonNum}/8
                 </Text>
               </Animated.View>
+
+              {/* Learning Ladder Progress */}
+              <View style={{ paddingHorizontal: responsiveHorizontalPadding, marginBottom: getResponsiveSpacing(12) }}>
+                <LearningLadder
+                  currentLevel={ladder.currentLevel}
+                  masteryPercentage={ladder.masteryPercentage}
+                  levels={ladder.levels}
+                  showAnimation={false}
+                />
+              </View>
 
               {/* Lesson Progress Bar */}
               <View style={{ paddingHorizontal: responsiveHorizontalPadding, marginBottom: getResponsiveSpacing(10) }}>
@@ -516,6 +553,16 @@ export default function LessonContentScreen() {
             </ScrollView>
           </Animated.View>
         </PanGestureHandler>
+
+        {/* Level Advancement Celebration */}
+        {showLevelAdvancement && advancedLevel && (
+          <LevelAdvancementCelebration
+            level={advancedLevel.level}
+            levelName={advancedLevel.name}
+            levelIcon={advancedLevel.icon}
+            onComplete={() => setShowLevelAdvancement(false)}
+          />
+        )}
       </ScreenContainer>
     </GestureHandlerRootView>
   );
