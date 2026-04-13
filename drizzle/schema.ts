@@ -326,3 +326,6 @@ export type InsertGoogleSignInData = typeof googleSignInData.$inferInsert;
 // ─── Meta-Learning & Behavior Tracking Exports ──────────────────────────────
 export * from "../server/db/schema-learning-behavior";
 export * from "../server/db/schema-meta-learning";
+
+// ─── Adaptation Pipeline Exports ──────────────────────────────────────────────
+export * from "./adaptation-schema";

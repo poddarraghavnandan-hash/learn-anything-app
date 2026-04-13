@@ -36,6 +36,13 @@
       "when": 1774632861194,
       "tag": "0004_eminent_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1776098939136,
+      "tag": "0005_dizzy_stepford_cuckoos",
+      "breakpoints": true
     }
   ]
 }
