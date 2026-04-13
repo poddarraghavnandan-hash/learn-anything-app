@@ -1472,3 +1472,12 @@
 - [ ] Create UI for content input and processing status
 - [ ] Test end-to-end with Gemini-generated content
 - [ ] Commit refactored ArxiVisuals and prepare for video generation
+
+
+## Concept Mind Map (NEW FEATURE)
+- [ ] Design mind map data structure and prerequisite graph schema
+- [ ] Create mind map visualization component using react-native-svg
+- [ ] Build mind map interaction features (tap to view details, filter by mastery level)
+- [ ] Implement prerequisite path highlighting and learning recommendations
+- [ ] Create mind map screen and integrate into profile tab
+- [ ] Test end-to-end mind map visualization and interactions
