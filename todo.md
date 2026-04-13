@@ -1501,7 +1501,7 @@
 - [x] Create adaptation schema with 6 tables (userAdaptations, lessonProgress, continuationHistory, contentGenerationCache, videoLessonPlans, adaptationMetrics, prerequisiteFulfillment)
 - [x] Generate Drizzle migrations for adaptation tables
 - [x] Create database service functions (db-adaptation.ts) with CRUD operations
-- [ ] Fix remaining tRPC router type errors (2 minor type mismatches in generateLearningSequence calls)
+- [x] Fix all tRPC router type errors (insertId, adaptiveContentGenerator export, userProfile type, generateContent calls)
 - [ ] Wire tRPC adaptation router to use database service functions
 - [ ] Test end-to-end flow: user query → analysis → content generation → lesson tracking → continuation
 - [ ] Add database indices for common queries (userId, adaptationId, topic)

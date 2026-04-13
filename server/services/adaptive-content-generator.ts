@@ -446,6 +446,15 @@ function generatePracticeProblems(concept: string, level: number): string[] {
 }
 
 /**
+ * Export service object with content generation methods
+ */
+export const adaptiveContentGenerator = {
+  generateContent: generateLevelContent,
+  simplifyContent,
+  adaptContentToSophistication,
+};
+
+/**
  * Generate visual storyboard for a concept at a specific level
  */
 function generateStoryboard(concept: string, level: number) {

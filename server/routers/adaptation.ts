@@ -43,10 +43,22 @@ export const adaptationRouter = router({
       })
     )
     .query(async ({ input }) => {
+      // Convert userProfile to Record<string, number> format if provided
+      let userLadderLevels: Record<string, number> | undefined;
+      if (input.context?.userProfile) {
+        // Map profile to numeric scores
+        const skillLevelMap = { beginner: 1, intermediate: 2, advanced: 3, expert: 4 };
+        const learningStyleMap = { visual: 1, textual: 2, kinesthetic: 3, mixed: 4 };
+        userLadderLevels = {
+          skillLevel: skillLevelMap[input.context.userProfile.skillLevel],
+          learningStyle: learningStyleMap[input.context.userProfile.learningStyle],
+        };
+      }
+
       const analysis = await requestIntelligenceAgent.analyzeRequest(
         input.query,
-        input.context?.userProfile,
-        input.context?.previousQueries
+        userLadderLevels,
+        undefined
       );
 
       return {
@@ -134,23 +146,24 @@ export const adaptationRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const content = await adaptiveContentGenerator.generateContent(
-        input.topic,
-        input.targetLevel as 1 | 2 | 3 | 4 | 5,
-        input.sophistication,
-        input.keyPoints,
-        input.examples
-      );
+      const content = await adaptiveContentGenerator.generateContent({
+        concept: input.topic,
+        level: input.targetLevel as 1 | 2 | 3 | 4 | 5,
+        userBackground: input.sophistication ? `Sophistication: ${input.sophistication}` : undefined,
+        difficulty: "intermediate",
+      });
 
       return {
+        level: content.level,
         title: content.title,
-        introduction: content.introduction,
+        description: content.description,
         mainContent: content.mainContent,
         keyPoints: content.keyPoints,
         examples: content.examples,
-        checkYourUnderstanding: content.checkYourUnderstanding,
-        nextSteps: content.nextSteps,
-        difficulty: content.difficulty,
+        quizzes: content.quizzes,
+        estimatedTime: content.estimatedTime,
+        discussionPrompts: content.discussionPrompts || [],
+        practiceProblems: content.practiceProblems || [],
       };
     }),
 
@@ -212,8 +225,8 @@ export const adaptationRouter = router({
       const plan = await continuationEngine.generateContinuationOptions(
         input.topic,
         input.currentLevel as 1 | 2 | 3 | 4 | 5,
-        input.userAccuracy,
-        input.userMastery
+        input.userAccuracy || undefined,
+        input.userMastery || undefined
       );
 
       return {
@@ -225,11 +238,11 @@ export const adaptationRouter = router({
           title: option.title,
           description: option.description,
           targetTopic: option.targetTopic || "",
-          targetLevel: option.targetLevel || (plan.currentLevel as 1 | 2 | 3 | 4 | 5),
-          estimatedDuration: option.estimatedDuration,
-          difficulty: option.difficulty,
+          targetLevel: option.targetLevel || plan.currentLevel,
+          estimatedDuration: option.estimatedDuration || 30,
+          difficulty: option.difficulty || "intermediate",
           icon: option.icon || "",
-          reason: option.reason,
+          reason: option.reason || "",
         })),
         recommendedNext: plan.recommendedNext
           ? {
@@ -239,7 +252,7 @@ export const adaptationRouter = router({
               description: plan.recommendedNext.description,
             }
           : null,
-        reasoning: plan.reasoning,
+        reasoning: plan.reasoning || "",
       };
     }),
 
@@ -370,18 +383,19 @@ export const adaptationRouter = router({
       ) as 1 | 2 | 3 | 4 | 5;
 
       // Phase 3: Generate content for recommended level
-      const content = await adaptiveContentGenerator.generateContent(
-        analysis.topic,
-        recommendedLevel,
-        analysis.sophisticationScore,
-        analysis.prerequisites
-      );
+      const content = await adaptiveContentGenerator.generateContent({
+        concept: analysis.topic,
+        level: recommendedLevel,
+        userBackground: `Sophistication: ${analysis.sophisticationScore}`,
+        difficulty: analysis.estimatedDepth as "beginner" | "intermediate" | "advanced",
+      });
 
       // Phase 4: Generate sequence
       const sequence = await contentSequencingAgent.generateLearningSequence(
         analysis.topic,
         (input.userProfile?.skillLevel || "beginner") as "beginner" | "intermediate" | "advanced" | "expert",
-        undefined
+        undefined,
+        analysis.prerequisites
       );
 
       // Phase 5: Generate continuation options
@@ -421,7 +435,7 @@ export const adaptationRouter = router({
         },
         content: {
           title: content.title,
-          introduction: content.introduction,
+          description: content.description,
           mainContent: content.mainContent,
           keyPoints: content.keyPoints,
           examples: content.examples,

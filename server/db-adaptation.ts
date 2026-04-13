@@ -33,7 +33,7 @@ export async function createUserAdaptation(
 
   try {
     const result = await db.insert(userAdaptations).values(data);
-    return result.insertId as number;
+    return (result as any).insertId as number;
   } catch (error) {
     console.error("[DB] Failed to create user adaptation:", error);
     throw error;
@@ -105,7 +105,7 @@ export async function createLessonProgress(
 
   try {
     const result = await db.insert(lessonProgress).values(data);
-    return result.insertId as number;
+    return (result as any).insertId as number;
   } catch (error) {
     console.error("[DB] Failed to create lesson progress:", error);
     throw error;
@@ -176,7 +176,7 @@ export async function createContinuationRecord(
 
   try {
     const result = await db.insert(continuationHistory).values(data);
-    return result.insertId as number;
+    return (result as any).insertId as number;
   } catch (error) {
     console.error("[DB] Failed to create continuation record:", error);
     throw error;
@@ -281,7 +281,7 @@ export async function cacheContent(
 
   try {
     const result = await db.insert(contentGenerationCache).values(data);
-    return result.insertId as number;
+    return (result as any).insertId as number;
   } catch (error) {
     console.error("[DB] Failed to cache content:", error);
     throw error;
@@ -298,7 +298,7 @@ export async function createVideoLessonPlan(
 
   try {
     const result = await db.insert(videoLessonPlans).values(data);
-    return result.insertId as number;
+    return (result as any).insertId as number;
   } catch (error) {
     console.error("[DB] Failed to create video lesson plan:", error);
     throw error;
@@ -368,7 +368,7 @@ export async function createAdaptationMetric(
 
   try {
     const result = await db.insert(adaptationMetrics).values(data);
-    return result.insertId as number;
+    return (result as any).insertId as number;
   } catch (error) {
     console.error("[DB] Failed to create adaptation metric:", error);
     throw error;
@@ -429,7 +429,7 @@ export async function createPrerequisiteFulfillment(
 
   try {
     const result = await db.insert(prerequisiteFulfillment).values(data);
-    return result.insertId as number;
+    return (result as any).insertId as number;
   } catch (error) {
     console.error("[DB] Failed to create prerequisite fulfillment:", error);
     throw error;
