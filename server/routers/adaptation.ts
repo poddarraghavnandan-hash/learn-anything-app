@@ -6,6 +6,19 @@ import { adaptiveContentGenerator } from "@/server/services/adaptive-content-gen
 import { contentSequencingAgent } from "@/server/services/content-sequencing";
 import { continuationEngine } from "@/server/services/continuation-engine";
 import { videoIntegrationService } from "@/server/services/video-integration";
+import {
+  createUserAdaptation,
+  updateUserAdaptation,
+  createLessonProgress,
+  updateLessonProgress,
+  createContinuationRecord,
+  createAdaptationMetric,
+  createVideoLessonPlan,
+  createPrerequisiteFulfillment,
+  getCachedContent,
+  cacheContent,
+} from "@/server/db-adaptation";
+import { getUserByOpenId } from "@/server/db";
 
 /**
  * Adaptation Router
@@ -19,6 +32,13 @@ import { videoIntegrationService } from "@/server/services/video-integration";
  * 6. Video Integration - creates video lesson plans
  * 7. UX Fixes - ensures smooth user experience
  */
+
+// Helper to get user ID from context
+async function getUserId(ctx: any): Promise<number> {
+  // In a real app, get from session/auth context
+  // For now, use a default test user ID
+  return 1;
+}
 
 export const adaptationRouter = router({
   /**
@@ -61,7 +81,23 @@ export const adaptationRouter = router({
         undefined
       );
 
+      // Save to database
+      const userId = await getUserId(undefined);
+      const adaptationId = await createUserAdaptation({
+        userId,
+        userQuery: input.query,
+        topic: analysis.topic,
+        detectedIntent: analysis.intent,
+        sophisticationLevel: analysis.estimatedDepth,
+        sophisticationScore: analysis.sophisticationScore,
+        detectedPrerequisites: analysis.prerequisites,
+        userKnowledgeLevel: 1,
+        readinessScore: 0,
+        recommendedContentLevel: analysis.suggestedLadderLevel,
+      });
+
       return {
+        adaptationId,
         topic: analysis.topic,
         sophisticationLevel: analysis.estimatedDepth,
         sophisticationScore: analysis.sophisticationScore,
@@ -418,6 +454,85 @@ export const adaptationRouter = router({
         1,
         Math.min(5, (assessment.topicSpecificLevels[analysis.topic] || 1) as number)
       ) as 1 | 2 | 3 | 4 | 5;
+
+      // Save to database
+      const userId = await getUserId(undefined);
+      const adaptationId = await createUserAdaptation({
+        userId,
+        userQuery: input.query,
+        topic: analysis.topic,
+        detectedIntent: analysis.intent,
+        sophisticationLevel: analysis.estimatedDepth,
+        sophisticationScore: analysis.sophisticationScore,
+        detectedPrerequisites: analysis.prerequisites,
+        userKnowledgeLevel: recommendedStartPoint2,
+        readinessScore: assessment.confidenceScore,
+        recommendedContentLevel: recommendedLevel,
+        sequenceGenerated: true,
+        continuationOptionsGenerated: true,
+        videoLessonGenerated: true,
+      });
+
+      if (!adaptationId) throw new Error("Failed to create adaptation record");
+
+      // Save first 3 lessons
+      for (let i = 0; i < Math.min(3, sequence.lessons.length); i++) {
+        const lesson = sequence.lessons[i];
+        await createLessonProgress({
+          userId,
+          adaptationId,
+          lessonOrder: i + 1,
+          lessonTitle: lesson.title,
+          lessonDescription: lesson.description,
+          lessonLevel: lesson.level,
+          status: "not_started",
+        });
+      }
+
+      // Save video lesson plan
+      const scenes = videoPlan.scenes.map((scene: any) => ({
+        id: scene.id || `scene-${Math.random()}`,
+        title: scene.title,
+        description: scene.description,
+        duration: scene.duration || 30,
+        animation: scene.animation || "fade_in",
+        visualConcepts: scene.visualConcepts || [],
+        voiceover: scene.voiceover || "",
+        keyPoint: scene.keyPoint || "",
+      }));
+
+      const animations = (videoPlan.animations || []).map((anim: any) => ({
+        type: anim.type || "fade",
+        duration: anim.duration || 300,
+        target: anim.target || "",
+      }));
+
+      await createVideoLessonPlan({
+        adaptationId,
+        topic: analysis.topic,
+        contentLevel: recommendedLevel,
+        videoStyle: input.userProfile?.learningStyle === "visual" ? "entertaining" : "educational",
+        videoScript: content.mainContent,
+        sceneCount: scenes.length,
+        estimatedDurationSeconds: videoPlan.estimatedDuration * 60,
+        scenes,
+        keyFrames: videoPlan.keyFrames || [],
+        animations,
+      });
+
+      // Save metrics
+      await createAdaptationMetric({
+        userId,
+        adaptationId,
+        contentRelevanceScore: 0.8,
+        difficultyCalibration: 0.75,
+        learningOutcome: 0,
+        userEngagement: 0,
+        totalTimeSpentSeconds: 0,
+        estimatedTimeSeconds: analysis.estimatedDurationMinutes * 60,
+        lessonsCompleted: 0,
+        lessonsSkipped: 0,
+      });
 
       return {
         analysis: {
