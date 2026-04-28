@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "../ai-orchestrator";
 
 export interface SequencedLesson {
   id: string;
@@ -28,11 +28,6 @@ export interface LearningSequence {
 }
 
 export class ContentSequencingAgent {
-  private client: Anthropic;
-
-  constructor() {
-    this.client = new Anthropic();
-  }
 
   /**
    * Generate adaptive lesson sequence for a topic
@@ -61,23 +56,33 @@ Respond with JSON only.`;
       ? `\nPrerequisites: ${prerequisites.join(", ")}`
       : "";
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Generate learning sequence for: "${topic}"
+    let responseText = "";
+    try {
+      const response = await orchestrateLLM("reasoning", {
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `Generate learning sequence for: "${topic}"
 User Level: ${userLevel}${knowledgeContext}${prerequisiteContext}
 
 Return JSON with: lessons (array with id, title, description, level, order, prerequisites, estimatedDuration, keyPoints, isOptional, prerequisiteGaps), totalDuration, microLessons (array with topic, duration, reason), reasoning`,
-        },
-      ],
-    });
-
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+      responseText = response.choices[0]?.message?.content as string || "{}";
+    } catch (error) {
+      console.error("[ContentSequencing] LLM call failed:", error);
+      return {
+        topic,
+        userLevel,
+        lessons: this.generateDefaultSequence(topic, userLevel),
+        totalDuration: 180,
+        microLessons: [],
+        reasoning: "Fallback sequence due to LLM unavailability",
+      };
+    }
 
     try {
       const sequence = JSON.parse(responseText) as Omit<

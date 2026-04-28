@@ -1,7 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic();
-
+import { orchestrateLLM } from "./ai-orchestrator";
 export interface LearnerProfile {
   id: string;
   learningStyle: "visual" | "kinesthetic" | "auditory" | "reading-writing";
@@ -97,9 +94,7 @@ export async function generateAdaptiveContent(request: AdaptiveContentRequest): 
 
   console.log(`Generating adaptive content for ${profile.id}: ${topic} (${difficulty})`);
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 3000,
+  const response = await orchestrateLLM("content", {    maxTokens: 3000,
     messages: [
       {
         role: "user",
@@ -108,13 +103,10 @@ export async function generateAdaptiveContent(request: AdaptiveContentRequest): 
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   return {
-    content: content.text,
+    content: contentText,
     difficulty,
     modality: profile.learningStyle,
     estimatedMinutes: estimateTime(difficulty, profile.learningPace),
@@ -277,9 +269,7 @@ Tone: Encouraging and supportive, not condescending
 
 Generate the correction content:`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 2000,
+  const response = await orchestrateLLM("content", {    maxTokens: 2000,
     messages: [
       {
         role: "user",
@@ -288,12 +278,9 @@ Generate the correction content:`;
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
-  return content.text;
+  return contentText;
 }
 
 /**
@@ -324,9 +311,7 @@ Ensure the content is:
 
 Generate the ${targetDifficulty} version:`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 3000,
+  const response = await orchestrateLLM("content", {    maxTokens: 3000,
     messages: [
       {
         role: "user",
@@ -335,12 +320,9 @@ Generate the ${targetDifficulty} version:`;
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
-  return content.text;
+  return contentText;
 }
 
 /**

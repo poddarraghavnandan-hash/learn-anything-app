@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "./ai-orchestrator";
 import { LearnerProfile } from "./adaptive-learning-engine";
-
-const client = new Anthropic();
 
 export type FlowState = "question-answering" | "learning-path" | "assessment" | "misconception-correction";
 
@@ -101,9 +99,7 @@ Example: "Great questions! I can see you're ready to dive deeper. Let me give yo
 
 Generate the transition message:`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 300,
+  const response = await orchestrateLLM("content", {    maxTokens: 300,
     messages: [
       {
         role: "user",
@@ -112,12 +108,9 @@ Generate the transition message:`;
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return "Great! Let's move to a structured lesson where I can teach you this comprehensively.";
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
-  return content.text.trim();
+  return contentText.trim();
 }
 
 /**
@@ -144,9 +137,7 @@ Example: "Great question! [Answer]. This connects to what we're learning about [
 
 Generate the transition message:`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 300,
+  const response = await orchestrateLLM("content", {    maxTokens: 300,
     messages: [
       {
         role: "user",
@@ -155,12 +146,9 @@ Generate the transition message:`;
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return "Good question! Let me answer that and then we'll continue with the lesson.";
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
-  return content.text.trim();
+  return contentText.trim();
 }
 
 /**
@@ -195,9 +183,7 @@ Return JSON:
   "continueMessage": "Ready to continue? [next section]"
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 800,
+  const response = await orchestrateLLM("content", {    maxTokens: 800,
     messages: [
       {
         role: "user",
@@ -206,20 +192,13 @@ Return JSON:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return {
-      answer: "That's a great question! Let me clarify that for you.",
-      relatedConcept: "This connects to what we're learning.",
-      continueMessage: "Ready to continue with the next section?",
-    };
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    return JSON.parse(content.text);
+    return JSON.parse(contentText);
   } catch (e) {
     return {
-      answer: content.text,
+      answer: contentText,
       relatedConcept: "This connects to our current topic.",
       continueMessage: "Ready to continue?",
     };
@@ -266,9 +245,7 @@ Return JSON:
   "followUpQuestion": "Question to verify they understand now"
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 800,
+  const response = await orchestrateLLM("content", {    maxTokens: 800,
     messages: [
       {
         role: "user",
@@ -277,21 +254,12 @@ Return JSON:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return {
-      misconceptionDetected: false,
-      misconception: "",
-      correction: "",
-      explanation: "",
-      followUpQuestion: "",
-    };
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    return JSON.parse(content.text);
+    return JSON.parse(contentText);
   } catch (e) {
-    console.error("Failed to parse misconception detection:", content.text);
+    console.error("Failed to parse misconception detection:", contentText);
     return {
       misconceptionDetected: false,
       misconception: "",
@@ -340,9 +308,7 @@ Return JSON:
   "prerequisites": ["Prerequisite 1"]
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 500,
+  const response = await orchestrateLLM("content", {    maxTokens: 500,
     messages: [
       {
         role: "user",
@@ -351,19 +317,10 @@ Return JSON:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return {
-      nextTopic: "Next Topic",
-      reason: "Continue your learning journey",
-      difficulty: "intermediate",
-      estimatedTime: 30,
-      prerequisites: [],
-    };
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    return JSON.parse(content.text);
+    return JSON.parse(contentText);
   } catch (e) {
     return {
       nextTopic: "Next Topic",
@@ -410,9 +367,7 @@ ${
 
 Generate the message:`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 200,
+  const response = await orchestrateLLM("content", {    maxTokens: 200,
     messages: [
       {
         role: "user",
@@ -421,10 +376,7 @@ Generate the message:`;
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return "Great job! You're making progress!";
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
-  return content.text.trim();
+  return contentText.trim();
 }

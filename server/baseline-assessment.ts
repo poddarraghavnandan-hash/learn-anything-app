@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "./ai-orchestrator";
 import { LearnerProfile } from "./adaptive-learning-engine";
-
-const client = new Anthropic();
 
 export interface AssessmentQuestion {
   id: string;
@@ -57,9 +55,7 @@ Return ONLY valid JSON (no markdown):
   ]
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 2000,
+  const response = await orchestrateLLM("content", {    maxTokens: 2000,
     messages: [
       {
         role: "user",
@@ -68,16 +64,13 @@ Return ONLY valid JSON (no markdown):
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    const data = JSON.parse(content.text);
+    const data = JSON.parse(contentText);
     return data.questions || [];
   } catch (e) {
-    console.error("Failed to parse assessment questions:", content.text);
+    console.error("Failed to parse assessment questions:", contentText);
     return [];
   }
 }
@@ -126,9 +119,7 @@ Return ONLY valid JSON:
   "nextSteps": "Start with fundamentals lesson..."
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 1500,
+  const response = await orchestrateLLM("content", {    maxTokens: 1500,
     messages: [
       {
         role: "user",
@@ -137,13 +128,10 @@ Return ONLY valid JSON:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    const analysis = JSON.parse(content.text);
+    const analysis = JSON.parse(contentText);
 
     // Create learner profile
     const learnerProfile: Partial<LearnerProfile> = {
@@ -170,7 +158,7 @@ Return ONLY valid JSON:
       nextSteps: analysis.nextSteps || "Ready to start learning!",
     };
   } catch (e) {
-    console.error("Failed to parse assessment analysis:", content.text);
+    console.error("Failed to parse assessment analysis:", contentText);
     throw new Error("Failed to analyze assessment responses");
   }
 }
@@ -203,9 +191,7 @@ Generate feedback that:
 
 Keep it conversational and warm, 2-3 sentences max.`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 500,
+  const response = await orchestrateLLM("content", {    maxTokens: 500,
     messages: [
       {
         role: "user",
@@ -214,12 +200,9 @@ Keep it conversational and warm, 2-3 sentences max.`;
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return "Great! Let's get started on your learning journey!";
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
-  return content.text;
+  return contentText;
 }
 
 /**
@@ -247,9 +230,7 @@ Return JSON:
   "reason": "Why prerequisites are needed"
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 500,
+  const response = await orchestrateLLM("content", {    maxTokens: 500,
     messages: [
       {
         role: "user",
@@ -258,17 +239,10 @@ Return JSON:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return {
-      needsPrerequisites: false,
-      prerequisites: [],
-      estimatedTime: 0,
-    };
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    return JSON.parse(content.text);
+    return JSON.parse(contentText);
   } catch (e) {
     return {
       needsPrerequisites: false,
@@ -297,9 +271,7 @@ Example format: "What's one thing you already know about [topic]?"
 
 Generate just the question, no explanation.`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 200,
+  const response = await orchestrateLLM("content", {    maxTokens: 200,
     messages: [
       {
         role: "user",
@@ -308,10 +280,7 @@ Generate just the question, no explanation.`;
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return "What's one thing you already know about this topic?";
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
-  return content.text.trim();
+  return contentText.trim();
 }

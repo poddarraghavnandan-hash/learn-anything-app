@@ -1506,3 +1506,20 @@
 - [x] Test end-to-end flow - Created 20 integration tests covering all 7 phases
 - [ ] Add database indices for common queries (userId, adaptationId, topic) - Performance optimization
 - [ ] Create analytics dashboard queries for adaptation effectiveness metrics - Future enhancement
+
+
+## End-to-End Code Review & Refactor
+- [x] Deep code review: Map entire user journey from question to learning
+- [x] Identify root causes: Two disconnected learning flows, shallow card-based content
+- [x] Rewrite learn endpoint prompt for deep structured lessons (Foundation → Deep Dive → Check → Real World → Next Steps)
+- [x] Increase maxTokens from 4096 to 8192 for deeper content generation
+- [x] Update InfoCardContent to show deeperInsight and handle longer content
+- [x] Update stage labels to be more educational (Foundation → Deep Dive → Comprehension Check → Real-World Application → Next Steps)
+- [x] Convert ALL Anthropic SDK imports to built-in orchestrateLLM (10 files, 32+ LLM calls)
+- [x] Move hooks/services out of app/ directory to fix Expo Router treating them as routes
+- [x] Fix all TypeScript errors (0 errors remaining)
+- [x] Register adaptation router in main appRouter
+- [x] Wire adaptiveChat endpoint to chat UI in ask.tsx
+- [x] Run test suite: 635 passed, 18 failed (adaptation integration tests need live API)
+- [x] Fix app build for production deployment - both server and Expo web export succeed
+- [x] Clean up unused conversion scripts

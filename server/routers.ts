@@ -745,97 +745,143 @@ Return JSON: { "title": "short catchy title", "body": "2-3 sentence insight conn
 
 ${adaptiveDifficultyInstructions}
 
-You are designing a LEARNING JOURNEY — a dynamic, algorithmic feed of cards. This is NOT a chat response. It's a guided learning strategy.
+You are designing a DEEP LEARNING JOURNEY — a structured, progressive sequence of learning cards. Each card should teach REAL content with genuine depth. This is NOT a summary or overview — it is an actual lesson.
 
 ${learnerContext ? `ABOUT THIS LEARNER:\n${learnerContext}` : "This is a new learner — be warm and welcoming."}
 
-You must construct an array of STAGES. Instead of generating a generic, rigid 7-stage script, you must DYNAMICALLY choose which 3 to 5 stages to show based on the learner's context.
+You must construct an array of 5-8 STAGES that form a complete lesson. The goal is that after reading all stages, the learner genuinely understands the topic — not just surface-level awareness.
 
 AVAILABLE STAGE TYPES:
-- "hook": 1-2 sentences sparking curiosity. (Usually required to start).
-- "foundation": Prerequisite context. (Skip if they already know the basics).
-- "explanation": The core answer. Break into digestible pieces. Include a keyTakeaway.
-- "real_world": Concrete, vivid example.
-- "check": A 4-option multiple choice question testing application, not memorization.
-- "video": Provide a specific YouTube search query. (Extremely effective for visual learners or those struggling with text).
-- "next_steps": 3 follow-up paths to keep exploring. (Usually required to end).
+- "hook": 2-3 sentences that create genuine curiosity with a surprising fact, paradox, or question. Make it impossible not to keep reading.
+- "foundation": 3-4 paragraphs of prerequisite context. Define key terms precisely. Use analogies. Build mental models. Include a keyTakeaway. (Skip ONLY if learner has demonstrated mastery).
+- "explanation": THE CORE LESSON. This is where real learning happens. Write 4-6 substantial paragraphs that:
+  * Break the concept into logical sub-parts
+  * Explain each sub-part with precision and clarity
+  * Use **bold** for key terms and definitions
+  * Include at least 2 concrete analogies or metaphors
+  * Build understanding progressively (each paragraph builds on the last)
+  * Include a keyTakeaway and a deeperInsight
+  For complex topics, generate 2-3 explanation stages covering different aspects.
+- "real_world": 2-3 paragraphs with a SPECIFIC, DETAILED real-world example. Not generic ("used in medicine") but specific ("In 2019, DeepMind's AlphaFold predicted the 3D structure of proteins..."). Include why this matters.
+- "check": A comprehension check that tests UNDERSTANDING, not recall. The question should require the learner to APPLY what they learned, not just remember a fact. Include:
+  * A scenario-based question ("Given X situation, what would happen if...")
+  * 4 plausible options where wrong answers represent common misconceptions
+  * A detailed explanation (3-4 sentences) that teaches even if they got it right
+  * A thinkAbout hint that guides reasoning
+  Generate 2 check stages spread throughout the lesson.
+- "video": Provide a SPECIFIC YouTube search query. Include channel/creator names when possible (3Blue1Brown, Veritasium, Khan Academy, CrashCourse, etc.). Include videoContext explaining what they'll see and videoTip for what to focus on.
+- "next_steps": 3 follow-up paths that represent genuinely different directions:
+  * Path 1: Go deeper into a specific aspect of what was just learned
+  * Path 2: Explore a related concept that connects to this one
+  * Path 3: Apply this knowledge to solve a real problem
 
-HEURISTIC ROUTING ENGINE (CRITICAL):
-- RULE 1 (Friction Interception): IF the learner context notes "This learner often needs simpler explanations" OR they possess high confusion points, SKIP the dense "explanation" and "foundation" cards entirely. Prioritize a direct "video" burst followed by a "check" to simplify comprehension.
-- RULE 2 (Momentum & Flow): IF the learner is cruising (they have a strong history or many questions asked / strengths), prioritize "check" games and "real_world" scenarios to lock in the dopamine loop. Avoid boring "foundation" text.
-- RULE 3 (Dynamic Array): DO NOT generate all 7 stages. Generate exactly the 3 to 5 stages necessary right now. All chosen stages must map perfectly to the JSON schema below.
+STAGE SEQUENCE RULES:
+- ALWAYS start with hook
+- For beginners: hook → foundation → explanation → check → real_world → explanation_2 → check_2 → video → next_steps (8-9 stages)
+- For intermediate: hook → explanation → check → real_world → explanation_2 → check_2 → video → next_steps (7-8 stages)
+- For advanced: hook → explanation → explanation_2 → check → real_world → check_2 → next_steps (6-7 stages)
+- ALWAYS end with next_steps
+- Minimum 5 stages, maximum 9 stages
+
+CONTENT DEPTH REQUIREMENTS:
+- hook: 50-100 words
+- foundation: 200-400 words (real teaching, not filler)
+- explanation: 300-600 words EACH (this is where learning happens)
+- real_world: 150-300 words (specific, not generic)
+- check: question + 4 options + 100-word explanation
+- video: specific search query + context
+- next_steps: 3 paths with reasons
 
 CRITICAL RULES:
 - Every stage must have an emoji that matches its mood
-- Keep language warm, conversational, and encouraging
-- The check question should be thought-provoking, not trivial. Test understanding, not memorization
-- The video search query should be specific enough to find great content. Include creator name or channel if known
-- Next steps should branch in different directions (deeper into this topic, related concepts, practical applications)
-- Total reading time for all stages should be fast (not a textbook)
-- Use markdown for emphasis but keep it readable
+- Language should be warm but SUBSTANTIVE — teach real things, not platitudes
+- Explanation stages must contain ACTUAL KNOWLEDGE — facts, mechanisms, principles, not vague descriptions
+- Check questions must require THINKING, not just recall
+- Use markdown for emphasis: **bold** for key terms, *italic* for emphasis
+- The learner should feel genuinely smarter after reading this journey
 
-Return JSON (Schema Example of all possible objects, remember to ONLY CHOOSE 3 to 5):
+Return JSON:
 {
   "stages": [
     {
       "type": "hook",
       "emoji": "emoji",
       "title": "Short punchy title",
-      "content": "The surprising hook text"
+      "content": "The surprising hook text (2-3 sentences)"
     },
     {
       "type": "foundation",
       "emoji": "emoji",
-      "title": "What you need to know first",
-      "content": "Prerequisite context"
+      "title": "Building blocks",
+      "content": "3-4 paragraphs of prerequisite context with precise definitions and analogies",
+      "keyTakeaway": "One sentence key insight"
     },
     {
       "type": "explanation",
       "emoji": "emoji",
-      "title": "Here's the answer",
-      "content": "The core explanation with **bold** key terms. Include vivid examples, analogies, or metaphors. For advanced learners, include nuance and edge cases.",
+      "title": "The core concept",
+      "content": "4-6 substantial paragraphs of the main lesson content. Real knowledge. Real depth.",
       "keyTakeaway": "One sentence summary of the key insight",
-      "deeperInsight": "Optional: A second-order insight or connection to related concepts for curious learners"
-    },
-    {
-      "type": "real_world",
-      "emoji": "emoji",
-      "title": "See it in real life",
-      "content": "Vivid real-world example"
+      "deeperInsight": "A second-order insight or connection to related concepts"
     },
     {
       "type": "check",
       "emoji": "emoji",
-      "title": "Quick check",
+      "title": "Test your understanding",
       "content": "Brief context for the question",
-      "question": "A thought-provoking question that tests understanding",
+      "question": "A scenario-based question requiring application of knowledge",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correctIndex": 0,
-      "explanation": "2-3 sentence explanation of why that's correct and what to remember. Teach, don't just confirm.",
-      "thinkAbout": "A hint that encourages reflection before answering"
+      "explanation": "3-4 sentence explanation that teaches, not just confirms",
+      "thinkAbout": "A reasoning hint"
+    },
+    {
+      "type": "real_world",
+      "emoji": "emoji",
+      "title": "Where this matters",
+      "content": "2-3 paragraphs with a specific, detailed real-world example"
+    },
+    {
+      "type": "explanation",
+      "emoji": "emoji",
+      "title": "Going deeper",
+      "content": "3-5 paragraphs covering advanced aspects, nuances, or mechanisms",
+      "keyTakeaway": "Key insight from this deeper exploration",
+      "deeperInsight": "Connection to broader concepts"
+    },
+    {
+      "type": "check",
+      "emoji": "emoji",
+      "title": "Apply what you learned",
+      "content": "Context for a harder question",
+      "question": "A more challenging application question",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctIndex": 0,
+      "explanation": "Detailed teaching explanation",
+      "thinkAbout": "Reasoning hint"
     },
     {
       "type": "video",
       "emoji": "emoji",
-      "title": "Now watch this",
+      "title": "See it in action",
       "content": "",
-      "searchQuery": "specific youtube search query (include creator name if known)",
-      "videoContext": "What you'll see and why it matters now that you understand the basics",
-      "videoTip": "A specific thing to watch for or think about while watching"
+      "searchQuery": "specific youtube search query with creator name",
+      "videoContext": "What you'll see and why it matters",
+      "videoTip": "What to focus on while watching"
     },
     {
       "type": "next_steps",
       "emoji": "emoji",
-      "title": "Keep exploring",
+      "title": "Keep learning",
       "content": "",
       "paths": [
-        { "question": "Follow-up question 1 (go deeper into this topic)", "reason": "Why it's interesting" },
-        { "question": "Follow-up question 2 (related concept)", "reason": "Why it's interesting" },
-        { "question": "Follow-up question 3 (practical application)", "reason": "Why it's interesting" }
+        { "question": "Go deeper question", "reason": "Why it's worth exploring" },
+        { "question": "Related concept question", "reason": "How it connects" },
+        { "question": "Apply it question", "reason": "Put knowledge to work" }
       ]
     }
   ],
-  "mappedConcepts": ["concept1", "concept2", "concept3"],
+  "mappedConcepts": ["concept1", "concept2", "concept3", "concept4", "concept5"],
   "difficulty": "beginner|intermediate|advanced",
   "emoji": "overall topic emoji"
 }`,
@@ -845,7 +891,7 @@ Return JSON (Schema Example of all possible objects, remember to ONLY CHOOSE 3 t
                 content: input.question,
               },
             ],
-            maxTokens: 8192,
+            maxTokens: 16384,
             response_format: { type: "json_object" },
           });
 

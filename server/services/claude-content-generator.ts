@@ -1,5 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-
+import { orchestrateLLM } from "../ai-orchestrator";
 /**
  * Claude Content Generator Service
  *
@@ -46,14 +45,11 @@ interface GeneratedContent {
 }
 
 class ClaudeContentGenerator {
-  private client: Anthropic;
-
   constructor() {
     const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
       throw new Error("CLAUDE_API_KEY environment variable is not set");
     }
-    this.client = new Anthropic({ apiKey });
   }
 
   /**
@@ -68,11 +64,8 @@ class ClaudeContentGenerator {
 
     try {
       const message = await this.withTimeout(
-        this.client.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 2000,
-          messages: [
-            {
+        orchestrateLLM("content", {
+        messages: [            {
               role: "user",
               content: prompt,
             },
@@ -82,7 +75,7 @@ class ClaudeContentGenerator {
       );
 
       const responseText =
-        message.content[0].type === "text" ? message.content[0].text : "";
+        message.choices[0]?.message?.content as string || "";
       return this.parseGeneratedContent(responseText);
     } catch (error) {
       console.error("Claude API call timed out or failed:", error);
@@ -121,11 +114,8 @@ Keep the explanation concise (2-3 paragraphs) and encouraging.
 
     try {
       const message = await this.withTimeout(
-        this.client.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 800,
-          messages: [
-            {
+        orchestrateLLM("content", {
+        messages: [            {
               role: "user",
               content: prompt,
             },
@@ -134,7 +124,7 @@ Keep the explanation concise (2-3 paragraphs) and encouraging.
         10000 // 10 second timeout
       );
 
-      return message.content[0].type === "text" ? message.content[0].text : "";
+      return message.choices[0]?.message?.content as string || "";
     } catch (error) {
       console.error("Claude API call timed out:", error);
       throw new Error("Failed to generate misconception correction: API timeout");
@@ -176,11 +166,8 @@ ADVANCED:
 
     try {
       const message = await this.withTimeout(
-        this.client.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 2000,
-          messages: [
-            {
+        orchestrateLLM("content", {
+        messages: [            {
               role: "user",
               content: prompt,
             },
@@ -190,7 +177,7 @@ ADVANCED:
       );
 
       const responseText =
-        message.content[0].type === "text" ? message.content[0].text : "";
+        message.choices[0]?.message?.content as string || "";
       return this.parseDifficultyVariants(responseText);
     } catch (error) {
       console.error("Claude API call timed out:", error);
@@ -225,11 +212,8 @@ Return ONLY a JSON array of 5 topic strings, like:
 
     try {
       const message = await this.withTimeout(
-        this.client.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 500,
-          messages: [
-            {
+        orchestrateLLM("content", {
+        messages: [            {
               role: "user",
               content: prompt,
             },
@@ -239,7 +223,7 @@ Return ONLY a JSON array of 5 topic strings, like:
       );
 
       const responseText =
-        message.content[0].type === "text" ? message.content[0].text : "";
+        message.choices[0]?.message?.content as string || "";
       try {
         const jsonMatch = responseText.match(/\[.*\]/s);
         if (jsonMatch) {
@@ -292,11 +276,8 @@ Format as JSON array:
 
     try {
       const message = await this.withTimeout(
-        this.client.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 2000,
-          messages: [
-            {
+        orchestrateLLM("content", {
+        messages: [            {
               role: "user",
               content: prompt,
             },
@@ -306,7 +287,7 @@ Format as JSON array:
       );
 
       const responseText =
-        message.content[0].type === "text" ? message.content[0].text : "";
+        message.choices[0]?.message?.content as string || "";
       try {
         const jsonMatch = responseText.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
@@ -357,11 +338,8 @@ Keep it to 3-4 paragraphs.
 
     try {
       const message = await this.withTimeout(
-        this.client.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 1000,
-          messages: [
-            {
+        orchestrateLLM("content", {
+        messages: [            {
               role: "user",
               content: prompt,
             },
@@ -370,7 +348,7 @@ Keep it to 3-4 paragraphs.
         10000 // 10 second timeout
       );
 
-      return message.content[0].type === "text" ? message.content[0].text : "";
+      return message.choices[0]?.message?.content as string || "";
     } catch (error) {
       console.error("Claude API call timed out:", error);
       return "";

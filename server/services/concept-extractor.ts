@@ -4,8 +4,7 @@
  * Extracts definitions, relationships, and prerequisites
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
+import { orchestrateLLM } from "../ai-orchestrator";
 export interface Concept {
   name: string;
   definition: string;
@@ -25,8 +24,6 @@ export interface ConceptGraph {
   }>;
   difficulty: "beginner" | "intermediate" | "advanced";
 }
-
-const client = new Anthropic();
 
 /**
  * Extract concepts from paper abstract and title
@@ -83,9 +80,7 @@ Return your response as a JSON object with this structure:
 
 Be thorough but concise. Focus on concepts that are essential to understanding this paper.`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
+    const message = await orchestrateLLM("content", {      maxTokens: 2000,
       messages: [
         {
           role: "user",
@@ -96,7 +91,7 @@ Be thorough but concise. Focus on concepts that are essential to understanding t
 
     // Extract JSON from response
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
 
     // Parse JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -149,9 +144,7 @@ Return as JSON:
   "commonMisconceptions": ["string"]
 }`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1500,
+    const message = await orchestrateLLM("content", {      maxTokens: 1500,
       messages: [
         {
           role: "user",
@@ -161,7 +154,7 @@ Return as JSON:
     });
 
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
@@ -200,9 +193,7 @@ Return as JSON:
   "estimatedLearningTime": number
 }`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 500,
+    const message = await orchestrateLLM("content", {      maxTokens: 500,
       messages: [
         {
           role: "user",
@@ -212,7 +203,7 @@ Return as JSON:
     });
 
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
@@ -264,9 +255,7 @@ Return as JSON array:
   }
 ]`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1500,
+    const message = await orchestrateLLM("content", {      maxTokens: 1500,
       messages: [
         {
           role: "user",
@@ -276,7 +265,7 @@ Return as JSON array:
     });
 
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
 
     if (!jsonMatch) {

@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as OfflineCache from "@/app/services/offline-cache";
+import * as OfflineCache from "@/lib/services/offline-cache";
 
 // Simple online status detection (fallback if netinfo not available)
 const useNetInfo = () => ({

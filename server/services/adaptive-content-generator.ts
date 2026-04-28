@@ -5,7 +5,7 @@
  * Adapts content based on user sophistication and detected knowledge level
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "../ai-orchestrator";
 
 export interface LevelContentRequest {
   concept: string;
@@ -89,73 +89,87 @@ const LEVEL_DEFINITIONS = {
   },
 };
 
-const client = new Anthropic();
-
 /**
- * Generate content for a specific level using Claude
+ * Generate content for a specific level using built-in LLM
  */
 export async function generateLevelContent(
   request: LevelContentRequest,
-  _claudeApiKey?: string // Claude API key is read from environment
+  _claudeApiKey?: string
 ): Promise<LevelContent> {
   const levelDef = LEVEL_DEFINITIONS[request.level];
 
-  // Build prompt for Claude
+  // Build prompt
   const prompt = buildLevelPrompt(request, levelDef);
 
-  // Call Claude API
-  const message = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 2000,
-    messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-  });
-
-  const responseText =
-    message.content[0].type === "text" ? message.content[0].text : "";
-
-  // Parse JSON response
-  let contentData;
   try {
-    contentData = JSON.parse(responseText);
-  } catch (e) {
-    // Fallback to template if parsing fails
-    contentData = {
-      mainContent: `Content for ${request.concept} at ${levelDef.name} level`,
+    const response = await orchestrateLLM("content", {
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      maxTokens: 4096,
+      response_format: { type: "json_object" },
+    });
+
+    const responseText = response.choices[0]?.message?.content as string || "{}";
+
+    // Parse JSON response
+    let contentData;
+    try {
+      contentData = JSON.parse(responseText);
+    } catch (e) {
+      // Fallback to template if parsing fails
+      contentData = {
+        mainContent: `Content for ${request.concept} at ${levelDef.name} level`,
+        examples: generateExamples(request.concept, request.level),
+        keyPoints: generateKeyPoints(request.concept, request.level),
+        quizzes: generateQuizzes(request.concept, request.level, 3),
+        discussionPrompts: generateDiscussionPrompts(request.concept, request.level),
+        practiceProblems: generatePracticeProblems(request.concept, request.level),
+        storyboardScenes: generateStoryboard(request.concept, request.level).scenes,
+      };
+    }
+
+    return {
+      level: request.level,
+      title: `${levelDef.name}: ${levelDef.tagline}`,
+      description: levelDef.description,
+      mainContent: contentData.mainContent || `Content for ${request.concept}`,
+      examples: contentData.examples || generateExamples(request.concept, request.level),
+      keyPoints: contentData.keyPoints || generateKeyPoints(request.concept, request.level),
+      estimatedTime: levelDef.estimatedTime,
+      quizzes: (contentData.quizzes || []).map((q: any) => ({
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        difficulty: request.level,
+      })),
+      discussionPrompts: contentData.discussionPrompts || generateDiscussionPrompts(request.concept, request.level),
+      practiceProblems: contentData.practiceProblems || generatePracticeProblems(request.concept, request.level),
+      visualStoryboard: {
+        scenes: contentData.storyboardScenes || generateStoryboard(request.concept, request.level).scenes,
+      },
+    };
+  } catch (error) {
+    console.error("[AdaptiveContent] generateLevelContent failed:", error);
+    // Full fallback without LLM
+    return {
+      level: request.level,
+      title: `${LEVEL_DEFINITIONS[request.level].name}: ${LEVEL_DEFINITIONS[request.level].tagline}`,
+      description: LEVEL_DEFINITIONS[request.level].description,
+      mainContent: `Content for ${request.concept} at ${LEVEL_DEFINITIONS[request.level].name} level`,
       examples: generateExamples(request.concept, request.level),
       keyPoints: generateKeyPoints(request.concept, request.level),
+      estimatedTime: LEVEL_DEFINITIONS[request.level].estimatedTime,
       quizzes: generateQuizzes(request.concept, request.level, 3),
       discussionPrompts: generateDiscussionPrompts(request.concept, request.level),
       practiceProblems: generatePracticeProblems(request.concept, request.level),
-      storyboardScenes: generateStoryboard(request.concept, request.level).scenes,
+      visualStoryboard: generateStoryboard(request.concept, request.level),
     };
   }
-
-  return {
-    level: request.level,
-    title: `${levelDef.name}: ${levelDef.tagline}`,
-    description: levelDef.description,
-    mainContent: contentData.mainContent || `Content for ${request.concept}`,
-    examples: contentData.examples || generateExamples(request.concept, request.level),
-    keyPoints: contentData.keyPoints || generateKeyPoints(request.concept, request.level),
-    estimatedTime: levelDef.estimatedTime,
-    quizzes: (contentData.quizzes || []).map((q: any) => ({
-      question: q.question,
-      options: q.options,
-      correctAnswer: q.correctAnswer,
-      explanation: q.explanation,
-      difficulty: request.level,
-    })),
-    discussionPrompts: contentData.discussionPrompts || generateDiscussionPrompts(request.concept, request.level),
-    practiceProblems: contentData.practiceProblems || generatePracticeProblems(request.concept, request.level),
-    visualStoryboard: {
-      scenes: contentData.storyboardScenes || generateStoryboard(request.concept, request.level).scenes,
-    },
-  };
 }
 
 /**
@@ -198,18 +212,22 @@ export async function simplifyContent(
     advanced: "Explain with technical depth. Assume prior knowledge of fundamentals.",
   };
 
-  const message = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 1000,
-    messages: [
-      {
-        role: "user",
-        content: `${levelGuides[targetLevel]}\n\nContent to simplify:\n${content}`,
-      },
-    ],
-  });
+  try {
+    const response = await orchestrateLLM("content", {
+      messages: [
+        {
+          role: "user",
+          content: `${levelGuides[targetLevel]}\n\nContent to simplify:\n${content}`,
+        },
+      ],
+      maxTokens: 2048,
+    });
 
-  return message.content[0].type === "text" ? message.content[0].text : "";
+    return response.choices[0]?.message?.content as string || content;
+  } catch (error) {
+    console.error("[AdaptiveContent] simplifyContent failed:", error);
+    return content;
+  }
 }
 
 /**

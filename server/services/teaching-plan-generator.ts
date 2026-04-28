@@ -4,8 +4,7 @@
  * Scaffolds learning from simple to complex
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
+import { orchestrateLLM } from "../ai-orchestrator";
 export interface LessonStep {
   stepNumber: number;
   title: string;
@@ -29,8 +28,6 @@ export interface TeachingPlan {
   learningOutcomes: string[];
   assessmentStrategy: string;
 }
-
-const client = new Anthropic();
 
 /**
  * Generate a teaching plan from concepts
@@ -99,9 +96,7 @@ Return as JSON:
   "assessmentStrategy": "string"
 }`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 3000,
+    const message = await orchestrateLLM("content", {      maxTokens: 3000,
       messages: [
         {
           role: "user",
@@ -111,7 +106,7 @@ Return as JSON:
     });
 
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
@@ -182,9 +177,7 @@ Return as JSON:
   "transitionToNext": "string"
 }`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
+    const message = await orchestrateLLM("content", {      maxTokens: 2000,
       messages: [
         {
           role: "user",
@@ -194,7 +187,7 @@ Return as JSON:
     });
 
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
@@ -260,9 +253,7 @@ Return as JSON array:
   }
 ]`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2500,
+    const message = await orchestrateLLM("content", {      maxTokens: 2500,
       messages: [
         {
           role: "user",
@@ -272,7 +263,7 @@ Return as JSON array:
     });
 
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
 
     if (!jsonMatch) {
@@ -336,9 +327,7 @@ Return as JSON array:
   }
 ]`;
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
+    const message = await orchestrateLLM("content", {      maxTokens: 2000,
       messages: [
         {
           role: "user",
@@ -348,7 +337,7 @@ Return as JSON array:
     });
 
     const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.choices[0]?.message?.content as string || "";
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
 
     if (!jsonMatch) {

@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "./ai-orchestrator";
 import { Lesson, Unit, Topic, ContentSection, ConceptCheck, AssessmentQuestion } from "@/shared/curriculum";
-
-const client = new Anthropic();
 
 export interface CurriculumRequest {
   topic: string;
@@ -93,9 +91,7 @@ Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
   ]
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 2000,
+  const response = await orchestrateLLM("content", {    maxTokens: 2000,
     messages: [
       {
         role: "user",
@@ -104,19 +100,16 @@ Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    const structure = JSON.parse(content.text);
+    const structure = JSON.parse(contentText);
     return {
       id: `topic-${Date.now()}`,
       ...structure,
     };
   } catch (e) {
-    console.error("Failed to parse topic structure:", content.text);
+    console.error("Failed to parse topic structure:", contentText);
     throw new Error("Failed to generate topic structure");
   }
 }
@@ -201,9 +194,7 @@ Return ONLY valid JSON (no markdown, no code blocks) with this structure:
   ]
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 4000,
+  const response = await orchestrateLLM("content", {    maxTokens: 4000,
     messages: [
       {
         role: "user",
@@ -212,13 +203,10 @@ Return ONLY valid JSON (no markdown, no code blocks) with this structure:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    const lessonData = JSON.parse(content.text);
+    const lessonData = JSON.parse(contentText);
     return {
       id: `lesson-${Date.now()}`,
       unitId: `unit-${Date.now()}`,
@@ -236,7 +224,7 @@ Return ONLY valid JSON (no markdown, no code blocks) with this structure:
       reviewSchedule: [1, 3, 7, 14, 30],
     };
   } catch (e) {
-    console.error("Failed to parse lesson:", content.text);
+    console.error("Failed to parse lesson:", contentText);
     throw new Error("Failed to generate lesson");
   }
 }
@@ -286,9 +274,7 @@ Return ONLY valid JSON (no markdown) with this structure:
   ]
 }`;
 
-    const response = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
+    const response = await orchestrateLLM("content", {      maxTokens: 2000,
       messages: [
         {
           role: "user",
@@ -297,13 +283,10 @@ Return ONLY valid JSON (no markdown) with this structure:
       ],
     });
 
-    const content = response.content[0];
-    if (content.type !== "text") {
-      continue;
-    }
+    const contentText = (response.choices[0]?.message?.content as string) || "";
 
     try {
-      const data = JSON.parse(content.text);
+      const data = JSON.parse(contentText);
       assessments.push(
         ...data.questions.map((q: any) => ({
           id: `q-${Date.now()}-${Math.random()}`,
@@ -311,7 +294,7 @@ Return ONLY valid JSON (no markdown) with this structure:
         }))
       );
     } catch (e) {
-      console.error("Failed to parse assessments:", content.text);
+      console.error("Failed to parse assessments:", contentText);
     }
   }
 
@@ -346,9 +329,7 @@ Return ONLY valid JSON with content sections:
   ]
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 2000,
+  const response = await orchestrateLLM("content", {    maxTokens: 2000,
     messages: [
       {
         role: "user",
@@ -357,16 +338,13 @@ Return ONLY valid JSON with content sections:
     ],
   });
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    return [];
-  }
+  const contentText = (response.choices[0]?.message?.content as string) || "";
 
   try {
-    const data = JSON.parse(content.text);
+    const data = JSON.parse(contentText);
     return data.sections || [];
   } catch (e) {
-    console.error("Failed to parse adaptive content:", content.text);
+    console.error("Failed to parse adaptive content:", contentText);
     return [];
   }
 }

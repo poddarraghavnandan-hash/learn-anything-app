@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "../ai-orchestrator";
 
 export interface ContinuationOption {
   id: string;
@@ -22,11 +22,6 @@ export interface ContinuationPlan {
 }
 
 export class ContinuationEngine {
-  private client: Anthropic;
-
-  constructor() {
-    this.client = new Anthropic();
-  }
 
   /**
    * Generate continuation options after lesson completion
@@ -55,22 +50,25 @@ Respond with JSON only.`;
       ? `\nUser's Topic Mastery: ${JSON.stringify(userMastery)}`
       : "";
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1500,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Generate continuation options after completing Level ${currentLevel} of "${topic}"${performanceContext}${masteryContext}
+    let responseText = "";
+    try {
+      const response = await orchestrateLLM("reasoning", {
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `Generate continuation options after completing Level ${currentLevel} of "${topic}"${performanceContext}${masteryContext}
 
 Return JSON with: options (array with id, type, title, description, targetTopic, targetLevel, estimatedDuration, difficulty, icon, reason), recommendedNext (single option), reasoning`,
-        },
-      ],
-    });
-
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+      responseText = response.choices[0]?.message?.content as string || "{}";
+    } catch (error) {
+      console.error("[ContinuationEngine] LLM call failed:", error);
+      return this.generateDefaultContinuationOptions(topic, currentLevel);
+    }
 
     try {
       const plan = JSON.parse(responseText) as Omit<

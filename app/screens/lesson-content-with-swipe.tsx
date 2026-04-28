@@ -7,8 +7,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import Animated, { FadeIn, SlideInUp, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate, Extrapolate } from "react-native-reanimated";
 import { useState, useEffect, useRef } from "react";
 import * as Haptics from "expo-haptics";
-import { useLessonSession } from "@/app/hooks/use-lesson-session";
-import { useClaudeLessonContent } from "@/app/hooks/use-claude-lesson";
+import { useLessonSession } from "@/hooks/app-hooks/use-lesson-session";
+import { useClaudeLessonContent } from "@/hooks/app-hooks/use-claude-lesson";
 import { GestureHandlerRootView, PanGestureHandler, State } from "react-native-gesture-handler";
 
 interface LessonContent {

@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "../ai-orchestrator";
 
 export interface VideoLessonPlan {
   topic: string;
@@ -33,11 +33,6 @@ export interface VideoGenerationRequest {
 }
 
 export class VideoIntegrationService {
-  private client: Anthropic;
-
-  constructor() {
-    this.client = new Anthropic();
-  }
 
   /**
    * Generate video lesson plan for a specific level
@@ -60,14 +55,14 @@ Respond with JSON only.`;
       ? `\nStyle: ${request.style}`
       : "\nStyle: educational";
 
-    const message = await this.client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Generate video lesson plan for:
+    let responseText = "";
+    try {
+      const response = await orchestrateLLM("content", {
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `Generate video lesson plan for:
 Topic: ${request.topic}
 Level: ${request.level}
 Duration: ${request.estimatedDuration} minutes
@@ -75,12 +70,15 @@ Key Points: ${request.keyPoints.join(", ")}
 Examples: ${request.examples.join(", ")}${styleNote}
 
 Return JSON with: videoScript, scenes (array with id, title, description, duration, animation, visualConcepts, voiceover, keyPoint), keyFrames (array), animations (array), estimatedDuration, voiceoverNotes, subtitles (array)`,
-        },
-      ],
-    });
-
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+      responseText = response.choices[0]?.message?.content as string || "{}";
+    } catch (error) {
+      console.error("[VideoIntegration] LLM call failed:", error);
+      return this.generateDefaultVideoLessonPlan(request);
+    }
 
     try {
       const plan = JSON.parse(responseText) as Omit<

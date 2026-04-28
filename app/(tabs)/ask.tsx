@@ -103,23 +103,23 @@ function RichText({ text, style, boldStyle }: { text: string; style: any; boldSt
 
 // Stage accent colors mapped to stage types
 const STAGE_ACCENTS: Record<string, { bg: string; text: string; label: string }> = {
-  hook: { bg: "#FEF3C7", text: "#92400E", label: "The Hook" },
-  foundation: { bg: "#DBEAFE", text: "#1E40AF", label: "Foundation" },
-  explanation: { bg: "#EDE9FE", text: "#5B21B6", label: "The Answer" },
-  real_world: { bg: "#D1FAE5", text: "#065F46", label: "See It" },
-  check: { bg: "#FCE7F3", text: "#9D174D", label: "Quick Check" },
-  video: { bg: "#FEE2E2", text: "#991B1B", label: "Go Deeper" },
-  next_steps: { bg: "#E0E7FF", text: "#3730A3", label: "Keep Exploring" },
+  hook: { bg: "#FEF3C7", text: "#92400E", label: "Why This Matters" },
+  foundation: { bg: "#DBEAFE", text: "#1E40AF", label: "Building Blocks" },
+  explanation: { bg: "#EDE9FE", text: "#5B21B6", label: "Core Lesson" },
+  real_world: { bg: "#D1FAE5", text: "#065F46", label: "Real-World Application" },
+  check: { bg: "#FCE7F3", text: "#9D174D", label: "Test Your Understanding" },
+  video: { bg: "#FEE2E2", text: "#991B1B", label: "Watch & Learn" },
+  next_steps: { bg: "#E0E7FF", text: "#3730A3", label: "Continue Learning" },
 };
 
 const STAGE_ACCENTS_DARK: Record<string, { bg: string; text: string; label: string }> = {
-  hook: { bg: "#78350F30", text: "#FCD34D", label: "The Hook" },
-  foundation: { bg: "#1E3A5F30", text: "#93C5FD", label: "Foundation" },
-  explanation: { bg: "#4C1D9530", text: "#C4B5FD", label: "The Answer" },
-  real_world: { bg: "#064E3B30", text: "#6EE7B7", label: "See It" },
-  check: { bg: "#83185830", text: "#F9A8D4", label: "Quick Check" },
-  video: { bg: "#7F1D1D30", text: "#FCA5A5", label: "Go Deeper" },
-  next_steps: { bg: "#312E8130", text: "#A5B4FC", label: "Keep Exploring" },
+  hook: { bg: "#78350F30", text: "#FCD34D", label: "Why This Matters" },
+  foundation: { bg: "#1E3A5F30", text: "#93C5FD", label: "Building Blocks" },
+  explanation: { bg: "#4C1D9530", text: "#C4B5FD", label: "Core Lesson" },
+  real_world: { bg: "#064E3B30", text: "#6EE7B7", label: "Real-World Application" },
+  check: { bg: "#83185830", text: "#F9A8D4", label: "Test Your Understanding" },
+  video: { bg: "#7F1D1D30", text: "#FCA5A5", label: "Watch & Learn" },
+  next_steps: { bg: "#312E8130", text: "#A5B4FC", label: "Continue Learning" },
 };
 
 // ─── XP Popup Animation ──────────────────────────────────────────────────────
@@ -622,13 +622,21 @@ function InfoCardContent({ stage, isDark }: { stage: JourneyStage; isDark: boole
       <Text style={{ fontSize: 36, marginBottom: 12 }}>{stage.emoji}</Text>
       <Text style={[styles.cardLabel, { color: accent.text }]}>{accent.label}</Text>
       <Text style={[styles.cardTitle, { color: isDark ? colors.foreground : "#1A1A2E" }]}>{stage.title}</Text>
-      <RichText text={stage.content} style={[styles.cardContent, { color: isDark ? colors.foreground + "DD" : "#374151" }]} />
+      <RichText text={stage.content} style={[styles.cardContent, { color: isDark ? colors.foreground + "DD" : "#374151", lineHeight: 24 }]} />
       {stage.keyTakeaway ? (
         <View style={[styles.takeawayBox, { backgroundColor: isDark ? accent.text + "20" : "#FFFFFF60", borderColor: isDark ? accent.text + "40" : accent.text + "30" }]}>
           <Text style={[styles.takeawayLabel, { color: accent.text }]}>
-            {stageType === "real_world" ? "Real-World Example" : stageType === "foundation" ? "Key Concept" : "Key Takeaway"}
+            {stageType === "real_world" ? "Real-World Impact" : stageType === "foundation" ? "Key Concept" : "Key Takeaway"}
           </Text>
-          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151" }]}>{stage.keyTakeaway}</Text>
+          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151", lineHeight: 20 }]}>{stage.keyTakeaway}</Text>
+        </View>
+      ) : null}
+      {(stage as any).deeperInsight ? (
+        <View style={[styles.takeawayBox, { backgroundColor: isDark ? "#7C3AED20" : "#EDE9FE60", borderColor: isDark ? "#7C3AED40" : "#7C3AED30", marginTop: 12 }]}>
+          <Text style={[styles.takeawayLabel, { color: isDark ? "#C4B5FD" : "#5B21B6" }]}>
+            💡 Deeper Insight
+          </Text>
+          <Text style={[styles.takeawayText, { color: isDark ? colors.foreground : "#374151", lineHeight: 20 }]}>{(stage as any).deeperInsight}</Text>
         </View>
       ) : null}
     </LinearGradient>

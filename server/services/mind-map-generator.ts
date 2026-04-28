@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "../ai-orchestrator";
 import { learningBehaviorAnalyzer } from "./learning-behavior-analyzer";
 
 /**
@@ -48,12 +48,7 @@ export interface PersonalizedMindMap {
 }
 
 class MindMapGenerator {
-  private claudeClient: Anthropic;
-
   constructor() {
-    this.claudeClient = new Anthropic({
-      apiKey: process.env.CLAUDE_API_KEY,
-    });
   }
 
   /**
@@ -269,20 +264,17 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 3000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
-      if (content.type === "text") {
-        return JSON.parse(content.text);
+      const contentText = (response.choices[0]?.message?.content as string) || "";
+      if (contentText) {
+        return JSON.parse(contentText);
       }
     } catch (error) {
       console.error("Error generating mind map structure:", error);

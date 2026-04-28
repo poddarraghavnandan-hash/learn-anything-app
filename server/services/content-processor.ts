@@ -5,8 +5,7 @@
  */
 
 import axios from "axios";
-import Anthropic from "@anthropic-ai/sdk";
-
+import { orchestrateLLM } from "../ai-orchestrator";
 export interface ContentInput {
   type: "pasted_text" | "url" | "pdf" | "gemini_generated";
   content?: string; // For pasted text
@@ -26,8 +25,6 @@ export interface ProcessedContent {
   difficulty: "beginner" | "intermediate" | "advanced";
   sourceMetadata: Record<string, any>;
 }
-
-const client = new Anthropic();
 
 /**
  * Process any content input and extract text
@@ -157,9 +154,7 @@ async function generateContentWithGemini(
   try {
     const prompt = customPrompt || generateDefaultGeminiPrompt(topic, difficulty);
 
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 4000,
+    const message = await orchestrateLLM("content", {      maxTokens: 4000,
       messages: [
         {
           role: "user",
@@ -168,16 +163,14 @@ async function generateContentWithGemini(
       ],
     });
 
-    const content = message.content[0].type === "text" ? message.content[0].text : "";
+    const content = message.choices[0]?.message?.content as string || "";
 
     return {
       content,
       metadata: {
         topic,
         difficulty,
-        generatedAt: new Date().toISOString(),
-        model: "claude-3-5-sonnet",
-      },
+        generatedAt: new Date().toISOString(),      },
     };
   } catch (error) {
     console.error("Gemini content generation error:", error);
@@ -218,9 +211,7 @@ Format the response as a comprehensive essay/guide (2000-3000 words) that could 
  */
 async function generateSummary(content: string): Promise<string> {
   try {
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 500,
+    const message = await orchestrateLLM("content", {      maxTokens: 500,
       messages: [
         {
           role: "user",
@@ -229,7 +220,7 @@ async function generateSummary(content: string): Promise<string> {
       ],
     });
 
-    return message.content[0].type === "text" ? message.content[0].text : "";
+    return message.choices[0]?.message?.content as string || "";
   } catch (error) {
     console.error("Summary generation error:", error);
     return "Unable to generate summary";
@@ -241,9 +232,7 @@ async function generateSummary(content: string): Promise<string> {
  */
 async function detectTopic(content: string, title: string): Promise<string> {
   try {
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 100,
+    const message = await orchestrateLLM("content", {      maxTokens: 100,
       messages: [
         {
           role: "user",
@@ -252,7 +241,8 @@ async function detectTopic(content: string, title: string): Promise<string> {
       ],
     });
 
-    return message.content[0].type === "text" ? message.content[0].text.trim() : "General";
+    const text = (message.choices[0]?.message?.content as string || "General").trim();
+    return text;
   } catch (error) {
     console.error("Topic detection error:", error);
     return "General";
@@ -266,9 +256,7 @@ async function assessDifficulty(
   content: string
 ): Promise<"beginner" | "intermediate" | "advanced"> {
   try {
-    const message = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 50,
+    const message = await orchestrateLLM("content", {      maxTokens: 50,
       messages: [
         {
           role: "user",
@@ -277,7 +265,7 @@ async function assessDifficulty(
       ],
     });
 
-    const response = message.content[0].type === "text" ? message.content[0].text.toLowerCase().trim() : "intermediate";
+    const response = ((message.choices[0]?.message?.content as string) || "intermediate").toLowerCase().trim();
 
     if (response.includes("beginner")) return "beginner";
     if (response.includes("advanced")) return "advanced";

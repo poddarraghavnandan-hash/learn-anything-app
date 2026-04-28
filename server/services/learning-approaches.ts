@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { orchestrateLLM } from "../ai-orchestrator";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
@@ -25,13 +25,9 @@ export interface LearningApproachContent {
 }
 
 class LearningApproaches {
-  private claudeClient: Anthropic;
   private geminiClient: GoogleGenerativeAI;
 
   constructor() {
-    this.claudeClient = new Anthropic({
-      apiKey: process.env.CLAUDE_API_KEY,
-    });
     this.geminiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
   }
 
@@ -73,21 +69,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const dialogueJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { openingQuestion: "What do you know about this topic?" };
 
       return {
@@ -152,21 +145,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const problemJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { problemTitle: "Real-World Problem", problemStatement: "Solve this problem" };
 
       return {
@@ -249,21 +239,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const simulationJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { simulationName: "Interactive Simulation", description: "Explore concepts" };
 
       return {
@@ -338,21 +325,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const frameworkJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { discussionTopics: ["What is your understanding?"], peerReviewCriteria: [] };
 
       return {
@@ -426,21 +410,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const frameworkJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { teachingTemplates: [], explanationGuidelines: [] };
 
       return {
@@ -518,21 +499,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const challengeJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { challenges: [], scoringSystem: "Points based" };
 
       return {
@@ -601,21 +579,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const burstJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { bursts: [], spacedRepetitionSchedule: "Daily" };
 
       return {
@@ -683,21 +658,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const pathJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : { explorationPhases: [], adaptivePathways: "" };
 
       return {
@@ -772,21 +744,18 @@ Format as JSON:
 }`;
 
     try {
-      const response = await this.claudeClient.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
-        messages: [
-          {
+      const response = await orchestrateLLM("content", {
+        messages: [          {
             role: "user",
             content: prompt,
           },
         ],
       });
 
-      const content = response.content[0];
+      const contentText = (response.choices[0]?.message?.content as string) || "";
       const synthesisJson =
-        content.type === "text"
-          ? JSON.parse(content.text)
+        contentText
+          ? JSON.parse(contentText)
           : {
               videoComponent: {},
               textComponent: {},

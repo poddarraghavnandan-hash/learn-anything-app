@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+// Knowledge Assessment Agent - uses local heuristics (no LLM dependency)
 
 export interface UserKnowledgeProfile {
   estimatedLevel: "beginner" | "intermediate" | "advanced" | "expert";
@@ -34,11 +34,6 @@ export interface UserHistoryData {
 }
 
 export class KnowledgeAssessmentAgent {
-  private client: Anthropic;
-
-  constructor() {
-    this.client = new Anthropic();
-  }
 
   /**
    * Assess user's knowledge based on learning history
