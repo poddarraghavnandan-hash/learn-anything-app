@@ -27,6 +27,7 @@ import { personalMindMapRouter } from "./routers-personal-mind-map";
 import { personalLearningIntelligenceRouter } from "./routers-pli";
 import { behaviorTrackingRouter } from "./routers-behavior-tracking";
 import { videoRouter } from "./routers-video";
+import { adaptationRouter } from "./routers/adaptation";
 
 import { LEARNLM_SYSTEM, getLevelPrompt } from "./prompts/gaia-system";
 // Helper to fetch YouTube videos for a specific search query and save to DB
@@ -1883,8 +1884,9 @@ Return JSON: {
 
   // ─── Behavior Tracking (Learning Signal Analysis) ────────────────────────────────────────────────────────────────
   behaviorTracking: behaviorTrackingRouter,
-
-  // ─── App Update ────────────────────────────────────────────────────────
+  // ─── Intelligent Content Adaptation (7-phase pipeline) ────────────────────────────────────────────────────────────────
+  adaptation: adaptationRouter,
+  // ─── App Update ─────────────────────────────────────────────────────────
   appUpdate: router({
     check: publicProcedure
       .input(z.object({ currentVersion: z.string() }))

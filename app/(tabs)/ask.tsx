@@ -1043,8 +1043,10 @@ function ChatSidebar({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [adaptationData, setAdaptationData] = useState<any>(null);
   const scrollRef = useRef<ScrollView>(null);
   const journeyChatMutation = trpc.chat.journeyChat.useMutation();
+  const adaptiveChatMutation = trpc.adaptation.adaptiveChat.useMutation();
 
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
@@ -1058,20 +1060,19 @@ function ChatSidebar({
     setIsSending(true);
 
     try {
-      const result = await journeyChatMutation.mutateAsync({
+      // Use adaptive chat endpoint for intelligent content generation
+      const result = await adaptiveChatMutation.mutateAsync({
         question: text,
-        journeyQuestion,
-        currentStageType: currentStage?.type || "explanation",
-        currentStageContent: currentStage?.content || "",
-        currentStageTitle: currentStage?.title || "",
         chatHistory: messages.slice(-6).map((m) => ({ role: m.role, text: m.text })),
-        skillLevel: skillLevel as "beginner" | "intermediate" | "advanced",
-        learnerModel: {
+        userProfile: {
+          skillLevel: skillLevel as "beginner" | "intermediate" | "advanced",
+          learningStyle: (learnerModel as any)?.learningStyle as "visual" | "textual" | "mixed" | undefined,
           preferredDepth: learnerModel.preferredDepth as "overview" | "detailed" | "expert" | undefined,
-          confusionPoints: learnerModel.confusionPoints,
-          strengthAreas: learnerModel.strengthAreas,
         },
       });
+
+      // Store adaptation data for display
+      setAdaptationData(result.adaptation);
 
       const assistantMsg: ChatMessage = {
         id: genId(),
@@ -1089,7 +1090,7 @@ function ChatSidebar({
       setIsSending(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  }, [inputText, isSending, messages, journeyQuestion, currentStage, skillLevel, learnerModel]);
+  }, [inputText, isSending, messages, journeyQuestion, currentStage, skillLevel, learnerModel, adaptiveChatMutation]);
 
   if (!visible) return null;
 
@@ -1135,6 +1136,20 @@ function ChatSidebar({
                   Ask anything about what you're learning. I'll answer in context of this card.
                 </Text>
               </View>
+            )}
+            {/* Adaptation Metadata Badge */}
+            {adaptationData && (
+              <Animated.View
+                entering={FadeInUp.duration(200)}
+                style={[styles.chatBubble, { backgroundColor: isDark ? colors.surface : "#F0F9FF", borderLeftWidth: 3, borderLeftColor: colors.primary }]}
+              >
+                <Text style={[styles.chatBubbleText, { color: colors.muted, fontSize: 12 }]}>
+                  📊 <Text style={{ fontWeight: "600" }}>Adapted to Level {adaptationData.userLevel}</Text> • {adaptationData.topic}
+                </Text>
+                <Text style={[styles.chatBubbleText, { color: colors.muted, fontSize: 11, marginTop: 4 }]}>
+                  Sophistication: {adaptationData.sophisticationScore}% • Readiness: {Math.round(adaptationData.readinessScore * 100)}%
+                </Text>
+              </Animated.View>
             )}
             {messages.map((msg) => (
               <Animated.View

@@ -595,4 +595,150 @@ export const adaptationRouter = router({
           : `Keep practicing! You need ${input.minAccuracy || 75}% accuracy to advance.`,
       };
     }),
+
+  /**
+   * Adaptive Chat Integration
+   * Combines chat interface with 7-phase adaptation pipeline
+   * Analyzes user question, assesses knowledge, generates adaptive content
+   */
+  adaptiveChat: publicProcedure
+    .input(
+      z.object({
+        question: z.string().min(1),
+        chatHistory: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          text: z.string(),
+        })).optional(),
+        userProfile: z.object({
+          skillLevel: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+          learningStyle: z.enum(["visual", "textual", "mixed"]).optional(),
+          preferredDepth: z.enum(["overview", "detailed", "expert"]).optional(),
+        }).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        // Phase 1: Analyze user question
+        const skillLevelRecord = input.userProfile?.skillLevel ? { [input.userProfile.skillLevel]: 1 } : undefined;
+        const analysis = await requestIntelligenceAgent.analyzeRequest(
+          input.question,
+          skillLevelRecord,
+          undefined
+        );
+
+        // Phase 2: Assess user knowledge
+        const assessment = await knowledgeAssessmentAgent.assessUserKnowledge([]);
+
+        // Phase 3: Generate adaptive content at appropriate level
+        const recommendedLevel = Math.max(
+          1,
+          Math.min(5, (assessment.topicSpecificLevels[analysis.topic] || 1) as number)
+        ) as 1 | 2 | 3 | 4 | 5;
+
+        const content = await adaptiveContentGenerator.generateContent({
+          concept: analysis.topic,
+          level: recommendedLevel,
+          userBackground: input.userProfile?.skillLevel || "beginner",
+          difficulty: analysis.estimatedDepth as "beginner" | "intermediate" | "advanced",
+        });
+
+        // Phase 4: Generate learning sequence
+        const learningStyleRecord = input.userProfile?.learningStyle ? { [input.userProfile.learningStyle]: 1 } : undefined;
+        const sequence = await contentSequencingAgent.generateLearningSequence(
+          analysis.topic,
+          input.userProfile?.skillLevel || "beginner",
+          learningStyleRecord,
+          analysis.prerequisites
+        );
+
+        // Phase 5: Generate continuation options
+        const continuation = await continuationEngine.generateContinuationOptions(
+          analysis.topic,
+          recommendedLevel
+        );
+
+        // Phase 6: Generate video lesson plan
+        const videoPlan = await videoIntegrationService.generateVideoLessonPlan({
+          topic: analysis.topic,
+          level: recommendedLevel,
+          keyPoints: content.keyPoints,
+          examples: content.examples,
+          estimatedDuration: analysis.estimatedDurationMinutes,
+          style: input.userProfile?.learningStyle === "visual" ? "entertaining" : "educational",
+        });
+
+        // Return comprehensive adaptive response
+        return {
+          // Chat response
+          response: content.description,
+          emoji: "🎓",
+          
+          // Adaptation metadata
+          adaptation: {
+            topic: analysis.topic,
+            sophisticationScore: analysis.sophisticationScore,
+            detectedIntent: analysis.intent,
+            userLevel: recommendedLevel,
+            readinessScore: assessment.confidenceScore,
+          },
+
+          // Content
+          content: {
+            title: content.title,
+            description: content.description,
+            mainContent: content.mainContent,
+            keyPoints: content.keyPoints,
+            examples: content.examples,
+          },
+
+          // Learning path
+          learningPath: {
+            lessons: sequence.lessons.slice(0, 3),
+            totalDuration: sequence.totalDuration,
+            microLessons: sequence.microLessons,
+          },
+
+          // Continuation options
+          continuationOptions: continuation.options,
+
+          // Video metadata
+          videoLesson: {
+            sceneCount: videoPlan.scenes.length,
+            estimatedDuration: videoPlan.estimatedDuration,
+            scenes: videoPlan.scenes.slice(0, 3),
+          },
+        };
+      } catch (error) {
+        console.error("[Adaptation Chat] Error:", error);
+        return {
+          response: "I encountered an issue generating adaptive content. Please try again.",
+          emoji: "🤔",
+          adaptation: {
+            topic: "unknown",
+            sophisticationScore: 0,
+            detectedIntent: "unknown",
+            userLevel: 1,
+            readinessScore: 0,
+          },
+          content: {
+            title: "",
+            description: "",
+            mainContent: "",
+            keyPoints: [],
+            examples: [],
+          },
+          learningPath: {
+            lessons: [],
+            totalDuration: 0,
+            microLessons: [],
+          },
+          continuationOptions: [],
+          videoLesson: {
+            sceneCount: 0,
+            estimatedDuration: 0,
+            scenes: [],
+          },
+        };
+      }
+    }),
 });
