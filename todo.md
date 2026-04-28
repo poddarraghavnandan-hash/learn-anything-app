@@ -1523,3 +1523,22 @@
 - [x] Run test suite: 635 passed, 18 failed (adaptation integration tests need live API)
 - [x] Fix app build for production deployment - both server and Expo web export succeed
 - [x] Clean up unused conversion scripts
+
+## Push to GitHub
+- [ ] Push latest code to poddarraghavnandan-hash/learn-anything-app repository
+
+## Spaced Repetition System
+- [ ] Create spaced repetition algorithm (SM-2 based) with interval scheduling
+- [ ] Create database schema for review cards and review history
+- [ ] Build review scheduler service that calculates next review dates
+- [ ] Create review session screen with card flip UI
+- [ ] Integrate with lesson completion flow - auto-create review cards from key takeaways
+- [ ] Add review reminders/indicators on home screen
+
+## Learner Analytics Dashboard
+- [ ] Create analytics data aggregation service
+- [ ] Build dashboard screen with learning streaks visualization
+- [ ] Add topics mastered section with progress bars
+- [ ] Add time spent tracking and display
+- [ ] Add knowledge gap visualization
+- [ ] Wire dashboard to profile tab or add as new tab
