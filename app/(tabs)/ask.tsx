@@ -1845,6 +1845,26 @@ export default function AskScreen() {
 
     setShowCompletion(true);
 
+    // Auto-create spaced repetition review cards for each concept in the journey
+    for (const concept of activeJourney.mappedConcepts) {
+      const cId = Math.abs(concept.split("").reduce((a: number, c: string) => ((a << 5) - a) + c.charCodeAt(0), 0));
+      dispatch({
+        type: "ADD_SPACED_REP",
+        payload: {
+          contentId: cId,
+          title: concept,
+          thumbnailUrl: "",
+          topicSlug: activeJourney.question?.toLowerCase().replace(/\s+/g, "-").slice(0, 50) || "general",
+          easeFactor: 2.5,
+          interval: 1,
+          repetition: 0,
+          lastReviewDate: new Date().toISOString().split("T")[0],
+          nextReviewDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+          memoryStrength: mastery >= 80 ? 50 : 25,
+        },
+      });
+    }
+
     // Fire-and-forget: seed concepts into spaced repetition for future review
     if (activeJourney.mappedConcepts.length > 0) {
       seedConceptsMutation.mutate({

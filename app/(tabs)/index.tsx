@@ -1,4 +1,5 @@
-import { ScrollView, Text, View, Pressable } from "react-native";
+import { useMemo } from "react";
+import { ScrollView, Text, View, Pressable, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { usePendingReviews } from "@/hooks/use-pending-reviews";
@@ -7,6 +8,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { ReviewButton } from "@/components/review-button";
+import { useLearning } from "@/lib/learning-store";
+import { getLevel } from "@/shared/types";
 
 interface LearningJourney {
   id: string;
@@ -56,15 +59,17 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { pendingCount } = usePendingReviews();
+  const { state } = useLearning();
+
+  const levelInfo = useMemo(() => getLevel(state.profile.totalXp), [state.profile.totalXp]);
 
   const handleReview = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/screens/review-screen");
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/screens/review-session" as any);
   };
 
   const handleStartLearning = (journey: LearningJourney) => {
-    // Navigate to learning path detail screen with structured lessons
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: "/screens/learning-path-detail",
       params: {
@@ -75,8 +80,13 @@ export default function HomeScreen() {
   };
 
   const handleAskQuestion = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/(tabs)/ask");
+  };
+
+  const handleAnalytics = () => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/screens/analytics-dashboard" as any);
   };
 
   return (
@@ -92,11 +102,55 @@ export default function HomeScreen() {
           </Text>
         </Animated.View>
 
+        {/* Quick Stats Bar */}
+        <Animated.View entering={FadeIn.duration(300).delay(50)} style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+          <Pressable
+            onPress={handleAnalytics}
+            style={({ pressed }) => [
+              {
+                backgroundColor: colors.surface,
+                borderRadius: 14,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: colors.border,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>
+                  Lv.{levelInfo.level}
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.muted }}>{levelInfo.name}</Text>
+              </View>
+              <View style={{ width: 1, height: 28, backgroundColor: colors.border }} />
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>
+                  {state.profile.currentStreak}
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.muted }}>Day Streak</Text>
+              </View>
+              <View style={{ width: 1, height: 28, backgroundColor: colors.border }} />
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>
+                  {state.profile.totalXp.toLocaleString()}
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.muted }}>XP</Text>
+              </View>
+            </View>
+            <MaterialIcons name="bar-chart" size={22} color={colors.primary} />
+          </Pressable>
+        </Animated.View>
+
         {/* Review Button - Shows when there are pending reviews */}
         <ReviewButton pendingCount={pendingCount} onPress={handleReview} />
 
         {/* Quick Action: Chat with Gaia */}
-        <Animated.View entering={SlideInUp.duration(400).delay(50)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+        <Animated.View entering={SlideInUp.duration(400).delay(100)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
           <Pressable
             onPress={handleAskQuestion}
             style={({ pressed }) => [
@@ -125,7 +179,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Learning Journeys Section */}
-        <Animated.View entering={SlideInUp.duration(400).delay(100)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+        <Animated.View entering={SlideInUp.duration(400).delay(150)} style={{ paddingHorizontal: 16, marginBottom: 24 }}>
           <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 12 }}>
             Learning Paths
           </Text>
@@ -134,7 +188,7 @@ export default function HomeScreen() {
             {learningJourneys.map((journey, idx) => (
               <Animated.View
                 key={journey.id}
-                entering={SlideInUp.duration(400).delay(150 + idx * 50)}
+                entering={SlideInUp.duration(400).delay(200 + idx * 50)}
               >
                 <Pressable
                   onPress={() => handleStartLearning(journey)}
@@ -151,7 +205,6 @@ export default function HomeScreen() {
                     },
                   ]}
                 >
-                  {/* Icon */}
                   <View
                     style={{
                       width: 50,
@@ -165,8 +218,6 @@ export default function HomeScreen() {
                   >
                     <MaterialIcons name={journey.icon as any} size={28} color={journey.color} />
                   </View>
-
-                  {/* Content */}
                   <View style={{ flex: 1, marginRight: 12 }}>
                     <Text style={{ fontSize: 15, fontWeight: "600", color: colors.foreground, marginBottom: 4 }}>
                       {journey.title}
@@ -175,8 +226,6 @@ export default function HomeScreen() {
                       {journey.description}
                     </Text>
                   </View>
-
-                  {/* Arrow */}
                   <MaterialIcons name="arrow-forward" size={20} color={colors.muted} />
                 </Pressable>
               </Animated.View>
@@ -185,7 +234,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Info Section */}
-        <Animated.View entering={SlideInUp.duration(400).delay(400)} style={{ paddingHorizontal: 16, marginBottom: 32 }}>
+        <Animated.View entering={SlideInUp.duration(400).delay(450)} style={{ paddingHorizontal: 16, marginBottom: 32 }}>
           <View
             style={{
               backgroundColor: colors.primary + "10",

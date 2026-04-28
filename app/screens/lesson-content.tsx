@@ -14,6 +14,7 @@ import { GestureHandlerRootView, PanGestureHandler, State } from "react-native-g
 import { useLadderProgress } from "@/hooks/app-hooks/use-ladder-progress";
 import { LearningLadder } from "@/components/learning-ladder";
 import { LevelAdvancementCelebration } from "@/components/level-advancement-celebration";
+import { useLearning } from "@/lib/learning-store";
 
 
 interface LessonContent {
@@ -175,9 +176,29 @@ export default function LessonContentScreen() {
     }
   };
 
+  const { dispatch } = useLearning();
+
   const handleContinue = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await recordConfidence(engagementScore);
+
+    // Auto-create spaced repetition review card for this lesson
+    const contentId = Math.abs((`${topic}-${lessonId}`).split("").reduce((a, c) => ((a << 5) - a) + c.charCodeAt(0), 0));
+    dispatch({
+      type: "ADD_SPACED_REP",
+      payload: {
+        contentId,
+        title: lessonTitle || `${topic} - Lesson ${lessonId}`,
+        thumbnailUrl: "",
+        topicSlug: topic.toLowerCase().replace(/\s+/g, "-"),
+        easeFactor: 2.5,
+        interval: 1,
+        repetition: 0,
+        lastReviewDate: new Date().toISOString().split("T")[0],
+        nextReviewDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+        memoryStrength: 30,
+      },
+    });
     
     const currentLessonNum = parseInt(lessonId) || 1;
     const nextLessonNum = currentLessonNum + 1;

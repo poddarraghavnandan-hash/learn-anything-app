@@ -14,6 +14,8 @@ export default function ScreensLayout() {
       <Stack.Screen name="arxivisuals-result" />
       <Stack.Screen name="arxivisuals-lesson" />
       <Stack.Screen name="arxivisuals-completion" />
+      <Stack.Screen name="review-session" />
+      <Stack.Screen name="analytics-dashboard" />
     </Stack>
   );
 }

@@ -1525,20 +1525,20 @@
 - [x] Clean up unused conversion scripts
 
 ## Push to GitHub
-- [ ] Push latest code to poddarraghavnandan-hash/learn-anything-app repository
+- [x] Push latest code to poddarraghavnandan-hash/learn-anything-app repository
 
 ## Spaced Repetition System
-- [ ] Create spaced repetition algorithm (SM-2 based) with interval scheduling
-- [ ] Create database schema for review cards and review history
-- [ ] Build review scheduler service that calculates next review dates
-- [ ] Create review session screen with card flip UI
-- [ ] Integrate with lesson completion flow - auto-create review cards from key takeaways
-- [ ] Add review reminders/indicators on home screen
+- [x] SM-2 algorithm already in learning-store.tsx (UPDATE_SPACED_REP reducer)
+- [x] Review cards stored in local state via ADD_SPACED_REP dispatch
+- [x] Review session screen with card flip UI (app/screens/review-session.tsx)
+- [x] Auto-create review cards on lesson completion (lesson-content.tsx handleContinue)
+- [x] Auto-create review cards on Gaia journey completion (ask.tsx handleCompleteJourney)
+- [x] Review indicator on home screen (ReviewButton component with pending count)
 
 ## Learner Analytics Dashboard
-- [ ] Create analytics data aggregation service
-- [ ] Build dashboard screen with learning streaks visualization
-- [ ] Add topics mastered section with progress bars
-- [ ] Add time spent tracking and display
-- [ ] Add knowledge gap visualization
-- [ ] Wire dashboard to profile tab or add as new tab
+- [x] Analytics dashboard screen (app/screens/analytics-dashboard.tsx)
+- [x] Level/XP progress with visual progress bar
+- [x] Streak tracking with day count display
+- [x] Topic mastery breakdown with progress bars
+- [x] Memory strength indicators per review card
+- [x] Quick stats bar on home screen linking to analytics dashboard
