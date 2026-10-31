@@ -30,36 +30,14 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# local env files — never commit real keys; .env.example is the only exception
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo
 
-app-example
-
 # generated native folders
 /ios
 /android
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Logs
-*.log
-
-# OS
-Thumbs.db
-
-# Build files
-*.tgz
-*.tar.gz
-.cache/
-
-# Webdev artifacts (checkpoint zips, migrations, etc.)
-.webdev/
-logs/
